@@ -33,3 +33,11 @@ export function fmtDateTime(iso?: string): string {
 export function fmtLongDate(d: Date): string {
   return format(d, 'EEEE, d MMMM yyyy');
 }
+
+export function toFrappeDateTime(d: Date = new Date()): string {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return (
+    `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}` +
+    ` ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
+  );
+}

@@ -1,6 +1,31 @@
 import api from './client';
 import type { TractorDailyTask } from './types';
 
+export type TractorTaskSearchResult = Pick<
+  TractorDailyTask,
+  'name' | 'motor_vehicle' | 'farm' | 'operator'
+> & {
+  workflow_state?: string;
+  date?: string;
+};
+
+export async function searchTractorDailyTasks(query: string) {
+  const q = query.trim();
+  if (!q) return [];
+  const filters = encodeURIComponent(
+    JSON.stringify([['Tractor Daily Task', 'name', 'like', `%${q}%`]]),
+  );
+  // Only standard + "In List View" fields are allowed in Frappe's list query.
+  // custom_gate_status is read on the detail endpoint instead.
+  const fields = encodeURIComponent(
+    JSON.stringify(['name', 'motor_vehicle', 'farm', 'operator', 'workflow_state', 'date']),
+  );
+  const res = await api.get<{ data: TractorTaskSearchResult[] }>(
+    `/api/resource/Tractor Daily Task?filters=${filters}&fields=${fields}&limit_page_length=20&order_by=modified desc`,
+  );
+  return res.data.data;
+}
+
 export async function fetchTractorDailyTask(name: string) {
   const res = await api.get<{ data: TractorDailyTask }>(
     `/api/resource/Tractor Daily Task/${encodeURIComponent(name)}`,

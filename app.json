@@ -1,19 +1,19 @@
 {
   "expo": {
-    "name": "Kaitet Gate",
-    "slug": "kaitet-gate",
+    "name": "Upande Security",
+    "slug": "upande-security",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "kaitetgate",
+    "scheme": "upandesecurity",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.upande.kaitetgate"
+      "bundleIdentifier": "com.upande.security"
     },
     "android": {
-      "package": "com.upande.kaitetgate",
+      "package": "com.upande.security",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -22,7 +22,7 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "usesCleartextTraffic": true                                                                                                   
+      "usesCleartextTraffic": true
     },
     "web": {
       "output": "static",
@@ -45,7 +45,7 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Allow Kaitet Gate to scan vehicle work tickets."
+          "cameraPermission": "Allow Upande Security to scan vehicle work tickets."
         }
       ],
       "expo-audio",

@@ -39,7 +39,7 @@ export default function GateLayout() {
         <MaterialIcons name="shield" size={22} color="#FFFFFF" />
         <View style={{ flex: 1, marginLeft: 8 }}>
           <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '700' }}>
-            Security Gate Management
+            Upande Security
           </Text>
           {userEmail ? (
             <Text style={{ color: 'rgba(255,255,255,0.75)', fontSize: 11 }}>{userEmail}</Text>

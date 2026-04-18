@@ -1,12 +1,6 @@
 import { useEffect, useState } from 'react';
-import {
-  View,
-  Text,
-  ScrollView,
-  KeyboardAvoidingView,
-  Platform,
-  Keyboard,
-} from 'react-native';
+import { View, Text, Platform, Keyboard } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { useForm } from 'react-hook-form';
 import { MaterialIcons } from '@expo/vector-icons';
 import { HeaderSelectors } from '@/components/gate/HeaderSelectors';
@@ -40,6 +34,7 @@ import { useGateStore } from '@/lib/stores/gateStore';
 import { useVehicleStore } from '@/lib/stores/vehicleStore';
 import { fetchTractorDailyTask } from '@/lib/api/vehicles';
 import { extractTicketName } from '@/lib/utils/qr';
+import { toFrappeDateTime } from '@/lib/utils/date';
 import { CheckInType } from '@/constants/checkInTypes';
 import type {
   VisitorAppointmentSearchResult,
@@ -217,7 +212,7 @@ export default function GateTab() {
       customer_phone_number: phone,
       customer_email: `${phone}@walkin.gate`,
       custom_meet_with: values.custom_meet_with,
-      scheduled_time: new Date().toISOString(),
+      scheduled_time: toFrappeDateTime(),
       customer_details: values.customer_details,
       custom_mode_of_transport: values.custom_mode_of_transport,
       custom_vehicles_number_plate: values.custom_vehicles_number_plate,
@@ -235,7 +230,7 @@ export default function GateTab() {
       customer_phone_number: id,
       customer_email: `${id}@staff.gate`,
       custom_meet_with: id,
-      scheduled_time: new Date().toISOString(),
+      scheduled_time: toFrappeDateTime(),
       customer_details: 'Staff attendance',
       custom_mode_of_transport: 'On Foot',
     });
@@ -250,7 +245,7 @@ export default function GateTab() {
       customer_phone_number: contract,
       customer_email: `${contract}@contractor.gate`,
       custom_meet_with: contract,
-      scheduled_time: new Date().toISOString(),
+      scheduled_time: toFrappeDateTime(),
       customer_details: `Contract: ${contract}`,
       custom_mode_of_transport: 'On Foot',
     });
@@ -274,7 +269,7 @@ export default function GateTab() {
   async function onConfirmVehicleEntry() {
     if (!entryDialog?.ticket) return;
     const ticket = entryDialog.ticket;
-    const now = new Date().toISOString();
+    const now = toFrappeDateTime();
     try {
       await vehicleEntry.mutateAsync({
         name: ticket.name,
@@ -301,7 +296,7 @@ export default function GateTab() {
     try {
       await vehicleExit.mutateAsync({
         name: vehicleStore.ticketName,
-        exitTime: new Date().toISOString(),
+        exitTime: toFrappeDateTime(),
         completionNote,
       });
       vehicleStore.clearVehicle();
@@ -322,14 +317,15 @@ export default function GateTab() {
 
   return (
     <View style={{ flex: 1, backgroundColor: '#F5F5F5' }}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      <KeyboardAwareScrollView
         style={{ flex: 1 }}
+        contentContainerStyle={{ padding: 12, paddingBottom: 60 }}
+        keyboardShouldPersistTaps="handled"
+        enableOnAndroid
+        extraScrollHeight={Platform.OS === 'ios' ? 20 : 60}
+        enableAutomaticScroll
+        showsVerticalScrollIndicator={false}
       >
-        <ScrollView
-          contentContainerStyle={{ padding: 12 }}
-          keyboardShouldPersistTaps="handled"
-        >
           <View
             style={{
               backgroundColor: 'white',
@@ -413,7 +409,8 @@ export default function GateTab() {
                   watchHostName={watchHostName}
                 />
                 <ActionButtons
-                  currentState={workflowQuery.data}
+                  appointment={workflowQuery.data}
+                  loading={workflowQuery.isLoading}
                   onCheckIn={onVisitorCheckIn}
                   onCheckOut={onVisitorCheckOut}
                   busy={checkIn.isPending || checkOut.isPending}
@@ -433,7 +430,7 @@ export default function GateTab() {
                 />
               ) : (
                 <VehicleScanAction
-                  onManualSubmit={onWorkTicketScanned}
+                  onPickTicket={onWorkTicketScanned}
                   disabled={loading}
                 />
               )
@@ -457,8 +454,7 @@ export default function GateTab() {
               </Text>
             </View>
           ) : null}
-        </ScrollView>
-      </KeyboardAvoidingView>
+      </KeyboardAwareScrollView>
 
       <VehicleEntryDialog
         visible={entryDialog?.visible ?? false}

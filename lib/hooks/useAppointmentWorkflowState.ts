@@ -6,6 +6,5 @@ export function useAppointmentWorkflowState(name: string | null) {
     queryKey: ['appointment', name],
     queryFn: () => fetchAppointmentDoc(name!),
     enabled: Boolean(name),
-    select: (appt) => appt.workflow_state,
   });
 }

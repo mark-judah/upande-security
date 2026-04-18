@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { updateAppointmentStatus } from '@/lib/api/visitors';
 import { runWorkflowAction } from '@/lib/api/workflow';
+import { toFrappeDateTime } from '@/lib/utils/date';
 import { useFeedback } from './useFeedback';
 
 export type CheckInInput = {
@@ -17,8 +18,8 @@ export function useCheckIn() {
     mutationFn: async (input: CheckInInput) => {
       await updateAppointmentStatus({
         ...input,
-        custom_check_in_time: new Date().toISOString(),
-        custom_reporting_status: 'Visitor Checked In',
+        custom_check_in_time: toFrappeDateTime(),
+        custom_reporting_status: 'Checked in',
       });
       return runWorkflowAction({ name: input.name, action: 'Check In' });
     },
