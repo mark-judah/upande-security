@@ -1,23 +1,22 @@
 import { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
-import { LiveTimer } from '@/components/ui/LiveTimer';
 import { fmtDateTime } from '@/lib/utils/date';
-import type { TractorDailyTask } from '@/lib/api/types';
+import type { ActiveVehicleEntry } from '@/lib/stores/vehicleStore';
 
 type Props = {
-  ticket: TractorDailyTask;
-  entryTime: Date;
-  onCheckOut: (completionNote: string) => void;
+  entry: ActiveVehicleEntry;
+  onCheckOut: (entry: ActiveVehicleEntry, completionNote: string) => void;
   busy?: boolean;
 };
 
-export function VehicleInsideCard({ ticket, entryTime, onCheckOut, busy }: Props) {
+export function VehicleInsideCard({ entry, onCheckOut, busy }: Props) {
   const [note, setNote] = useState('');
+  const { ticketData: ticket, timesheetName, entryTime } = entry;
 
-  const activities = Array.from(new Set((ticket.task ?? []).map((t) => t.activity_type))).filter(
-    Boolean,
-  );
+  const activities = Array.from(
+    new Set((ticket.task ?? []).map((t) => t.activity_type)),
+  ).filter(Boolean);
 
   return (
     <View
@@ -44,25 +43,53 @@ export function VehicleInsideCard({ ticket, entryTime, onCheckOut, busy }: Props
           <MaterialIcons name="agriculture" size={22} color="#000000" />
         </View>
         <View style={{ flex: 1, marginLeft: 10 }}>
-          <Text style={{ fontWeight: '700', fontSize: 15, color: '#111111' }}>
-            {ticket.motor_vehicle ?? '—'}
+          <Text style={{ fontWeight: '700', fontSize: 14, color: '#111111' }}>
+            {ticket.motor_vehicle ?? ticket.name}
           </Text>
           {ticket.farm ? (
             <Text style={{ color: '#666666', fontSize: 12 }}>{ticket.farm}</Text>
           ) : null}
         </View>
-        <LiveTimer entryTime={entryTime} />
+        <View
+          style={{
+            backgroundColor: '#000000',
+            paddingHorizontal: 8,
+            paddingVertical: 3,
+            borderRadius: 999,
+          }}
+        >
+          <Text style={{ color: '#FFFFFF', fontSize: 10, fontWeight: '700', letterSpacing: 0.5 }}>
+            INSIDE
+          </Text>
+        </View>
       </View>
 
       <View style={{ height: 1, backgroundColor: '#E8E8E8', marginVertical: 10 }} />
 
+      <Text style={{ color: '#999999', fontSize: 11, marginBottom: 2 }}>TICKET</Text>
+      <Text style={{ color: '#333333', fontSize: 13, marginBottom: 8 }}>{ticket.name}</Text>
+
+      <Text style={{ color: '#999999', fontSize: 11, marginBottom: 2 }}>TIMESHEET</Text>
+      <Text style={{ color: '#333333', fontSize: 13, marginBottom: 8 }}>
+        {timesheetName}
+      </Text>
+
       {activities.length ? (
-        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
-          <MaterialIcons name="task-alt" size={16} color="#555555" />
-          <Text style={{ color: '#333333', fontSize: 13, marginLeft: 6, flex: 1 }}>
+        <>
+          <Text style={{ color: '#999999', fontSize: 11, marginBottom: 2 }}>ACTIVITY</Text>
+          <Text style={{ color: '#333333', fontSize: 13, marginBottom: 8 }}>
             {activities.join(', ')}
           </Text>
-        </View>
+        </>
+      ) : null}
+
+      {entry.description ? (
+        <>
+          <Text style={{ color: '#999999', fontSize: 11, marginBottom: 2 }}>DETAILS</Text>
+          <Text style={{ color: '#333333', fontSize: 13, marginBottom: 8 }}>
+            {entry.description}
+          </Text>
+        </>
       ) : null}
 
       <View
@@ -71,11 +98,11 @@ export function VehicleInsideCard({ ticket, entryTime, onCheckOut, busy }: Props
           paddingVertical: 6,
           paddingHorizontal: 10,
           borderRadius: 6,
-          marginBottom: 10,
+          marginBottom: 12,
         }}
       >
         <Text style={{ color: '#111111', fontSize: 12, fontWeight: '600' }}>
-          Entered at {fmtDateTime(entryTime.toISOString())}
+          Entered at {fmtDateTime(entryTime)}
         </Text>
       </View>
 
@@ -106,7 +133,7 @@ export function VehicleInsideCard({ ticket, entryTime, onCheckOut, busy }: Props
       />
 
       <TouchableOpacity
-        onPress={() => onCheckOut(note.trim())}
+        onPress={() => onCheckOut(entry, note.trim())}
         disabled={busy}
         activeOpacity={0.8}
         accessibilityRole="button"

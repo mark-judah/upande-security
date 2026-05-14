@@ -6,10 +6,14 @@ import type { Appointment } from '@/lib/api/types';
 type Props = { appointment: Appointment };
 
 export function WorkflowTrail({ appointment }: Props) {
+  const current = (appointment.workflow_state as WorkflowState) ?? 'Open';
   const states: WorkflowState[] = ['Open'];
-  if (appointment.custom_check_in_time) states.push('Visitor Checked In');
-  if (appointment.custom_check_out_time) states.push('Visitor Checked Out');
-  if (!states.includes(appointment.workflow_state)) states.push(appointment.workflow_state);
+  if (current !== 'Open' && current !== 'Visitor Checked Out') {
+    states.push(current);
+  }
+  if (appointment.custom_check_out_time || current === 'Visitor Checked Out') {
+    states.push('Visitor Checked Out');
+  }
 
   return (
     <View
@@ -20,12 +24,12 @@ export function WorkflowTrail({ appointment }: Props) {
         marginTop: 8,
       }}
     >
-      <Text style={{ fontSize: 12, fontWeight: '700', color: '#666', marginBottom: 8 }}>
+      <Text style={{ fontSize: 12, fontWeight: '700', color: '#666666', marginBottom: 8 }}>
         Workflow trail
       </Text>
       {states.map((s, i) => {
         const meta = WORKFLOW_META[s];
-        const isCurrent = s === appointment.workflow_state;
+        const isCurrent = s === current;
         const isLast = i === states.length - 1;
         return (
           <View key={`${s}-${i}`} style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
@@ -33,7 +37,7 @@ export function WorkflowTrail({ appointment }: Props) {
               <MaterialIcons
                 name={isCurrent ? 'radio-button-checked' : 'check-circle'}
                 size={16}
-                color={meta?.color ?? '#999'}
+                color={meta?.color ?? '#999999'}
               />
               {!isLast ? (
                 <View
@@ -50,7 +54,7 @@ export function WorkflowTrail({ appointment }: Props) {
             <Text
               style={{
                 fontSize: 12,
-                color: isCurrent ? '#111' : '#666',
+                color: isCurrent ? '#111111' : '#666666',
                 fontWeight: isCurrent ? '600' : '400',
                 marginLeft: 6,
                 paddingBottom: isLast ? 0 : 10,

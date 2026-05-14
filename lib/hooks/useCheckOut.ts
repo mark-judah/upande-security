@@ -14,7 +14,7 @@ export function useCheckOut() {
         custom_check_out_time: toFrappeDateTime(),
         custom_reporting_status: 'Checked out',
       });
-      return runWorkflowAction({ name, action: 'Check Out' });
+      return runWorkflowAction({ name, action: 'Confirm Check Out' });
     },
     onSuccess: (_, name) => {
       qc.invalidateQueries({ queryKey: ['appointment', name] });

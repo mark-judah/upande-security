@@ -21,7 +21,7 @@ export function useCheckIn() {
         custom_check_in_time: toFrappeDateTime(),
         custom_reporting_status: 'Checked in',
       });
-      return runWorkflowAction({ name: input.name, action: 'Check In' });
+      return runWorkflowAction({ name: input.name, action: 'Confirm Check In' });
     },
     onSuccess: (_, vars) => {
       qc.invalidateQueries({ queryKey: ['appointment', vars.name] });

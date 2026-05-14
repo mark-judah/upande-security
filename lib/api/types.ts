@@ -45,6 +45,52 @@ export type EmployeeResult = {
   status: string;
 };
 
+export type Employee = {
+  name: string;
+  employee_name: string;
+  first_name?: string;
+  last_name?: string;
+  designation?: string;
+  department?: string;
+  company?: string;
+  status?: string;
+  default_shift?: string;
+  image?: string;
+  custom_farm?: string;
+  custom_location?: string;
+  custom_employee_category?: string;
+};
+
+export type AttendanceStatus =
+  | 'Present'
+  | 'Absent'
+  | 'On Leave'
+  | 'Half Day'
+  | 'Work From Home';
+
+export type Attendance = {
+  name: string;
+  doctype: 'Attendance';
+  naming_series?: string;
+  employee: string;
+  employee_name?: string;
+  status: AttendanceStatus;
+  attendance_date: string;
+  in_time?: string;
+  out_time?: string;
+  working_hours?: number;
+  late_entry?: 0 | 1;
+  early_exit?: 0 | 1;
+  company?: string;
+  department?: string;
+  shift?: string;
+  docstatus?: 0 | 1 | 2;
+  custom_farm?: string;
+  custom_location?: string;
+  custom_employee_category?: string;
+  custom_vehicle_number_plate?: string;
+};
+
 export type StaffSearchResult = {
   full_name?: string;
   employee_id?: string;
@@ -60,12 +106,59 @@ export type TractorDailyTask = {
   motor_vehicle?: string;
   farm?: string;
   operator?: string;
-  task?: { activity_type: string }[];
+  custom_employee?: string;
+  company?: string;
+  erp_task?: string;
+  timesheet?: string;
+  task?: {
+    name?: string;
+    activity_type: string;
+    description?: string;
+    from_time?: string;
+    to_time?: string;
+    expected_hours?: number;
+    hours?: number;
+    completed?: 0 | 1;
+    is_billable?: 0 | 1;
+  }[];
   custom_gate_entry_time?: string;
   custom_gate_entry_farm?: string;
   custom_gate_exit_time?: string;
   custom_completion_note?: string;
   custom_gate_status?: 'Inside' | 'Exited' | null;
+};
+
+export type TimesheetDetail = {
+  name?: string;
+  doctype?: 'Timesheet Detail';
+  activity_type: string;
+  from_time: string;
+  to_time: string;
+  hours: number;
+  expected_hours: number;
+  description?: string;
+  task?: string;
+  is_billable?: 0 | 1;
+  completed?: 0 | 1;
+};
+
+export type Timesheet = {
+  name: string;
+  doctype: 'Timesheet';
+  naming_series?: string;
+  title?: string;
+  company?: string;
+  employee: string;
+  employee_name?: string;
+  department?: string;
+  start_date: string;
+  end_date: string;
+  status?: string;
+  docstatus?: 0 | 1 | 2;
+  total_hours?: number;
+  total_billable_hours?: number;
+  custom_asset?: string;
+  time_logs: TimesheetDetail[];
 };
 
 export type DailySummary = {
@@ -74,4 +167,40 @@ export type DailySummary = {
   still_inside: number;
   still_inside_list: Appointment[];
   all: Appointment[];
+};
+
+export type IncidentSeverity = 'Low' | 'Medium' | 'High' | 'Critical';
+
+export type IncidentCategory = {
+  name: string;
+};
+
+export type IncidentReport = {
+  name: string;
+  doctype: 'Incident Report';
+  naming_series?: string;
+  incident_datetime: string;
+  location: string;
+  nature_of_incident: string;
+  severity: IncidentSeverity;
+  description: string;
+  reported_by?: string;
+  reporter_name?: string;
+  reported_datetime?: string;
+  attachment_1?: string;
+  attachment_2?: string;
+  attachment_3?: string;
+  attachment_4?: string;
+};
+
+export type CreateIncidentInput = {
+  incident_datetime: string;
+  location: string;
+  nature_of_incident: string;
+  severity: IncidentSeverity;
+  description: string;
+  attachment_1?: string;
+  attachment_2?: string;
+  attachment_3?: string;
+  attachment_4?: string;
 };

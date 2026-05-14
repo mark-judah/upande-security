@@ -75,3 +75,22 @@ export async function updateTractorDailyTask(input: {
   );
   return res.data.data;
 }
+
+export async function markTractorTaskRowCompleted(
+  ticketName: string,
+  taskRowName?: string,
+): Promise<void> {
+  const ticket = await fetchTractorDailyTask(ticketName);
+  if (!ticket.task?.length) return;
+
+  const row = taskRowName
+    ? ticket.task.find((t) => t.name === taskRowName)
+    : ticket.task[0];
+  if (!row) return;
+  row.completed = 1;
+
+  await api.put<{ data: TractorDailyTask }>(
+    `/api/resource/Tractor Daily Task/${encodeURIComponent(ticketName)}`,
+    { task: ticket.task },
+  );
+}

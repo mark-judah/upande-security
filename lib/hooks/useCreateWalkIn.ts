@@ -17,7 +17,7 @@ export function useCreateWalkIn() {
         custom_reporting_status: 'Checked in',
       });
       try {
-        await runWorkflowAction({ name: created.name, action: 'Check In' });
+        await runWorkflowAction({ name: created.name, action: 'Confirm Check In' });
       } catch (e) {
         // Workflow transition may fail if the current state doesn't expose this action.
         // The appointment itself is created + check-in time stamped, so treat as soft failure.

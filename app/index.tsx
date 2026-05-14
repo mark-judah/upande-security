@@ -18,5 +18,5 @@ export default function Index() {
   }, []);
 
   if (!ready) return null;
-  return authed ? <Redirect href="/(app)/gate" /> : <Redirect href="/login" />;
+  return authed ? <Redirect href="/(app)/(tabs)/gate" /> : <Redirect href="/login" />;
 }

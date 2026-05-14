@@ -44,7 +44,7 @@ export function VehicleEntryDialog({ visible, ticket, onCancel, onConfirm, busy 
             </Text>
           </View>
 
-          <ScrollView style={{ maxHeight: 360 }} contentContainerStyle={{ padding: 14 }}>
+          <ScrollView style={{ maxHeight: 420 }} contentContainerStyle={{ padding: 14 }}>
             <DialogRow icon="directions-car" label="Vehicle" value={ticket.motor_vehicle} />
             <DialogRow icon="place" label="Farm" value={ticket.farm} />
             <DialogRow icon="person" label="Operator" value={ticket.operator} />
@@ -53,6 +53,13 @@ export function VehicleEntryDialog({ visible, ticket, onCancel, onConfirm, busy 
               label="Activity"
               value={activities.length ? activities.join(', ') : '—'}
             />
+            {ticket.task?.[0]?.description ? (
+              <DialogRow
+                icon="description"
+                label="Details"
+                value={ticket.task[0].description}
+              />
+            ) : null}
 
             <View
               style={{

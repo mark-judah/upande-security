@@ -2,15 +2,20 @@ import { useRef, useState } from 'react';
 import { View, Text, TouchableOpacity, Linking } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as Haptics from 'expo-haptics';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useGateStore } from '@/lib/stores/gateStore';
 
+type Intent = 'ticket' | 'employee';
+
 export default function ScanModal() {
+  const params = useLocalSearchParams<{ intent?: string }>();
+  const intent: Intent = params.intent === 'employee' ? 'employee' : 'ticket';
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
   const handledRef = useRef(false);
   const setPendingScannedTicket = useGateStore((s) => s.setPendingScannedTicket);
+  const setPendingScannedEmployee = useGateStore((s) => s.setPendingScannedEmployee);
 
   if (!permission) {
     return <View style={{ flex: 1, backgroundColor: '#000000' }} />;
@@ -40,7 +45,7 @@ export default function ScanModal() {
           Camera permission required
         </Text>
         <Text style={{ color: '#AAAAAA', fontSize: 13, marginTop: 6, textAlign: 'center' }}>
-          We need camera access to scan vehicle work tickets.
+          We need camera access to scan QR codes.
         </Text>
         {permission.canAskAgain ? (
           <TouchableOpacity
@@ -88,7 +93,11 @@ export default function ScanModal() {
     handledRef.current = true;
     setScanned(true);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-    setPendingScannedTicket(data);
+    if (intent === 'employee') {
+      setPendingScannedEmployee(data);
+    } else {
+      setPendingScannedTicket(data);
+    }
     setTimeout(() => {
       if (router.canDismiss()) router.dismiss();
       else router.back();
@@ -135,7 +144,7 @@ export default function ScanModal() {
             textShadowRadius: 4,
           }}
         >
-          Position QR code in the frame
+          {intent === 'employee' ? 'Scan employee badge' : 'Position QR code in the frame'}
         </Text>
       </View>
     </View>

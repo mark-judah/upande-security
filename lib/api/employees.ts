@@ -1,5 +1,12 @@
 import api from './client';
-import type { EmployeeResult } from './types';
+import type { Employee, EmployeeResult } from './types';
+
+export async function fetchEmployee(name: string): Promise<Employee> {
+  const res = await api.get<{ data: Employee }>(
+    `/api/resource/Employee/${encodeURIComponent(name)}`,
+  );
+  return res.data.data;
+}
 
 export async function getEmployeeName(employeeId: string) {
   const fields = encodeURIComponent(JSON.stringify(['employee_name']));
