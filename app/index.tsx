@@ -1,22 +1,8 @@
-import { useEffect, useState } from 'react';
 import { Redirect } from 'expo-router';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useAuthStore } from '@/lib/stores/authStore';
 
 export default function Index() {
-  const [ready, setReady] = useState(false);
-  const [authed, setAuthed] = useState(false);
-
-  useEffect(() => {
-    (async () => {
-      const [cookie, url] = await Promise.all([
-        AsyncStorage.getItem('cookie'),
-        AsyncStorage.getItem('instanceurl'),
-      ]);
-      setAuthed(Boolean(cookie && url));
-      setReady(true);
-    })();
-  }, []);
-
-  if (!ready) return null;
-  return authed ? <Redirect href="/(app)/(tabs)/gate" /> : <Redirect href="/login" />;
+  const isAuthed = useAuthStore((s) => s.isAuthenticated);
+  if (!isAuthed) return <Redirect href="/login" />;
+  return <Redirect href="/(app)/(tabs)/gate" />;
 }
