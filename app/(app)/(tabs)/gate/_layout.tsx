@@ -1,7 +1,7 @@
 import { withLayoutContext, router } from 'expo-router';
 import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { View, Text, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, Alert, Image } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useAuthStore } from '@/lib/stores/authStore';
 
@@ -36,8 +36,23 @@ export default function GateLayout() {
           paddingVertical: 12,
         }}
       >
-        <MaterialIcons name="shield" size={22} color="#FFFFFF" />
-        <View style={{ flex: 1, marginLeft: 8 }}>
+        <View
+          style={{
+            width: 32,
+            height: 32,
+            borderRadius: 16,
+            backgroundColor: '#FFFFFF',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Image
+            source={require('../../../../assets/images/upande_logo.png')}
+            style={{ width: 26, height: 26 }}
+            resizeMode="contain"
+          />
+        </View>
+        <View style={{ flex: 1, marginLeft: 10 }}>
           <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '700' }}>
             Upande Security
           </Text>
