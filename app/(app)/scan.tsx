@@ -5,6 +5,7 @@ import * as Haptics from 'expo-haptics';
 import { router, useLocalSearchParams } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useGateStore } from '@/lib/stores/gateStore';
+import { playBeep } from '@/lib/services/sounds';
 
 type Intent = 'ticket' | 'employee';
 
@@ -93,6 +94,7 @@ export default function ScanModal() {
     handledRef.current = true;
     setScanned(true);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    void playBeep();
     if (intent === 'employee') {
       setPendingScannedEmployee(data);
     } else {

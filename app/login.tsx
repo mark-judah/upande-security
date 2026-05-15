@@ -1,368 +1,276 @@
-import { FormInput } from '@/components/forms/FormInput';
-import { Loader } from '@/components/ui/Loader';
-import { useAuthStore } from '@/lib/stores/authStore';
-import { MaterialIcons } from '@expo/vector-icons';
-import { zodResolver } from '@hookform/resolvers/zod';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { router } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { Controller, useForm } from 'react-hook-form';
+import { useRouter } from 'expo-router';
+import React, { useEffect, useState } from 'react';
 import {
   Image,
-  Keyboard,
   Modal,
-  Platform,
   Pressable,
+  StyleSheet,
   Text,
   TextInput,
-  TouchableOpacity,
-  TouchableWithoutFeedback,
   View,
 } from 'react-native';
-import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { z } from 'zod';
+import { Button } from '@/components/ui/Button';
+import { Card } from '@/components/ui/Card';
+import { Screen } from '@/components/ui/Screen';
+import { COLORS } from '@/constants/colors';
+import { useAuthStore } from '@/lib/stores/authStore';
+import { getWorkingUrl } from '@/lib/utils/url';
 
-const schema = z.object({
-  email: z.string().trim().email('Valid email required'),
-  password: z.string().min(1, 'Password required'),
-});
-
-type FormValues = z.infer<typeof schema>;
-
-export default function LoginScreen() {
+export default function Login() {
+  const router = useRouter();
   const login = useAuthStore((s) => s.login);
-  const [submitting, setSubmitting] = useState(false);
-  const [submitError, setSubmitError] = useState<string | null>(null);
-  const [showPassword, setShowPassword] = useState(false);
 
-  // Instance URL is hidden from the main form. Stored separately, edited via
-  // a long-press on the logo.
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [instanceUrl, setInstanceUrl] = useState('');
   const [urlLoaded, setUrlLoaded] = useState(false);
-  const [configVisible, setConfigVisible] = useState(false);
-  const [configDraft, setConfigDraft] = useState('');
+  const [configOpen, setConfigOpen] = useState(false);
+  const [draftUrl, setDraftUrl] = useState('');
 
-  const {
-    control,
-    handleSubmit,
-    formState: { errors },
-  } = useForm<FormValues>({
-    resolver: zodResolver(schema),
-    defaultValues: { email: '', password: '' },
-  });
+  const [submitting, setSubmitting] = useState(false);
+  const [resolvingUrl, setResolvingUrl] = useState(false);
+  const [urlErr, setUrlErr] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
       const stored = (await AsyncStorage.getItem('instanceurl')) ?? '';
       setInstanceUrl(stored);
+      setDraftUrl(stored);
+      const storedEmail = await AsyncStorage.getItem('user_email');
+      if (storedEmail) setEmail(storedEmail);
       setUrlLoaded(true);
-      // Auto-open the config dialog if the URL has never been set
-      if (!stored) setConfigVisible(true);
     })();
   }, []);
 
-  const openConfig = () => {
-    setConfigDraft(instanceUrl);
-    setConfigVisible(true);
-  };
-
-  const saveConfig = async () => {
-    const url = configDraft.trim();
-    if (!url) {
-      setConfigVisible(false);
+  const saveUrl = async () => {
+    const u = draftUrl.trim();
+    if (!u) {
+      setUrlErr('Enter a URL');
       return;
     }
-    await AsyncStorage.setItem('instanceurl', url);
-    setInstanceUrl(url);
-    setConfigVisible(false);
+    setResolvingUrl(true);
+    setUrlErr(null);
+    try {
+      const resolved = (await getWorkingUrl(u)) ?? u;
+      if (resolved !== instanceUrl) {
+        await AsyncStorage.multiRemove(['cookie', 'user_email']);
+      }
+      await AsyncStorage.setItem('instanceurl', resolved);
+      setInstanceUrl(resolved);
+      setDraftUrl(resolved);
+      setConfigOpen(false);
+    } finally {
+      setResolvingUrl(false);
+    }
   };
 
-  const onSubmit = async (values: FormValues) => {
+  const submit = async () => {
     if (!instanceUrl) {
-      setSubmitError('Instance URL not configured. Long-press the logo.');
-      setConfigVisible(true);
+      setErr("Instance URL not configured. Tap 'Configure instance URL' below.");
+      setConfigOpen(true);
+      return;
+    }
+    if (!email.trim() || !password) {
+      setErr('Email and password are required.');
       return;
     }
     setSubmitting(true);
-    setSubmitError(null);
+    setErr(null);
     try {
-      await login(instanceUrl, values.email, values.password);
-      router.replace('/(app)/(tabs)/gate');
+      await login(instanceUrl, email.trim(), password);
+      router.replace('/');
     } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Login failed';
-      setSubmitError(msg);
+      setErr(e instanceof Error ? e.message : 'Login failed');
     } finally {
       setSubmitting(false);
     }
   };
 
-  if (!urlLoaded) {
-    return <SafeAreaView style={{ flex: 1, backgroundColor: '#FFFFFF' }} />;
-  }
+  if (!urlLoaded) return <Screen loading hideMenu>{null}</Screen>;
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#FFFFFF' }} edges={['top', 'bottom']}>
-      <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-        <View style={{ flex: 1 }}>
-          <KeyboardAwareScrollView
-            style={{ flex: 1 }}
-            contentContainerStyle={{ padding: 24, paddingBottom: 40 }}
-            keyboardShouldPersistTaps="handled"
-            enableOnAndroid
-            extraScrollHeight={Platform.OS === 'ios' ? 20 : 40}
-            enableAutomaticScroll
-            showsVerticalScrollIndicator={false}
-          >
-            <View style={{ width: '100%', maxWidth: 420, alignSelf: 'center', marginTop: 24 }}>
-              <View style={{ alignItems: 'center', marginBottom: 28 }}>
-                <Pressable onLongPress={openConfig} delayLongPress={1200} hitSlop={16}>
-                  <Image
-                    source={require('../assets/images/upande_logo.png')}
-                    style={{ width: 180, height: 180, marginBottom: 8 }}
-                    resizeMode="contain"
-                  />
-                </Pressable>
-                <Text style={{ fontSize: 22, fontWeight: '700', color: '#000000' }}>
-                  Upande Security
-                </Text>
-                <Text style={{ color: '#666666', marginTop: 4 }}>Sign in to continue</Text>
-              </View>
+    <Screen hideMenu>
+      <View style={s.logoWrap}>
+        <Image
+          source={require('../assets/images/upande_logo.png')}
+          style={s.logo}
+          resizeMode="contain"
+        />
+      </View>
 
-              <Controller
-                control={control}
-                name="email"
-                render={({ field: { onChange, value, onBlur } }) => (
-                  <FormInput
-                    label="Email"
-                    value={value}
-                    onChangeText={onChange}
-                    onBlur={onBlur}
-                    placeholder="you@example.com"
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    keyboardType="email-address"
-                    editable={!submitting}
-                    error={errors.email?.message}
-                  />
-                )}
-              />
+      <Card>
+        <Text style={s.intro}>Sign in with your Frappe user account.</Text>
+        <Text style={s.meta}>
+          Instance: <Text style={{ fontWeight: '600' }}>{instanceUrl || 'not set'}</Text>
+        </Text>
+      </Card>
 
-              <View style={{ marginBottom: 12 }}>
-                <Text style={{ fontSize: 13, color: '#555555', marginBottom: 4 }}>Password</Text>
-                <Controller
-                  control={control}
-                  name="password"
-                  render={({ field: { onChange, value, onBlur } }) => (
-                    <View
-                      style={{
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        borderWidth: 1,
-                        borderColor: errors.password ? '#000000' : '#D0D0D0',
-                        borderRadius: 8,
-                        backgroundColor: '#FFFFFF',
-                        paddingLeft: 12,
-                        paddingRight: 8,
-                      }}
-                    >
-                      <TextInput
-                        value={value}
-                        onChangeText={onChange}
-                        onBlur={onBlur}
-                        placeholder="••••••••"
-                        placeholderTextColor="#A0A0A0"
-                        secureTextEntry={!showPassword}
-                        editable={!submitting}
-                        style={{
-                          flex: 1,
-                          paddingVertical: 10,
-                          fontSize: 15,
-                          color: '#111111',
-                        }}
-                      />
-                      <TouchableOpacity
-                        onPress={() => setShowPassword((v) => !v)}
-                        hitSlop={8}
-                        activeOpacity={0.6}
-                        style={{ padding: 6 }}
-                        accessibilityRole="button"
-                        accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
-                      >
-                        <MaterialIcons
-                          name={showPassword ? 'visibility-off' : 'visibility'}
-                          size={20}
-                          color="#666666"
-                        />
-                      </TouchableOpacity>
-                    </View>
-                  )}
-                />
-                {errors.password ? (
-                  <Text style={{ color: '#000000', fontSize: 12, marginTop: 4 }}>
-                    {errors.password.message}
-                  </Text>
-                ) : null}
-              </View>
+      <Card>
+        <Text style={s.label}>Email</Text>
+        <TextInput
+          value={email}
+          onChangeText={setEmail}
+          autoCapitalize="none"
+          autoCorrect={false}
+          keyboardType="email-address"
+          editable={!submitting}
+          style={s.input}
+          placeholder="you@example.com"
+          placeholderTextColor={COLORS.textMuted}
+        />
 
-              <TouchableOpacity
-                onPress={handleSubmit(onSubmit)}
-                disabled={submitting}
-                activeOpacity={0.8}
-                accessibilityRole="button"
-                accessibilityLabel="Login"
-                testID="login-submit"
-                style={{
-                  backgroundColor: '#000000',
-                  opacity: submitting ? 0.6 : 1,
-                  borderRadius: 10,
-                  paddingVertical: 16,
-                  minHeight: 56,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  marginTop: 16,
-                  elevation: 3,
-                  shadowColor: '#000000',
-                  shadowOpacity: 0.2,
-                  shadowRadius: 4,
-                  shadowOffset: { width: 0, height: 2 },
-                }}
-              >
-                <Text
-                  style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 16, letterSpacing: 0.8 }}
-                >
-                  LOGIN
-                </Text>
-              </TouchableOpacity>
-
-              {submitError ? (
-                <View
-                  style={{
-                    marginTop: 16,
-                    padding: 12,
-                    backgroundColor: '#F5F5F5',
-                    borderRadius: 8,
-                    borderLeftWidth: 3,
-                    borderLeftColor: '#000000',
-                  }}
-                >
-                  <Text style={{ color: '#000000', fontSize: 13 }}>{submitError}</Text>
-                </View>
-              ) : null}
-            </View>
-          </KeyboardAwareScrollView>
+        <Text style={[s.label, { marginTop: 10 }]}>Password</Text>
+        <View style={s.pwRow}>
+          <TextInput
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry={!showPassword}
+            autoCapitalize="none"
+            editable={!submitting}
+            style={s.pwInput}
+            placeholder="••••••••"
+            placeholderTextColor={COLORS.textMuted}
+          />
+          <Pressable onPress={() => setShowPassword((v) => !v)} hitSlop={8}>
+            <Text style={s.pwToggle}>{showPassword ? 'Hide' : 'Show'}</Text>
+          </Pressable>
         </View>
-      </TouchableWithoutFeedback>
+        {err ? <Text style={s.err}>{err}</Text> : null}
+      </Card>
+
+      <Button label="Sign in" onPress={submit} loading={submitting} color={COLORS.info} />
+
+      <Pressable
+        onPress={() => {
+          setDraftUrl(instanceUrl);
+          setConfigOpen(true);
+        }}
+        style={{ paddingVertical: 12 }}
+      >
+        <Text style={s.configLink}>Configure instance URL</Text>
+      </Pressable>
 
       <Modal
-        visible={configVisible}
+        visible={configOpen}
         transparent
         animationType="fade"
-        onRequestClose={() => setConfigVisible(false)}
+        onRequestClose={() => (resolvingUrl ? null : setConfigOpen(false))}
       >
-        <TouchableWithoutFeedback onPress={() => setConfigVisible(false)}>
-          <View
-            style={{
-              flex: 1,
-              backgroundColor: 'rgba(0,0,0,0.5)',
-              justifyContent: 'center',
-              paddingHorizontal: 24,
-            }}
-          >
-            <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-              <View style={{ backgroundColor: '#FFFFFF', borderRadius: 14, overflow: 'hidden' }}>
-                <View
-                  style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    padding: 14,
-                    borderBottomWidth: 1,
-                    borderBottomColor: '#E8E8E8',
-                  }}
-                >
-                  <MaterialIcons name="settings" size={20} color="#000000" />
-                  <Text
-                    style={{ fontSize: 16, fontWeight: '700', marginLeft: 8, color: '#111111' }}
-                  >
-                    Configuration
-                  </Text>
-                </View>
-
-                <View style={{ padding: 14 }}>
-                  <Text style={{ fontSize: 13, color: '#555555', marginBottom: 4 }}>
-                    Instance URL
-                  </Text>
-                  <TextInput
-                    value={configDraft}
-                    onChangeText={setConfigDraft}
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    keyboardType="url"
-                    style={{
-                      borderWidth: 1,
-                      borderColor: '#D0D0D0',
-                      borderRadius: 8,
-                      paddingHorizontal: 12,
-                      paddingVertical: 10,
-                      fontSize: 15,
-                      color: '#111111',
-                      backgroundColor: '#FFFFFF',
-                    }}
-                  />
-                  <Text style={{ color: '#999999', fontSize: 11, marginTop: 6 }}>
-                    Enter a short name (e.g. kaitet) or a full URL. Saved on this device.
-                  </Text>
-                </View>
-
-                <View
-                  style={{
-                    flexDirection: 'row',
-                    padding: 10,
-                    borderTopWidth: 1,
-                    borderTopColor: '#E8E8E8',
-                  }}
-                >
-                  <TouchableOpacity
-                    onPress={() => setConfigVisible(false)}
-                    activeOpacity={0.6}
-                    style={{
-                      flex: 1,
-                      paddingVertical: 14,
-                      minHeight: 48,
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
-                  >
-                    <Text style={{ color: '#666666', fontWeight: '600' }}>Cancel</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={saveConfig}
-                    activeOpacity={0.8}
-                    style={{
-                      flex: 2,
-                      backgroundColor: '#000000',
-                      borderRadius: 8,
-                      paddingVertical: 14,
-                      minHeight: 48,
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      marginLeft: 8,
-                    }}
-                  >
-                    <Text
-                      style={{ color: '#FFFFFF', fontWeight: '700', letterSpacing: 0.5 }}
-                    >
-                      SAVE
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </TouchableWithoutFeedback>
+        <View style={s.modalWrap}>
+          <View style={s.modalCard}>
+            <Text style={s.modalTitle}>Instance URL</Text>
+            <TextInput
+              value={draftUrl}
+              onChangeText={(v) => {
+                setDraftUrl(v);
+                if (urlErr) setUrlErr(null);
+              }}
+              autoCapitalize="none"
+              autoCorrect={false}
+              keyboardType="url"
+              placeholder="https://your-site.upande.com"
+              placeholderTextColor={COLORS.textMuted}
+              style={s.modalInput}
+              editable={!resolvingUrl}
+            />
+            <Text style={s.modalHint}>
+              Enter a short name (e.g. kaitet) or a full URL. Saved on this device.
+            </Text>
+            {urlErr ? <Text style={s.urlErr}>{urlErr}</Text> : null}
+            <View style={s.modalBtns}>
+              <Button
+                label="Cancel"
+                variant="outline"
+                color={COLORS.textMuted}
+                disabled={resolvingUrl}
+                onPress={() => {
+                  setConfigOpen(false);
+                  setUrlErr(null);
+                }}
+                style={{ flex: 1 }}
+              />
+              <Button
+                label="Save"
+                onPress={saveUrl}
+                loading={resolvingUrl}
+                color={COLORS.info}
+                style={{ flex: 2 }}
+              />
+            </View>
           </View>
-        </TouchableWithoutFeedback>
+        </View>
       </Modal>
-
-      {submitting ? <Loader /> : null}
-    </SafeAreaView>
+    </Screen>
   );
 }
+
+const s = StyleSheet.create({
+  logoWrap: { alignItems: 'center', paddingVertical: 24 },
+  logo: { width: 220, height: 80 },
+  intro: { fontSize: 14, color: COLORS.text },
+  meta: { fontSize: 12, color: COLORS.textMuted, marginTop: 6 },
+  label: {
+    fontSize: 11,
+    color: COLORS.textMuted,
+    marginBottom: 4,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    fontSize: 15,
+    color: COLORS.text,
+    backgroundColor: COLORS.bg,
+  },
+  pwRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 8,
+    backgroundColor: COLORS.bg,
+    paddingHorizontal: 10,
+  },
+  pwInput: { flex: 1, fontSize: 15, color: COLORS.text, paddingVertical: 10 },
+  pwToggle: { color: COLORS.info, fontSize: 13, fontWeight: '600', padding: 6 },
+  err: { color: COLORS.danger, fontSize: 13, marginTop: 8 },
+  configLink: {
+    textAlign: 'center',
+    color: COLORS.info,
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  modalWrap: {
+    flex: 1,
+    backgroundColor: '#00000066',
+    padding: 24,
+    justifyContent: 'center',
+  },
+  modalCard: { backgroundColor: COLORS.bg, borderRadius: 14, padding: 16 },
+  modalTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: COLORS.text,
+    marginBottom: 8,
+  },
+  modalInput: {
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    fontSize: 15,
+    color: COLORS.text,
+    backgroundColor: COLORS.bg,
+  },
+  modalHint: { fontSize: 11, color: COLORS.textMuted, marginTop: 6 },
+  urlErr: { fontSize: 12, color: COLORS.danger, marginTop: 6, lineHeight: 16 },
+  modalBtns: { flexDirection: 'row', gap: 8, marginTop: 14 },
+});
