@@ -3,6 +3,7 @@ import { View, Text, Platform, Keyboard } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { useForm } from 'react-hook-form';
 import { MaterialIcons } from '@expo/vector-icons';
+import { useAuthStore } from '@/lib/stores/authStore';
 import { HeaderSelectors } from '@/components/gate/HeaderSelectors';
 import { SearchBar } from '@/components/gate/SearchBar';
 import { FoundResultCard } from '@/components/gate/FoundResultCard';
@@ -41,7 +42,12 @@ import type {
   TractorDailyTask,
 } from '@/lib/api/types';
 
+// Bump manually with each release.
+const APP_VERSION = '1.0.0';
+const APP_NAME = 'Upande Security';
+
 export default function GateTab() {
+  const userEmail = useAuthStore((s) => s.user?.email ?? '');
   const [selectedType, setSelectedType] = useState<CheckInType>(CheckInType.Visitor);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -312,6 +318,26 @@ export default function GateTab() {
 
   return (
     <View style={{ flex: 1, backgroundColor: '#F5F5F5' }}>
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          paddingHorizontal: 12,
+          paddingVertical: 8,
+          backgroundColor: '#FFFFFF',
+          borderBottomWidth: 1,
+          borderBottomColor: '#E8E8E8',
+          gap: 8,
+        }}
+      >
+        <Text style={{ fontSize: 13, fontWeight: '700', color: '#000000' }}>{APP_NAME}</Text>
+        <Text style={{ fontSize: 12, color: '#888888' }}>·</Text>
+        <Text style={{ fontSize: 12, color: '#555555', flex: 1 }} numberOfLines={1}>
+          {userEmail || '—'}
+        </Text>
+        <Text style={{ fontSize: 11, color: '#888888' }}>v{APP_VERSION}</Text>
+      </View>
+
       <KeyboardAwareScrollView
         style={{ flex: 1 }}
         contentContainerStyle={{ padding: 12, paddingBottom: 60 }}

@@ -1,10 +1,37 @@
-import { VolumeManager } from 'react-native-volume-manager';
 import * as Location from 'expo-location';
 import * as Haptics from 'expo-haptics';
 import { createIncidentReport } from '@/lib/api/incidents';
 import { getActivePatrol } from '@/lib/services/patrolDb';
 import { flushAllPatrolPending } from '@/lib/services/patrolGpsSync';
 import { toFrappeDateTime } from '@/lib/utils/date';
+
+// Resolved lazily so the app still boots in runtimes that don't include the
+// native module (Expo Go, a stale dev client). When unavailable, SOS becomes a
+// silent no-op until the user rebuilds the dev client.
+type VolumeListener = { remove: () => void };
+type VolumeManagerLike = {
+  addVolumeListener: (cb: (e: unknown) => void) => VolumeListener;
+};
+let _volumeManager: VolumeManagerLike | null | undefined;
+function getVolumeManager(): VolumeManagerLike | null {
+  if (_volumeManager !== undefined) return _volumeManager;
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const mod = require('react-native-volume-manager') as {
+      VolumeManager?: VolumeManagerLike;
+    };
+    _volumeManager = mod?.VolumeManager ?? null;
+  } catch (e) {
+    if (__DEV__) {
+      console.warn(
+        '[sos] react-native-volume-manager unavailable — SOS disabled until a dev build that includes it. Error:',
+        e,
+      );
+    }
+    _volumeManager = null;
+  }
+  return _volumeManager;
+}
 
 /**
  * SOS detection via rapid / held volume-button presses.
@@ -38,8 +65,10 @@ let _onFired: ((result: SosResult) => void) | null = null;
 export function startSosListener(onFired: (result: SosResult) => void): void {
   stopSosListener();
   _onFired = onFired;
+  const vm = getVolumeManager();
+  if (!vm) return; // native module missing — SOS disabled
   try {
-    _subscription = VolumeManager.addVolumeListener(() => {
+    _subscription = vm.addVolumeListener(() => {
       const now = Date.now();
       _events.push(now);
       _events = _events.filter((t) => now - t < WINDOW_MS);
