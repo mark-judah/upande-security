@@ -1,17 +1,29 @@
 {
   "cli": {
+<<<<<<< HEAD
     "version": ">= 18.7.0",
     "appVersionSource": "remote"
+=======
+    "version": ">= 12.0.0"
+>>>>>>> 7e3c876 (Added contractor functionality)
   },
   "build": {
     "development": {
       "developmentClient": true,
-      "distribution": "internal"
+      "distribution": "internal",
+      "channel": "development"
     },
     "preview": {
       "distribution": "internal",
+<<<<<<< HEAD
       "channel": "preview",
       "android": { "buildType": "apk" }
+=======
+      "android": {
+        "buildType": "apk"
+      },
+      "channel": "preview"
+>>>>>>> 7e3c876 (Added contractor functionality)
     },
     "production": {
       "autoIncrement": true,

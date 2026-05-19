@@ -25,6 +25,9 @@ export async function fetchDailySummary({ date }: { date: Date }): Promise<Daily
       'custom_mode_of_transport',
       'custom_vehicles_number_plate',
       'custom_vehicles_colour',
+      'custom_number_of_passengers',
+      'custom_visitor_type',
+      'custom_contractor_ref',
       'customer_details',
     ]),
   );

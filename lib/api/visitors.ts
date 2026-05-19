@@ -47,6 +47,7 @@ export type CreateAppointmentInput = {
   customer_phone_number?: string;
   customer_email?: string;
   custom_meet_with?: string;
+  custom_visitor_type?: 'Visitor' | 'Staff' | 'Contractor' | 'Customer';
   scheduled_time?: string;
   customer_details?: string;
   custom_mode_of_transport?: string;

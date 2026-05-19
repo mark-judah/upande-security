@@ -35,6 +35,8 @@ export type Appointment = {
   custom_check_in_time?: string;
   custom_check_out_time?: string;
   custom_number_of_passengers?: number;
+  custom_visitor_type?: 'Visitor' | 'Staff' | 'Contractor' | 'Customer';
+  custom_contractor_ref?: string;
 };
 
 export type EmployeeResult = {
@@ -96,9 +98,27 @@ export type StaffSearchResult = {
   employee_id?: string;
 };
 
+export type ContractorVehicle = {
+  number_plate: string;
+  colour?: string;
+  vehicle_type?: string;
+};
+
 export type ContractorSearchResult = {
   contract_name?: string;
   contractor_name?: string;
+  // is_contractor = true means custom_is_contractor is checked on the Supplier record
+  // This is the single source of truth — no workflow state check needed
+  is_contractor?: boolean;
+  is_approved?: boolean; // kept for compatibility, always true when result is returned
+  supplier_id?: string;
+  supplier_group?: string;
+  approved_by?: string;
+  approval_date?: string;
+  vehicles?: ContractorVehicle[];
+  access_start?: string;
+  access_end?: string;
+  contact_phone?: string;
 };
 
 export type TractorDailyTask = {

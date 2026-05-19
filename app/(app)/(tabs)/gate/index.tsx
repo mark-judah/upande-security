@@ -12,7 +12,7 @@ import { VisitorForm } from '@/components/gate/VisitorForm';
 import { WalkInSection } from '@/components/gate/WalkInSection';
 import { ActionButtons } from '@/components/gate/ActionButtons';
 import { StaffCheckInPanel } from '@/components/gate/StaffCheckInPanel';
-import { ContractorForm } from '@/components/gate/ContractorForm';
+import { ContractorForm, type WalkInContractorData } from '@/components/gate/ContractorForm';
 import { VehicleScanAction } from '@/components/gate/VehicleScanAction';
 import { VehicleEntryDialog } from '@/components/gate/VehicleEntryDialog';
 import { VehicleInsideCard } from '@/components/gate/VehicleInsideCard';
@@ -29,6 +29,7 @@ import { useCheckOut } from '@/lib/hooks/useCheckOut';
 import { useCreateWalkIn } from '@/lib/hooks/useCreateWalkIn';
 import { createGateTimesheet, submitGateTimesheet } from '@/lib/api/timesheets';
 import type { ActiveVehicleEntry } from '@/lib/stores/vehicleStore';
+import { useContractorCheckIn } from '@/lib/hooks/useContractorCheckIn';
 import { useFeedback } from '@/lib/hooks/useFeedback';
 import { useGateStore } from '@/lib/stores/gateStore';
 import { useVehicleStore } from '@/lib/stores/vehicleStore';
@@ -39,6 +40,7 @@ import { CheckInType } from '@/constants/checkInTypes';
 import type {
   VisitorAppointmentSearchResult,
   ContractorSearchResult,
+  ContractorVehicle,
   TractorDailyTask,
 } from '@/lib/api/types';
 
@@ -59,6 +61,7 @@ export default function GateTab() {
   const [isWalkIn, setIsWalkIn] = useState(false);
 
   const [contractorResult, setContractorResult] = useState<ContractorSearchResult | null>(null);
+  const [contractorWalkInOpen, setContractorWalkInOpen] = useState(false);
 
   const [loadingTicket, setLoadingTicket] = useState(false);
   const [entryDialog, setEntryDialog] = useState<{
@@ -93,6 +96,7 @@ export default function GateTab() {
   const checkOut = useCheckOut();
   const createWalkIn = useCreateWalkIn();
   const [vehicleBusy, setVehicleBusy] = useState(false);
+  const contractorCheckIn = useContractorCheckIn();
 
   const loading =
     visitorSearch.isPending ||
@@ -100,6 +104,7 @@ export default function GateTab() {
     checkIn.isPending ||
     checkOut.isPending ||
     createWalkIn.isPending ||
+    contractorCheckIn.isPending ||
     vehicleBusy ||
     loadingTicket;
 
@@ -110,6 +115,7 @@ export default function GateTab() {
     setSelectedAppointment(null);
     setIsWalkIn(false);
     setContractorResult(null);
+    setContractorWalkInOpen(false);
     reset(emptyVisitorForm);
     Keyboard.dismiss();
   }
@@ -216,19 +222,56 @@ export default function GateTab() {
     clearForm();
   }
 
-  async function onContractorCheckIn() {
+  async function onContractorCheckIn(vehicle?: ContractorVehicle) {
     if (!contractorResult) return;
-    const contract = contractorResult.contract_name ?? '';
-    await createWalkIn.mutateAsync({
-      customer_name: contractorResult.contractor_name ?? contract,
-      customer_phone_number: contract,
-      customer_email: `${contract}@contractor.gate`,
-      custom_meet_with: contract,
-      scheduled_time: toFrappeDateTime(),
-      customer_details: `Contract: ${contract}`,
-      custom_mode_of_transport: 'On Foot',
-    });
-    clearForm();
+    const payload = {
+      contractor_ref: contractorResult.supplier_id,
+      contractor_name:
+        contractorResult.contractor_name ?? contractorResult.contract_name ?? '',
+      phone: contractorResult.contact_phone,
+      purpose: 'Approved contractor site access',
+      transport_mode: vehicle ? 'Vehicle' : 'On Foot',
+      number_plate: vehicle?.number_plate,
+      vehicle_color: vehicle?.colour,
+    };
+    if (__DEV__) {
+      console.log('[gate] onContractorCheckIn payload:', payload);
+    }
+    try {
+      await contractorCheckIn.mutateAsync(payload);
+      clearForm();
+    } catch {
+      // feedback handled by mutation onError
+    }
+  }
+
+  async function onContractorWalkInSave(data: WalkInContractorData) {
+    if (!data.contractor_name?.trim()) {
+      feedback.warning('Contractor / company name is required');
+      return;
+    }
+    if (!data.phone?.trim()) {
+      feedback.warning('Phone number is required');
+      return;
+    }
+    const payload = {
+      contractor_name: data.contractor_name.trim(),
+      phone: data.phone.trim(),
+      company: data.company?.trim() || undefined,
+      purpose: data.purpose?.trim() || 'Walk-in contractor visit',
+      transport_mode: data.mode_of_transport,
+      number_plate: data.number_plate?.trim() || undefined,
+      vehicle_color: data.vehicle_colour?.trim() || undefined,
+    };
+    if (__DEV__) {
+      console.log('[gate] onContractorWalkInSave payload:', payload);
+    }
+    try {
+      await contractorCheckIn.mutateAsync(payload);
+      clearForm();
+    } catch {
+      // feedback handled by mutation onError
+    }
   }
 
   async function onWorkTicketScanned(raw: string) {
@@ -386,11 +429,17 @@ export default function GateTab() {
 
             {selectedType === CheckInType.Staff ? <StaffCheckInPanel /> : null}
 
-            {selectedType === CheckInType.Contractor && contractorResult ? (
+            {selectedType === CheckInType.Contractor &&
+            (contractorResult || contractorWalkInOpen) ? (
               <ContractorForm
-                result={contractorResult}
+                result={contractorResult ?? {}}
                 onCheckIn={onContractorCheckIn}
-                busy={createWalkIn.isPending}
+                onRegisterNew={() => setContractorWalkInOpen(true)}
+                showWalkInForm={contractorWalkInOpen}
+                onCloseWalkIn={() => setContractorWalkInOpen(false)}
+                onSaveWalkIn={onContractorWalkInSave}
+                savingWalkIn={contractorCheckIn.isPending}
+                busy={contractorCheckIn.isPending}
               />
             ) : null}
 
@@ -452,7 +501,10 @@ export default function GateTab() {
             ) : null}
           </View>
 
-          {selectedType === CheckInType.Contractor && !contractorResult && !loading ? (
+          {selectedType === CheckInType.Contractor &&
+          !contractorResult &&
+          !contractorWalkInOpen &&
+          !loading ? (
             <View style={{ padding: 16, alignItems: 'center' }}>
               <MaterialIcons name="search" size={28} color="#BDBDBD" />
               <Text style={{ color: '#888', marginTop: 6, fontSize: 12 }}>

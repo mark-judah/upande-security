@@ -1,83 +1,625 @@
-import { View, Text, TouchableOpacity } from 'react-native';
+import { useState } from 'react';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  ScrollView,
+  TextInput,
+  StyleSheet,
+} from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
-import type { ContractorSearchResult } from '@/lib/api/types';
+import type { ContractorSearchResult, ContractorVehicle } from '@/lib/api/types';
 
-type Props = {
-  result: ContractorSearchResult;
-  onCheckIn: () => void;
-  busy?: boolean;
-};
+// ─── Sub-components ─────────────────────────────────────────────────────────
 
-export function ContractorForm({ result, onCheckIn, busy }: Props) {
-  const found = Boolean(result.contract_name || result.contractor_name);
-
-  if (!found) {
-    return (
-      <View
-        style={{
-          backgroundColor: '#F5F5F5',
-          borderLeftWidth: 4,
-          borderLeftColor: '#000000',
-          borderRadius: 10,
-          padding: 14,
-          marginVertical: 8,
-        }}
-      >
-        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <MaterialIcons name="info" size={22} color="#000000" />
-          <Text style={{ color: '#000000', fontWeight: '700', marginLeft: 8 }}>
-            NO ACTIVE CONTRACT
-          </Text>
-        </View>
-      </View>
-    );
-  }
-
+function InfoRow({
+  icon,
+  label,
+  value,
+}: {
+  icon: React.ComponentProps<typeof MaterialIcons>['name'];
+  label: string;
+  value?: string | null;
+}) {
+  if (!value) return null;
   return (
-    <View
-      style={{
-        backgroundColor: '#F5F5F5',
-        borderLeftWidth: 4,
-        borderLeftColor: '#000000',
-        borderRadius: 10,
-        padding: 14,
-        marginVertical: 8,
-      }}
-    >
-      <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
-        <MaterialIcons name="engineering" size={22} color="#000000" />
-        <View style={{ flex: 1, marginLeft: 10 }}>
-          <Text style={{ fontSize: 16, fontWeight: '700', color: '#111111' }}>
-            {result.contractor_name ?? '—'}
-          </Text>
-          {result.contract_name ? (
-            <Text style={{ color: '#333333', fontSize: 13 }}>Contract: {result.contract_name}</Text>
-          ) : null}
-        </View>
-      </View>
+    <View style={styles.infoRow}>
+      <MaterialIcons name={icon} size={14} color="#666666" style={{ marginRight: 4 }} />
+      <Text style={styles.infoLabel}>{label}: </Text>
+      <Text style={styles.infoValue} numberOfLines={1}>
+        {value}
+      </Text>
+    </View>
+  );
+}
 
-      <TouchableOpacity
-        onPress={onCheckIn}
-        disabled={busy}
-        activeOpacity={0.8}
-        accessibilityRole="button"
-        style={{
-          backgroundColor: '#000000',
-          opacity: busy ? 0.6 : 1,
-          borderRadius: 8,
-          paddingVertical: 14,
-          minHeight: 48,
-          alignItems: 'center',
-          justifyContent: 'center',
-          flexDirection: 'row',
-          marginTop: 12,
-        }}
+function VehiclePill({
+  vehicle,
+  selected,
+  onSelect,
+}: {
+  vehicle: ContractorVehicle;
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  return (
+    <TouchableOpacity
+      onPress={onSelect}
+      activeOpacity={0.7}
+      style={[styles.vehiclePill, selected && styles.vehiclePillSelected]}
+    >
+      <MaterialIcons
+        name="directions-car"
+        size={14}
+        color={selected ? '#FFFFFF' : '#666666'}
+      />
+      <Text
+        style={[styles.vehiclePillText, { color: selected ? '#FFFFFF' : '#333333' }]}
+        numberOfLines={1}
       >
-        <MaterialIcons name="login" size={18} color="#FFFFFF" />
-        <Text style={{ color: '#FFFFFF', fontWeight: '700', marginLeft: 6, letterSpacing: 0.5 }}>
-          CHECK IN
+        {vehicle.number_plate}
+      </Text>
+      {vehicle.colour ? (
+        <Text
+          style={[
+            styles.vehiclePillSub,
+            { color: selected ? 'rgba(255,255,255,0.7)' : '#888888' },
+          ]}
+          numberOfLines={1}
+        >
+          · {vehicle.colour}
         </Text>
+      ) : null}
+    </TouchableOpacity>
+  );
+}
+
+function FieldInput({
+  label,
+  ...props
+}: { label: string } & React.ComponentProps<typeof TextInput>) {
+  return (
+    <View style={{ marginBottom: 8 }}>
+      <Text style={styles.fieldLabel}>{label}</Text>
+      <TextInput
+        {...props}
+        style={[
+          styles.textInput,
+          props.multiline && { paddingTop: 8 },
+          props.style as object,
+        ]}
+        placeholderTextColor="#AAAAAA"
+      />
+    </View>
+  );
+}
+
+// ─── "No result" card ────────────────────────────────────────────────────────
+
+function NotFoundCard({ onRegisterNew }: { onRegisterNew: () => void }) {
+  return (
+    <View style={[styles.card, { borderLeftColor: '#555555' }]}>
+      <View style={styles.cardHeader}>
+        <MaterialIcons name="info-outline" size={22} color="#555555" />
+        <Text style={[styles.cardTitle, { marginLeft: 8 }]}>NO CONTRACTOR FOUND</Text>
+      </View>
+      <Text style={[styles.cardSubtext, { marginTop: 6 }]}>
+        No approved contractor matches your search. Register a new visit below.
+      </Text>
+      <TouchableOpacity
+        onPress={onRegisterNew}
+        activeOpacity={0.8}
+        style={[styles.actionBtn, { marginTop: 12 }]}
+      >
+        <MaterialIcons name="person-add" size={18} color="#FFFFFF" />
+        <Text style={styles.actionBtnText}>BOOK NEW CONTRACTOR VISIT</Text>
       </TouchableOpacity>
     </View>
   );
 }
+
+// ─── Walk-in booking form ────────────────────────────────────────────────────
+
+export type WalkInContractorData = {
+  contractor_name: string;
+  phone: string;
+  company: string;
+  purpose: string;
+  number_plate: string;
+  vehicle_colour: string;
+  mode_of_transport: 'On Foot' | 'Vehicle' | 'Motor Bike';
+};
+
+function WalkInBookingForm({
+  onClose,
+  onSave,
+  saving,
+}: {
+  onClose: () => void;
+  onSave: (data: WalkInContractorData) => void;
+  saving?: boolean;
+}) {
+  const [name, setName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [company, setCompany] = useState('');
+  const [purpose, setPurpose] = useState('');
+  const [mode, setMode] = useState<'On Foot' | 'Vehicle' | 'Motor Bike'>('On Foot');
+  const [plate, setPlate] = useState('');
+  const [colour, setColour] = useState('');
+
+  const showVehicle = mode !== 'On Foot';
+
+  return (
+    <View style={[styles.card, { borderLeftColor: '#000000' }]}>
+      {/* Header */}
+      <View style={styles.sectionHeaderRow}>
+        <MaterialIcons name="engineering" size={20} color="#111111" />
+        <Text style={[styles.sectionTitle, { marginLeft: 6 }]}>New Contractor Visit</Text>
+        <TouchableOpacity onPress={onClose} style={{ marginLeft: 'auto' }}>
+          <MaterialIcons name="close" size={20} color="#666666" />
+        </TouchableOpacity>
+      </View>
+      <View style={styles.divider} />
+
+      <FieldInput
+        label="Contractor / Company Name *"
+        value={name}
+        onChangeText={setName}
+        autoCapitalize="words"
+      />
+      <FieldInput
+        label="Phone Number *"
+        value={phone}
+        onChangeText={setPhone}
+        keyboardType="phone-pad"
+      />
+      <FieldInput
+        label="Company (optional)"
+        value={company}
+        onChangeText={setCompany}
+        autoCapitalize="words"
+      />
+      <FieldInput
+        label="Purpose of Visit *"
+        value={purpose}
+        onChangeText={setPurpose}
+        multiline
+        numberOfLines={2}
+        style={{ minHeight: 52, textAlignVertical: 'top' }}
+      />
+
+      <Text style={styles.fieldLabel}>Mode of Transport</Text>
+      <View style={styles.modeRow}>
+        {(['On Foot', 'Vehicle', 'Motor Bike'] as const).map((m) => (
+          <TouchableOpacity
+            key={m}
+            onPress={() => setMode(m)}
+            style={[styles.modeChip, mode === m && styles.modeChipSelected]}
+          >
+            <Text
+              style={[styles.modeChipText, mode === m && { color: '#FFFFFF' }]}
+            >
+              {m}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {showVehicle ? (
+        <>
+          <FieldInput
+            label="Number Plate"
+            value={plate}
+            onChangeText={setPlate}
+            autoCapitalize="characters"
+          />
+          <FieldInput label="Vehicle Colour" value={colour} onChangeText={setColour} />
+        </>
+      ) : null}
+
+      <TouchableOpacity
+        onPress={() =>
+          onSave({
+            contractor_name: name,
+            phone,
+            company,
+            purpose,
+            number_plate: plate,
+            vehicle_colour: colour,
+            mode_of_transport: mode,
+          })
+        }
+        disabled={saving}
+        activeOpacity={0.8}
+        style={[styles.actionBtn, { opacity: saving ? 0.6 : 1, marginTop: 8 }]}
+      >
+        <MaterialIcons name="save" size={18} color="#FFFFFF" />
+        <Text style={styles.actionBtnText}>{saving ? 'SAVING…' : 'SAVE & CHECK IN'}</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+// ─── Approved contractor card ────────────────────────────────────────────────
+
+function ApprovedContractorCard({
+  result,
+  onCheckIn,
+  onRegisterNew,
+  busy,
+}: {
+  result: ContractorSearchResult;
+  onCheckIn: (vehicle?: ContractorVehicle) => void;
+  onRegisterNew: () => void;
+  busy?: boolean;
+}) {
+  const [selectedVehicle, setSelectedVehicle] = useState<ContractorVehicle | null>(null);
+  // Track how many check-ins have been done this session and last plate used
+  const [checkInCount, setCheckInCount] = useState(0);
+  const [lastPlate, setLastPlate] = useState<string | null>(null);
+  const vehicles = result.vehicles ?? [];
+
+  function handleCheckIn() {
+    setLastPlate(selectedVehicle?.number_plate ?? null);
+    onCheckIn(selectedVehicle ?? undefined);
+    // Reset vehicle selection so guard can pick a different one for the next person
+    setSelectedVehicle(null);
+    setCheckInCount((n) => n + 1);
+  }
+
+  return (
+    <View>
+      <View style={[styles.card, { borderLeftColor: '#FB8C00' }]}>
+        {/* Header */}
+        <View style={styles.cardHeader}>
+          <MaterialIcons name="verified" size={22} color="#FB8C00" />
+          <View style={{ flex: 1, marginLeft: 10 }}>
+            <Text style={styles.cardTitle}>{result.contractor_name ?? '—'}</Text>
+            {result.supplier_group ? (
+              <Text style={styles.cardSubtext}>{result.supplier_group}</Text>
+            ) : null}
+          </View>
+          <View style={[styles.approvedBadge, { backgroundColor: '#FB8C00' }]}>
+            <MaterialIcons name="engineering" size={12} color="#FFFFFF" />
+            <Text style={styles.approvedBadgeText}>CONTRACTOR</Text>
+          </View>
+        </View>
+
+        {/* Info rows */}
+        <View style={{ marginTop: 8 }}>
+          <InfoRow icon="business" label="ID" value={result.supplier_id} />
+          <InfoRow icon="category" label="Group" value={result.supplier_group} />
+          {result.access_end ? (
+            <InfoRow icon="event-available" label="Access until" value={result.access_end} />
+          ) : null}
+        </View>
+
+        {/* Last check-in confirmation flash */}
+        {checkInCount > 0 ? (
+          <View style={{
+            flexDirection: 'row', alignItems: 'center',
+            backgroundColor: '#E8F5E9', borderRadius: 6,
+            paddingHorizontal: 10, paddingVertical: 7, marginTop: 10,
+          }}>
+            <MaterialIcons name="check-circle" size={16} color="#2E7D32" />
+            <Text style={{ color: '#2E7D32', fontSize: 12, fontWeight: '700', marginLeft: 6 }}>
+              {checkInCount} person{checkInCount > 1 ? 's' : ''} checked in
+              {lastPlate ? ` · Last: ${lastPlate}` : ''}
+            </Text>
+          </View>
+        ) : null}
+
+        {/* Registered vehicles */}
+        {vehicles.length > 0 ? (
+          <View style={{ marginTop: 10 }}>
+            <Text style={styles.subSectionLabel}>
+              Select vehicle for this person (optional)
+            </Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={{ marginTop: 4 }}
+            >
+              {vehicles.map((v) => (
+                <VehiclePill
+                  key={v.number_plate}
+                  vehicle={v}
+                  selected={selectedVehicle?.number_plate === v.number_plate}
+                  onSelect={() =>
+                    setSelectedVehicle(
+                      selectedVehicle?.number_plate === v.number_plate ? null : v,
+                    )
+                  }
+                />
+              ))}
+            </ScrollView>
+          </View>
+        ) : (
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8 }}>
+            <MaterialIcons name="no-transfer" size={14} color="#888888" />
+            <Text style={{ fontSize: 12, color: '#888888', marginLeft: 4, fontStyle: 'italic' }}>
+              No vehicles registered — vehicle details optional below
+            </Text>
+          </View>
+        )}
+
+        {/* Selected vehicle summary banner */}
+        {selectedVehicle ? (
+          <View style={styles.selectedVehicleBanner}>
+            <MaterialIcons name="directions-car" size={14} color="#FFFFFF" />
+            <Text style={styles.selectedVehicleBannerText}>
+              {selectedVehicle.number_plate}
+              {selectedVehicle.colour ? ` · ${selectedVehicle.colour}` : ''}
+              {selectedVehicle.vehicle_type ? ` · ${selectedVehicle.vehicle_type}` : ''}
+            </Text>
+            <TouchableOpacity
+              onPress={() => setSelectedVehicle(null)}
+              style={{ marginLeft: 'auto' }}
+            >
+              <MaterialIcons name="close" size={14} color="rgba(255,255,255,0.7)" />
+            </TouchableOpacity>
+          </View>
+        ) : null}
+
+        {/* Check In button */}
+        <TouchableOpacity
+          onPress={handleCheckIn}
+          disabled={busy}
+          activeOpacity={0.8}
+          style={[styles.actionBtn, { opacity: busy ? 0.6 : 1, marginTop: 14, backgroundColor: '#FB8C00' }]}
+        >
+          <MaterialIcons name="login" size={18} color="#FFFFFF" />
+          <Text style={styles.actionBtnText}>
+            {busy ? 'CHECKING IN…' : checkInCount > 0 ? 'CHECK IN ANOTHER PERSON' : 'CHECK IN'}
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      <TouchableOpacity
+        onPress={onRegisterNew}
+        activeOpacity={0.7}
+        style={styles.altActionLink}
+      >
+        <MaterialIcons name="person-add" size={16} color="#000000" />
+        <Text style={styles.altActionLinkText}>Different contractor? Book a new visit</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+// ─── Public component ────────────────────────────────────────────────────────
+
+type Props = {
+  result: ContractorSearchResult;
+  onCheckIn: (vehicle?: ContractorVehicle) => void;
+  onRegisterNew: () => void;
+  showWalkInForm?: boolean;
+  onCloseWalkIn?: () => void;
+  onSaveWalkIn?: (data: WalkInContractorData) => void;
+  savingWalkIn?: boolean;
+  busy?: boolean;
+};
+
+export function ContractorForm({
+  result,
+  onCheckIn,
+  onRegisterNew,
+  showWalkInForm,
+  onCloseWalkIn,
+  onSaveWalkIn,
+  savingWalkIn,
+  busy,
+}: Props) {
+  const hasResult = Boolean(result.contractor_name || result.contract_name);
+
+  if (showWalkInForm) {
+    return (
+      <WalkInBookingForm
+        onClose={onCloseWalkIn ?? (() => {})}
+        onSave={onSaveWalkIn ?? (() => {})}
+        saving={savingWalkIn}
+      />
+    );
+  }
+
+  if (!hasResult) {
+    return <NotFoundCard onRegisterNew={onRegisterNew} />;
+  }
+
+  // custom_is_contractor = 1 means they are cleared — show the contractor card
+  return (
+    <ApprovedContractorCard
+      result={result}
+      onCheckIn={onCheckIn}
+      onRegisterNew={onRegisterNew}
+      busy={busy}
+    />
+  );
+}
+
+export type { ContractorVehicle };
+
+// ─── Styles ──────────────────────────────────────────────────────────────────
+
+const styles = StyleSheet.create({
+  card: {
+    borderLeftWidth: 4,
+    borderRadius: 10,
+    padding: 14,
+    marginVertical: 8,
+    backgroundColor: '#F5F5F5',
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  cardTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#111111',
+  },
+  cardSubtext: {
+    fontSize: 13,
+    color: '#555555',
+    marginTop: 1,
+  },
+  approvedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#000000',
+    borderRadius: 12,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    marginLeft: 6,
+    alignSelf: 'flex-start',
+  },
+  approvedBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 9,
+    fontWeight: '800',
+    marginLeft: 3,
+    letterSpacing: 0.5,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 2,
+  },
+  infoLabel: {
+    fontSize: 12,
+    color: '#666666',
+  },
+  infoValue: {
+    fontSize: 12,
+    color: '#333333',
+    flex: 1,
+  },
+  subSectionLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#666666',
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
+  },
+  vehiclePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#E8E8E8',
+    borderWidth: 1,
+    borderColor: '#D0D0D0',
+    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    marginRight: 6,
+  },
+  vehiclePillSelected: {
+    backgroundColor: '#000000',
+    borderColor: '#000000',
+  },
+  vehiclePillText: {
+    fontSize: 13,
+    fontWeight: '600',
+    marginLeft: 4,
+  },
+  vehiclePillSub: {
+    fontSize: 12,
+    marginLeft: 2,
+  },
+  selectedVehicleBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#333333',
+    borderRadius: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    marginTop: 8,
+  },
+  selectedVehicleBannerText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '600',
+    marginLeft: 6,
+    flex: 1,
+  },
+  actionBtn: {
+    backgroundColor: '#000000',
+    borderRadius: 8,
+    paddingVertical: 14,
+    minHeight: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+  },
+  actionBtnText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    marginLeft: 6,
+    letterSpacing: 0.5,
+  },
+  altActionLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+  },
+  altActionLinkText: {
+    color: '#000000',
+    fontSize: 13,
+    marginLeft: 4,
+    fontWeight: '600',
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  sectionTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#111111',
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#E0E0E0',
+    marginVertical: 8,
+  },
+  fieldLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#555555',
+    marginBottom: 4,
+    marginTop: 2,
+  },
+  textInput: {
+    borderWidth: 1,
+    borderColor: '#D0D0D0',
+    borderRadius: 7,
+    paddingHorizontal: 10,
+    paddingVertical: 9,
+    fontSize: 14,
+    color: '#111111',
+    backgroundColor: '#FFFFFF',
+  },
+  modeRow: {
+    flexDirection: 'row',
+    gap: 6,
+    marginBottom: 8,
+  },
+  modeChip: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: '#D0D0D0',
+    borderRadius: 7,
+    paddingVertical: 8,
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+  },
+  modeChipSelected: {
+    backgroundColor: '#000000',
+    borderColor: '#000000',
+  },
+  modeChipText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#333333',
+  },
+});
