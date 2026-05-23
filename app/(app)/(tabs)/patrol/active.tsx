@@ -280,8 +280,6 @@ export default function ActivePatrol() {
           <View
             style={{
               backgroundColor: '#F5F5F5',
-              borderLeftWidth: 3,
-              borderLeftColor: '#666666',
               borderRadius: 8,
               padding: 10,
               marginBottom: 12,

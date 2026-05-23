@@ -1,4 +1,8 @@
-import api from './client';
+// Thin shim over the server-script verbs in lib/services/api.ts.
+// uploadIncidentPhoto stays on /api/method/upload_file — it's the stock
+// Frappe file-upload endpoint, not a custom verb.
+import client from './client';
+import { api } from '@/lib/services/api';
 import type {
   CreateIncidentInput,
   IncidentCategory,
@@ -6,36 +10,22 @@ import type {
 } from './types';
 
 export async function fetchIncidentCategories(): Promise<IncidentCategory[]> {
-  const fields = encodeURIComponent(JSON.stringify(['name']));
-  const res = await api.get<{ data: IncidentCategory[] }>(
-    `/api/resource/Incident Category?fields=${fields}&limit_page_length=100&order_by=name asc`,
-  );
-  return res.data.data;
+  const cats = await api.listIncidentCategories();
+  return cats.map((c) => ({ name: c.name }));
 }
 
-export async function createIncidentReport(input: CreateIncidentInput): Promise<IncidentReport> {
-  const res = await api.post<{ data: IncidentReport }>('/api/resource/Incident Report', input);
-  return res.data.data;
+export async function createIncidentReport(
+  input: CreateIncidentInput,
+): Promise<IncidentReport> {
+  const created = await api.createIncident(input as Parameters<typeof api.createIncident>[0]);
+  return created as unknown as IncidentReport;
 }
 
-export async function fetchMyIncidents(userEmail: string): Promise<IncidentReport[]> {
-  const filters = encodeURIComponent(
-    JSON.stringify([['Incident Report', 'reported_by', '=', userEmail]]),
-  );
-  const fields = encodeURIComponent(
-    JSON.stringify([
-      'name',
-      'incident_datetime',
-      'location',
-      'nature_of_incident',
-      'severity',
-      'description',
-    ]),
-  );
-  const res = await api.get<{ data: IncidentReport[] }>(
-    `/api/resource/Incident Report?filters=${filters}&fields=${fields}&limit_page_length=50&order_by=incident_datetime desc`,
-  );
-  return res.data.data;
+export async function fetchMyIncidents(_userEmail: string): Promise<IncidentReport[]> {
+  // The server script scopes to frappe.session.user — argument kept for API
+  // back-compat with existing callers.
+  const rows = await api.myIncidents();
+  return rows as unknown as IncidentReport[];
 }
 
 export async function uploadIncidentPhoto(fileUri: string, fileName: string): Promise<string> {
@@ -50,7 +40,7 @@ export async function uploadIncidentPhoto(fileUri: string, fileName: string): Pr
   form.append('is_private', '0');
   form.append('folder', 'Home/Attachments');
 
-  const res = await api.post<{ message: { file_url: string } }>(
+  const res = await client.post<{ message: { file_url: string } }>(
     '/api/method/upload_file',
     form,
     { headers: { 'Content-Type': 'multipart/form-data' } },

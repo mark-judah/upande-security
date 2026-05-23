@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
-import { View, Text, Platform, Keyboard } from 'react-native';
+import { View, Text, Platform, Keyboard, Pressable, ActivityIndicator, Alert } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { useForm } from 'react-hook-form';
 import { MaterialIcons } from '@expo/vector-icons';
+import * as Updates from 'expo-updates';
+import Toast from 'react-native-toast-message';
 import { useAuthStore } from '@/lib/stores/authStore';
 import { HeaderSelectors } from '@/components/gate/HeaderSelectors';
 import { SearchBar } from '@/components/gate/SearchBar';
@@ -25,8 +27,7 @@ import { useVisitorSearch } from '@/lib/hooks/useVisitorSearch';
 import { useContractorSearch } from '@/lib/hooks/useContractorSearch';
 import { useAppointmentWorkflowState } from '@/lib/hooks/useAppointmentWorkflowState';
 import { useCheckIn } from '@/lib/hooks/useCheckIn';
-import { useCheckOut } from '@/lib/hooks/useCheckOut';
-import { useCreateWalkIn } from '@/lib/hooks/useCreateWalkIn';
+import { api } from '@/lib/services/api';
 import { createGateTimesheet, submitGateTimesheet } from '@/lib/api/timesheets';
 import type { ActiveVehicleEntry } from '@/lib/stores/vehicleStore';
 import { useFeedback } from '@/lib/hooks/useFeedback';
@@ -48,6 +49,7 @@ const APP_NAME = 'Upande Security';
 
 export default function GateTab() {
   const userEmail = useAuthStore((s) => s.user?.email ?? '');
+  const [updateBusy, setUpdateBusy] = useState(false);
   const [selectedType, setSelectedType] = useState<CheckInType>(CheckInType.Visitor);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -90,16 +92,12 @@ export default function GateTab() {
   const contractorSearch = useContractorSearch();
   const workflowQuery = useAppointmentWorkflowState(selectedAppointment?.name ?? null);
   const checkIn = useCheckIn();
-  const checkOut = useCheckOut();
-  const createWalkIn = useCreateWalkIn();
   const [vehicleBusy, setVehicleBusy] = useState(false);
 
   const loading =
     visitorSearch.isPending ||
     contractorSearch.isPending ||
     checkIn.isPending ||
-    checkOut.isPending ||
-    createWalkIn.isPending ||
     vehicleBusy ||
     loadingTicket;
 
@@ -112,6 +110,44 @@ export default function GateTab() {
     setContractorResult(null);
     reset(emptyVisitorForm);
     Keyboard.dismiss();
+  }
+
+  async function onCheckForUpdates() {
+    if (updateBusy) return;
+    if (!Updates.isEnabled) {
+      Toast.show({
+        type: 'info',
+        text1: 'OTA disabled in dev',
+        text2: 'Updates only run in builds installed from EAS.',
+      });
+      return;
+    }
+    setUpdateBusy(true);
+    try {
+      const result = await Updates.checkForUpdateAsync();
+      if (!result.isAvailable) {
+        Toast.show({ type: 'success', text1: 'Already up to date' });
+        return;
+      }
+      Toast.show({ type: 'info', text1: 'Downloading update…' });
+      await Updates.fetchUpdateAsync();
+      Alert.alert(
+        'Update ready',
+        'A new version has been downloaded. Reload the app now to apply it?',
+        [
+          { text: 'Later', style: 'cancel' },
+          { text: 'Reload', style: 'destructive', onPress: () => Updates.reloadAsync() },
+        ],
+      );
+    } catch (e) {
+      Toast.show({
+        type: 'error',
+        text1: 'Update check failed',
+        text2: e instanceof Error ? e.message : String(e),
+      });
+    } finally {
+      setUpdateBusy(false);
+    }
   }
 
   function onTypeSelect(t: CheckInType) {
@@ -168,6 +204,20 @@ export default function GateTab() {
     reset({ ...emptyVisitorForm, customer_name: searchQuery.trim() });
   }
 
+  async function onNotifyHost() {
+    if (!selectedAppointment?.name) return;
+    setVehicleBusy(true);
+    try {
+      await api.notifyHost(selectedAppointment.name);
+      feedback.success('Host notified — waiting for approval');
+      workflowQuery.refetch();
+    } catch (e) {
+      feedback.error(e instanceof Error ? e.message : 'Failed to notify host');
+    } finally {
+      setVehicleBusy(false);
+    }
+  }
+
   async function onVisitorCheckIn() {
     if (!selectedAppointment?.name) return;
     const values = getValues();
@@ -180,13 +230,7 @@ export default function GateTab() {
     workflowQuery.refetch();
   }
 
-  async function onVisitorCheckOut() {
-    if (!selectedAppointment?.name) return;
-    await checkOut.mutateAsync(selectedAppointment.name);
-    workflowQuery.refetch();
-  }
-
-  async function onCreateWalkIn() {
+  async function onNotifyWalkIn() {
     const values = getValues();
     if (!values.customer_name?.trim()) {
       feedback.warning('Full name is required');
@@ -201,34 +245,55 @@ export default function GateTab() {
       return;
     }
     const phone = values.customer_phone_number.trim();
-    await createWalkIn.mutateAsync({
-      customer_name: values.customer_name.trim(),
-      customer_phone_number: phone,
-      customer_email: `${phone}@walkin.gate`,
-      custom_meet_with: values.custom_meet_with,
-      scheduled_time: toFrappeDateTime(),
-      customer_details: values.customer_details,
-      custom_mode_of_transport: values.custom_mode_of_transport,
-      custom_vehicles_number_plate: values.custom_vehicles_number_plate,
-      custom_vehicles_colour: values.custom_vehicles_colour,
-      custom_number_of_passengers: values.custom_number_of_passengers,
-    });
-    clearForm();
+    setVehicleBusy(true);
+    try {
+      const result = await api.createWalkInAndNotify({
+        customer_name: values.customer_name.trim(),
+        phone,
+        host: values.custom_meet_with,
+        email: `${phone}@walkin.gate`,
+        purpose: values.customer_details,
+        transport: values.custom_mode_of_transport,
+        plate: values.custom_vehicles_number_plate,
+        colour: values.custom_vehicles_colour,
+        passengers: values.custom_number_of_passengers,
+        scheduled_time: toFrappeDateTime(),
+      });
+      // Collapse the walk-in form and let ActionButtons handle the rest via polling
+      setSelectedAppointment({
+        has_appointment: true,
+        name: result.name,
+        visitor_name: values.customer_name.trim(),
+        phone_number: phone,
+        host_name: watchHostName || '',
+        purpose: values.customer_details || '',
+      });
+      setIsWalkIn(false);
+      feedback.success('Host notified — waiting for approval');
+    } catch (e) {
+      feedback.error(e instanceof Error ? e.message : 'Failed to notify host');
+    } finally {
+      setVehicleBusy(false);
+    }
   }
 
-  async function onContractorCheckIn() {
+  async function onContractorCheckIn(input: { passengers?: number }) {
     if (!contractorResult) return;
-    const contract = contractorResult.contract_name ?? '';
-    await createWalkIn.mutateAsync({
-      customer_name: contractorResult.contractor_name ?? contract,
-      customer_phone_number: contract,
-      customer_email: `${contract}@contractor.gate`,
-      custom_meet_with: contract,
-      scheduled_time: toFrappeDateTime(),
-      customer_details: `Contract: ${contract}`,
-      custom_mode_of_transport: 'On Foot',
-    });
-    clearForm();
+    setVehicleBusy(true);
+    try {
+      await api.contractorCheckIn({
+        contractor_ref: contractorResult.contract_name ?? undefined,
+        contractor_name: contractorResult.contractor_name ?? undefined,
+        transport_mode: 'On Foot',
+        passengers: input.passengers,
+      });
+      feedback.success('Contractor checked in');
+      clearForm();
+    } catch (e) {
+      feedback.error(e instanceof Error ? e.message : 'Contractor check-in failed');
+    } finally {
+      setVehicleBusy(false);
+    }
   }
 
   async function onWorkTicketScanned(raw: string) {
@@ -335,7 +400,32 @@ export default function GateTab() {
         <Text style={{ fontSize: 12, color: '#555555', flex: 1 }} numberOfLines={1}>
           {userEmail || '—'}
         </Text>
-        <Text style={{ fontSize: 11, color: '#888888' }}>v{APP_VERSION}</Text>
+        <Pressable
+          onPress={onCheckForUpdates}
+          disabled={updateBusy}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel="Check for updates"
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 4,
+            paddingVertical: 2,
+            paddingHorizontal: 6,
+            borderRadius: 6,
+            backgroundColor: '#F5F5F5',
+            opacity: updateBusy ? 0.6 : 1,
+          }}
+        >
+          <Text style={{ fontSize: 11, color: '#555555', fontWeight: '600' }}>
+            v{APP_VERSION}
+          </Text>
+          {updateBusy ? (
+            <ActivityIndicator size="small" color="#555555" />
+          ) : (
+            <MaterialIcons name="refresh" size={14} color="#555555" />
+          )}
+        </Pressable>
       </View>
 
       <KeyboardAwareScrollView
@@ -352,11 +442,8 @@ export default function GateTab() {
               backgroundColor: 'white',
               borderRadius: 14,
               padding: 12,
-              shadowColor: '#000',
-              shadowOpacity: 0.06,
-              shadowRadius: 8,
-              shadowOffset: { width: 0, height: 2 },
-              elevation: 2,
+              borderWidth: 1,
+              borderColor: '#E8E8E8',
             }}
           >
             <HeaderSelectors selected={selectedType} onSelect={onTypeSelect} />
@@ -390,7 +477,7 @@ export default function GateTab() {
               <ContractorForm
                 result={contractorResult}
                 onCheckIn={onContractorCheckIn}
-                busy={createWalkIn.isPending}
+                busy={vehicleBusy}
               />
             ) : null}
 
@@ -400,8 +487,8 @@ export default function GateTab() {
                   setIsWalkIn(false);
                   reset(emptyVisitorForm);
                 }}
-                onSave={onCreateWalkIn}
-                saving={createWalkIn.isPending}
+                onSave={onNotifyWalkIn}
+                saving={vehicleBusy}
               >
                 <VisitorForm
                   control={control}
@@ -427,9 +514,9 @@ export default function GateTab() {
                 <ActionButtons
                   appointment={workflowQuery.data}
                   loading={workflowQuery.isLoading}
+                  onNotifyHost={onNotifyHost}
                   onCheckIn={onVisitorCheckIn}
-                  onCheckOut={onVisitorCheckOut}
-                  busy={checkIn.isPending || checkOut.isPending}
+                  busy={checkIn.isPending || vehicleBusy}
                 />
               </View>
             ) : null}

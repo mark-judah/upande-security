@@ -35,7 +35,7 @@ export function Alert({
           ? COLORS.danger
           : COLORS.info;
   return (
-    <View style={[s.alert, { borderLeftColor: color, backgroundColor: `${color}14` }]}>
+    <View style={[s.alert, { backgroundColor: `${color}14` }]}>
       <Text style={[s.alertText, { color: COLORS.text }]}>{children}</Text>
     </View>
   );
@@ -57,7 +57,6 @@ const s = StyleSheet.create({
     marginBottom: 8,
   },
   alert: {
-    borderLeftWidth: 4,
     padding: 10,
     borderRadius: 6,
     marginBottom: 12,

@@ -56,11 +56,11 @@ export function WalkInSection({ onClose, onSave, saving, children }: Props) {
           marginTop: 4,
         }}
       >
-        <MaterialIcons name="save" size={18} color="#FFFFFF" />
+        <MaterialIcons name="notifications" size={18} color="#FFFFFF" />
         <Text
           style={{ color: '#FFFFFF', fontWeight: '700', marginLeft: 6, letterSpacing: 0.5 }}
         >
-          SAVE & CHECK IN
+          NOTIFY HOST
         </Text>
       </TouchableOpacity>
     </View>

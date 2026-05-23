@@ -8,6 +8,7 @@
     "scheme": "upandesecurity",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+    "platforms": ["ios", "android"],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.upande.security"

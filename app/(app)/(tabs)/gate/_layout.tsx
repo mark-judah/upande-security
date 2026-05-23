@@ -80,6 +80,8 @@ export default function GateLayout() {
         }}
       >
         <MaterialTopTabs.Screen name="index" options={{ title: 'Gate' }} />
+        <MaterialTopTabs.Screen name="pending" options={{ title: 'Pending' }} />
+        <MaterialTopTabs.Screen name="approved" options={{ title: 'Approved' }} />
         <MaterialTopTabs.Screen name="summary" options={{ title: 'Summary' }} />
       </MaterialTopTabs>
     </SafeAreaView>

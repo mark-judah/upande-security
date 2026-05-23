@@ -16,8 +16,6 @@ export function StaffForm({ result, onCheckIn, busy }: Props) {
       <View
         style={{
           backgroundColor: '#F5F5F5',
-          borderLeftWidth: 4,
-          borderLeftColor: '#000000',
           borderRadius: 10,
           padding: 14,
           marginVertical: 8,
@@ -37,8 +35,6 @@ export function StaffForm({ result, onCheckIn, busy }: Props) {
     <View
       style={{
         backgroundColor: '#F5F5F5',
-        borderLeftWidth: 4,
-        borderLeftColor: '#000000',
         borderRadius: 10,
         padding: 14,
         marginVertical: 8,

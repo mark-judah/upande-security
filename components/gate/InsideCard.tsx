@@ -1,13 +1,17 @@
-import { View, Text } from 'react-native';
+import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { LiveTimer } from '@/components/ui/LiveTimer';
 import { fmtTime } from '@/lib/utils/date';
 import { WORKFLOW_META } from '@/constants/workflowStates';
 import type { Appointment } from '@/lib/api/types';
 
-type Props = { appointment: Appointment };
+type Props = {
+  appointment: Appointment;
+  onCheckOut?: (name: string) => void;
+  busy?: boolean;
+};
 
-export function InsideCard({ appointment: a }: Props) {
+export function InsideCard({ appointment: a, onCheckOut, busy }: Props) {
   const checkInDate = a.custom_check_in_time ? new Date(a.custom_check_in_time) : null;
   const meta = WORKFLOW_META[a.workflow_state];
 
@@ -18,13 +22,8 @@ export function InsideCard({ appointment: a }: Props) {
         borderRadius: 10,
         padding: 12,
         marginBottom: 8,
-        borderLeftWidth: 3,
-        borderLeftColor: '#000000',
-        shadowColor: '#000000',
-        shadowOpacity: 0.04,
-        shadowRadius: 4,
-        shadowOffset: { width: 0, height: 1 },
-        elevation: 1,
+        borderWidth: 1,
+        borderColor: '#E8E8E8',
       }}
     >
       <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -74,6 +73,34 @@ export function InsideCard({ appointment: a }: Props) {
           </Text>
         ) : null}
       </View>
+
+      {onCheckOut ? (
+        <TouchableOpacity
+          onPress={() => onCheckOut(a.name)}
+          disabled={busy}
+          activeOpacity={0.8}
+          style={{
+            marginTop: 10,
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: busy ? '#E0E0E0' : '#000000',
+            borderRadius: 6,
+            paddingVertical: 10,
+          }}
+        >
+          {busy ? (
+            <ActivityIndicator size="small" color="#666666" />
+          ) : (
+            <>
+              <MaterialIcons name="logout" size={16} color="#FFFFFF" />
+              <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 13, marginLeft: 6 }}>
+                CHECK OUT
+              </Text>
+            </>
+          )}
+        </TouchableOpacity>
+      ) : null}
     </View>
   );
 }

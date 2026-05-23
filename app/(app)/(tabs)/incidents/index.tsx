@@ -49,8 +49,6 @@ export default function IncidentsList() {
                   backgroundColor: '#FFFFFF',
                   borderWidth: 1,
                   borderColor: '#E8E8E8',
-                  borderLeftWidth: 4,
-                  borderLeftColor: '#000000',
                   borderRadius: 10,
                   padding: 14,
                   marginBottom: 10,
@@ -139,11 +137,6 @@ export default function IncidentsList() {
           alignItems: 'center',
           justifyContent: 'center',
           flexDirection: 'row',
-          elevation: 4,
-          shadowColor: '#000000',
-          shadowOpacity: 0.25,
-          shadowRadius: 6,
-          shadowOffset: { width: 0, height: 3 },
         }}
       >
         <MaterialIcons name="add-alert" size={22} color="#FFFFFF" />

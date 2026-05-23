@@ -1,6 +1,7 @@
-import { View, Text, ScrollView, RefreshControl, TouchableOpacity } from 'react-native';
+import { Alert, View, Text, ScrollView, RefreshControl, TouchableOpacity } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useDailySummary } from '@/lib/hooks/useDailySummary';
+import { useCheckOut } from '@/lib/hooks/useCheckOut';
 import { StatCard } from '@/components/ui/StatCard';
 import { InsideCard } from '@/components/gate/InsideCard';
 import { ActivityRow } from '@/components/gate/ActivityRow';
@@ -9,6 +10,22 @@ import { fmtLongDate } from '@/lib/utils/date';
 export default function SummaryTab() {
   const today = new Date();
   const { data, isFetching, isLoading, refetch, error } = useDailySummary(today);
+  const checkOut = useCheckOut();
+
+  function confirmCheckOut(name: string) {
+    Alert.alert(
+      'Check Out',
+      'Mark this visitor as checked out?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Check Out',
+          style: 'destructive',
+          onPress: () => checkOut.mutate(name),
+        },
+      ],
+    );
+  }
 
   if (!data && !isLoading && !error) {
     return (
@@ -64,8 +81,6 @@ export default function SummaryTab() {
             backgroundColor: '#FAFAFA',
             padding: 12,
             borderRadius: 8,
-            borderLeftWidth: 3,
-            borderLeftColor: '#000000',
             marginBottom: 12,
           }}
         >
@@ -124,7 +139,12 @@ export default function SummaryTab() {
                 </Text>
               </View>
               {data.still_inside_list.map((a) => (
-                <InsideCard key={a.name} appointment={a} />
+                <InsideCard
+                  key={a.name}
+                  appointment={a}
+                  onCheckOut={confirmCheckOut}
+                  busy={checkOut.isPending && checkOut.variables === a.name}
+                />
               ))}
             </View>
           ) : null}

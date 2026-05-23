@@ -1,0 +1,315 @@
+[
+  {
+    "workflow_name": "Visitor Gate Management",
+    "document_type": "Appointment",
+    "is_active": 1,
+    "override_status": 0,
+    "send_email_alert": 1,
+    "workflow_state_field": "workflow_state",
+    "doctype": "Workflow",
+    "states": [
+      {
+        "state": "Open",
+        "doc_status": "0",
+        "is_optional_state": 0,
+        "avoid_status_override": 0,
+        "allow_edit": "Gate Guard",
+        "send_email": 1,
+        "doctype": "Workflow Document State"
+      },
+      {
+        "state": "Pending Secretary Review",
+        "doc_status": "0",
+        "is_optional_state": 0,
+        "avoid_status_override": 0,
+        "allow_edit": "Secretary",
+        "send_email": 1,
+        "doctype": "Workflow Document State"
+      },
+      {
+        "state": "Pending Host Review",
+        "doc_status": "0",
+        "is_optional_state": 0,
+        "avoid_status_override": 0,
+        "allow_edit": "Host",
+        "send_email": 1,
+        "doctype": "Workflow Document State"
+      },
+      {
+        "state": "Approved by Secretary",
+        "doc_status": "0",
+        "is_optional_state": 0,
+        "avoid_status_override": 0,
+        "allow_edit": "Gate Guard",
+        "send_email": 1,
+        "doctype": "Workflow Document State"
+      },
+      {
+        "state": "Rescheduled by Secretary",
+        "doc_status": "0",
+        "is_optional_state": 0,
+        "avoid_status_override": 0,
+        "allow_edit": "Gate Guard",
+        "send_email": 1,
+        "doctype": "Workflow Document State"
+      },
+      {
+        "state": "Redirected to Another Host",
+        "doc_status": "0",
+        "is_optional_state": 0,
+        "avoid_status_override": 0,
+        "allow_edit": "Gate Guard",
+        "send_email": 1,
+        "doctype": "Workflow Document State"
+      },
+      {
+        "state": "Rejected by Secretary",
+        "doc_status": "0",
+        "is_optional_state": 0,
+        "avoid_status_override": 0,
+        "allow_edit": "Gate Guard",
+        "send_email": 1,
+        "doctype": "Workflow Document State"
+      },
+      {
+        "state": "Approved by Host",
+        "doc_status": "0",
+        "is_optional_state": 0,
+        "avoid_status_override": 0,
+        "allow_edit": "Gate Guard",
+        "send_email": 1,
+        "doctype": "Workflow Document State"
+      },
+      {
+        "state": "Rescheduled by Host",
+        "doc_status": "0",
+        "is_optional_state": 0,
+        "avoid_status_override": 0,
+        "allow_edit": "Gate Guard",
+        "send_email": 1,
+        "doctype": "Workflow Document State"
+      },
+      {
+        "state": "Rejected by Host",
+        "doc_status": "0",
+        "is_optional_state": 0,
+        "avoid_status_override": 0,
+        "allow_edit": "Gate Guard",
+        "send_email": 1,
+        "doctype": "Workflow Document State"
+      },
+      {
+        "state": "Visitor Checked Out",
+        "doc_status": "0",
+        "update_field": "status",
+        "update_value": "Closed",
+        "is_optional_state": 0,
+        "avoid_status_override": 0,
+        "allow_edit": "Gate Guard",
+        "send_email": 1,
+        "doctype": "Workflow Document State"
+      },
+      {
+        "state": "Visitor Checked In",
+        "doc_status": "0",
+        "is_optional_state": 0,
+        "avoid_status_override": 0,
+        "allow_edit": "Gate Guard",
+        "send_email": 1,
+        "doctype": "Workflow Document State"
+      }
+    ],
+    "transitions": [
+      {
+        "state": "Open",
+        "action": "Confirm Check In",
+        "next_state": "Pending Secretary Review",
+        "allowed": "Gate Guard",
+        "allow_self_approval": 1,
+        "send_email_to_creator": 0,
+        "doctype": "Workflow Transition"
+      },
+      {
+        "state": "Pending Secretary Review",
+        "action": "Forward to Host",
+        "next_state": "Pending Host Review",
+        "allowed": "Secretary",
+        "allow_self_approval": 1,
+        "send_email_to_creator": 0,
+        "doctype": "Workflow Transition"
+      },
+      {
+        "state": "Pending Secretary Review",
+        "action": "Approve on Behalf of Host",
+        "next_state": "Approved by Secretary",
+        "allowed": "Secretary",
+        "allow_self_approval": 1,
+        "send_email_to_creator": 0,
+        "doctype": "Workflow Transition"
+      },
+      {
+        "state": "Pending Secretary Review",
+        "action": "Reschedule",
+        "next_state": "Rescheduled by Secretary",
+        "allowed": "Secretary",
+        "allow_self_approval": 1,
+        "send_email_to_creator": 0,
+        "doctype": "Workflow Transition"
+      },
+      {
+        "state": "Pending Secretary Review",
+        "action": "Redirect to Another Host",
+        "next_state": "Redirected to Another Host",
+        "allowed": "Secretary",
+        "allow_self_approval": 1,
+        "send_email_to_creator": 0,
+        "doctype": "Workflow Transition"
+      },
+      {
+        "state": "Pending Secretary Review",
+        "action": "Reject Visit",
+        "next_state": "Rejected by Secretary",
+        "allowed": "Secretary",
+        "allow_self_approval": 1,
+        "send_email_to_creator": 0,
+        "doctype": "Workflow Transition"
+      },
+      {
+        "state": "Pending Host Review",
+        "action": "Approve Visit",
+        "next_state": "Approved by Host",
+        "allowed": "Host",
+        "allow_self_approval": 1,
+        "send_email_to_creator": 0,
+        "doctype": "Workflow Transition"
+      },
+      {
+        "state": "Pending Host Review",
+        "action": "Reschedule",
+        "next_state": "Rescheduled by Host",
+        "allowed": "Host",
+        "allow_self_approval": 1,
+        "send_email_to_creator": 0,
+        "doctype": "Workflow Transition"
+      },
+      {
+        "state": "Pending Host Review",
+        "action": "Redirect to Another Host",
+        "next_state": "Redirected to Another Host",
+        "allowed": "Host",
+        "allow_self_approval": 1,
+        "send_email_to_creator": 0,
+        "doctype": "Workflow Transition"
+      },
+      {
+        "state": "Pending Host Review",
+        "action": "Reject Visit",
+        "next_state": "Rejected by Host",
+        "allowed": "Host",
+        "allow_self_approval": 1,
+        "send_email_to_creator": 0,
+        "doctype": "Workflow Transition"
+      },
+      {
+        "state": "Approved by Secretary",
+        "action": "Confirm Check Out",
+        "next_state": "Visitor Checked Out",
+        "allowed": "Gate Guard",
+        "allow_self_approval": 1,
+        "send_email_to_creator": 0,
+        "doctype": "Workflow Transition"
+      },
+      {
+        "state": "Rescheduled by Secretary",
+        "action": "Confirm Check Out",
+        "next_state": "Visitor Checked Out",
+        "allowed": "Gate Guard",
+        "allow_self_approval": 1,
+        "send_email_to_creator": 0,
+        "doctype": "Workflow Transition"
+      },
+      {
+        "state": "Redirected to Another Host",
+        "action": "Confirm Check Out",
+        "next_state": "Visitor Checked Out",
+        "allowed": "Gate Guard",
+        "allow_self_approval": 1,
+        "send_email_to_creator": 0,
+        "doctype": "Workflow Transition"
+      },
+      {
+        "state": "Rejected by Secretary",
+        "action": "Confirm Check Out",
+        "next_state": "Visitor Checked Out",
+        "allowed": "Gate Guard",
+        "allow_self_approval": 1,
+        "send_email_to_creator": 0,
+        "doctype": "Workflow Transition"
+      },
+      {
+        "state": "Approved by Host",
+        "action": "Confirm Check Out",
+        "next_state": "Visitor Checked Out",
+        "allowed": "Gate Guard",
+        "allow_self_approval": 1,
+        "send_email_to_creator": 0,
+        "doctype": "Workflow Transition"
+      },
+      {
+        "state": "Rescheduled by Host",
+        "action": "Confirm Check Out",
+        "next_state": "Visitor Checked Out",
+        "allowed": "Gate Guard",
+        "allow_self_approval": 1,
+        "send_email_to_creator": 0,
+        "doctype": "Workflow Transition"
+      },
+      {
+        "state": "Rejected by Host",
+        "action": "Confirm Check Out",
+        "next_state": "Visitor Checked Out",
+        "allowed": "Gate Guard",
+        "allow_self_approval": 1,
+        "send_email_to_creator": 0,
+        "doctype": "Workflow Transition"
+      },
+      {
+        "state": "Open",
+        "action": "Notify Host",
+        "next_state": "Pending Host Review",
+        "allowed": "Gate Guard",
+        "allow_self_approval": 1,
+        "send_email_to_creator": 0,
+        "doctype": "Workflow Transition"
+      },
+      {
+        "state": "Pending Host Review",
+        "action": "Approve on Behalf of Host",
+        "next_state": "Approved by Host",
+        "allowed": "Secretary",
+        "allow_self_approval": 1,
+        "send_email_to_creator": 0,
+        "doctype": "Workflow Transition"
+      },
+      {
+        "state": "Approved by Host",
+        "action": "Confirm Check In",
+        "next_state": "Visitor Checked In",
+        "allowed": "Gate Guard",
+        "allow_self_approval": 1,
+        "send_email_to_creator": 0,
+        "doctype": "Workflow Transition"
+      },
+      {
+        "state": "Visitor Checked In",
+        "action": "Confirm Check Out",
+        "next_state": "Visitor Checked Out",
+        "allowed": "Gate Guard",
+        "allow_self_approval": 1,
+        "send_email_to_creator": 0,
+        "doctype": "Workflow Transition"
+      }
+    ],
+    "name": "Visitor Gate Management"
+  }
+]

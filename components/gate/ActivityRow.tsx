@@ -36,17 +36,12 @@ export function ActivityRow({ appointment: a }: Props) {
   const currentlyInside = checkedIn && !checkedOut;
 
   const bg = checkedOut ? '#F5F5F5' : currentlyInside ? '#FAFAFA' : '#FFFFFF';
-  const borderColor = meta?.color ?? '#999999';
 
   return (
     <View
       style={{
         backgroundColor: bg,
         borderRadius: 10,
-        borderLeftWidth: 3,
-        borderLeftColor: borderColor,
-        borderWidth: 1,
-        borderColor: '#E8E8E8',
         marginBottom: 8,
         overflow: 'hidden',
       }}

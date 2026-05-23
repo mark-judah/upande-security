@@ -16,11 +16,8 @@ export function StatCard({ label, value, color, icon }: Props) {
         backgroundColor: 'white',
         borderRadius: 12,
         padding: 14,
-        shadowColor: '#000',
-        shadowOpacity: 0.06,
-        shadowRadius: 6,
-        shadowOffset: { width: 0, height: 2 },
-        elevation: 2,
+        borderWidth: 1,
+        borderColor: '#E8E8E8',
       }}
     >
       <MaterialIcons name={icon} size={28} color={color} />

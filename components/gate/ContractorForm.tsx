@@ -1,14 +1,16 @@
-import { View, Text, TouchableOpacity } from 'react-native';
+import { useState } from 'react';
+import { View, Text, TouchableOpacity, TextInput } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import type { ContractorSearchResult } from '@/lib/api/types';
 
 type Props = {
   result: ContractorSearchResult;
-  onCheckIn: () => void;
+  onCheckIn: (input: { passengers?: number }) => void;
   busy?: boolean;
 };
 
 export function ContractorForm({ result, onCheckIn, busy }: Props) {
+  const [passengers, setPassengers] = useState('');
   const found = Boolean(result.contract_name || result.contractor_name);
 
   if (!found) {
@@ -16,8 +18,6 @@ export function ContractorForm({ result, onCheckIn, busy }: Props) {
       <View
         style={{
           backgroundColor: '#F5F5F5',
-          borderLeftWidth: 4,
-          borderLeftColor: '#000000',
           borderRadius: 10,
           padding: 14,
           marginVertical: 8,
@@ -33,12 +33,22 @@ export function ContractorForm({ result, onCheckIn, busy }: Props) {
     );
   }
 
+  const submit = () => {
+    const raw = passengers.trim();
+    if (!raw) {
+      onCheckIn({});
+      return;
+    }
+    const num = parseInt(raw, 10);
+    onCheckIn({
+      passengers: Number.isFinite(num) && num >= 0 ? num : undefined,
+    });
+  };
+
   return (
     <View
       style={{
         backgroundColor: '#F5F5F5',
-        borderLeftWidth: 4,
-        borderLeftColor: '#000000',
         borderRadius: 10,
         padding: 14,
         marginVertical: 8,
@@ -56,8 +66,47 @@ export function ContractorForm({ result, onCheckIn, busy }: Props) {
         </View>
       </View>
 
+      <View style={{ marginTop: 14 }}>
+        <Text style={{ fontSize: 12, fontWeight: '600', color: '#444444', marginBottom: 6 }}>
+          Number Of People In The Vehicle
+        </Text>
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            borderWidth: 1,
+            borderColor: '#DDDDDD',
+            borderRadius: 8,
+            backgroundColor: '#FFFFFF',
+            paddingHorizontal: 12,
+          }}
+        >
+          <MaterialIcons name="group" size={18} color="#888888" />
+          <TextInput
+            value={passengers}
+            onChangeText={(v) => setPassengers(v.replace(/[^0-9]/g, ''))}
+            keyboardType="number-pad"
+            inputMode="numeric"
+            placeholder="0"
+            placeholderTextColor="#BBBBBB"
+            maxLength={3}
+            editable={!busy}
+            style={{
+              flex: 1,
+              paddingVertical: 10,
+              paddingHorizontal: 8,
+              fontSize: 14,
+              color: '#111111',
+            }}
+          />
+        </View>
+        <Text style={{ fontSize: 11, color: '#888888', marginTop: 4 }}>
+          Leave blank if not applicable
+        </Text>
+      </View>
+
       <TouchableOpacity
-        onPress={onCheckIn}
+        onPress={submit}
         disabled={busy}
         activeOpacity={0.8}
         accessibilityRole="button"
