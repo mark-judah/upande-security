@@ -105,3 +105,21 @@ export async function contractorCheckOut(appointmentName: string) {
 }
 
 export type { ContractorVehicle };
+
+export async function addVehicleToSupplier(
+  supplierName: string,
+  vehicle: { number_plate: string; colour?: string; vehicle_type?: string },
+): Promise<{ success: boolean; already_exists: boolean }> {
+  const params = new URLSearchParams();
+  params.append('supplier_name', supplierName);
+  params.append('number_plate', vehicle.number_plate);
+  if (vehicle.colour) params.append('colour', vehicle.colour);
+  if (vehicle.vehicle_type) params.append('vehicle_type', vehicle.vehicle_type);
+
+  const res = await api.post<{ message: { success: boolean; already_exists: boolean } }>(
+    '/api/method/add_contractor_vehicle',
+    params.toString(),
+    { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } },
+  );
+  return res.data.message;
+}

@@ -30,6 +30,7 @@ import { useCreateWalkIn } from '@/lib/hooks/useCreateWalkIn';
 import { createGateTimesheet, submitGateTimesheet } from '@/lib/api/timesheets';
 import type { ActiveVehicleEntry } from '@/lib/stores/vehicleStore';
 import { useContractorCheckIn } from '@/lib/hooks/useContractorCheckIn';
+import { addVehicleToSupplier } from '@/lib/api/contractors';
 import { useFeedback } from '@/lib/hooks/useFeedback';
 import { useGateStore } from '@/lib/stores/gateStore';
 import { useVehicleStore } from '@/lib/stores/vehicleStore';
@@ -246,6 +247,25 @@ export default function GateTab() {
     }
   }
 
+  async function onContractorAddVehicle(
+    vehicle: ContractorVehicle,
+  ): Promise<'added' | 'duplicate'> {
+    const supplierId = contractorResult?.supplier_id;
+    if (!supplierId) return 'added';
+    try {
+      const res = await addVehicleToSupplier(supplierId, vehicle);
+      if (res.already_exists) {
+        feedback.warning('Vehicle already registered');
+        return 'duplicate';
+      }
+      feedback.success('Vehicle saved to contractor profile ✓');
+      return 'added';
+    } catch {
+      feedback.error('Failed to save vehicle');
+      return 'duplicate';
+    }
+  }
+
   async function onContractorWalkInSave(data: WalkInContractorData) {
     if (!data.contractor_name?.trim()) {
       feedback.warning('Contractor / company name is required');
@@ -437,6 +457,7 @@ export default function GateTab() {
                 result={contractorResult ?? {}}
                 onCheckIn={onContractorCheckIn}
                 onRegisterNew={() => setContractorWalkInOpen(true)}
+                onAddVehicle={onContractorAddVehicle}
                 showWalkInForm={contractorWalkInOpen}
                 onCloseWalkIn={() => setContractorWalkInOpen(false)}
                 onSaveWalkIn={onContractorWalkInSave}

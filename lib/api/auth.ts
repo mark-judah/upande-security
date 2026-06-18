@@ -57,6 +57,22 @@ export async function login(email: string, password: string, urlInput: string) {
   return { fullUrl, sid, userId: userId ?? '', message };
 }
 
+export async function fetchUserRoles(instanceUrl: string, email: string): Promise<string[]> {
+  try {
+    const cookie = await AsyncStorage.getItem('cookie');
+    const res = await fetch(
+      `${instanceUrl}/api/resource/User/${encodeURIComponent(email)}?fields=["roles"]`,
+      { headers: { Cookie: cookie ?? '' } },
+    );
+    if (!res.ok) return [];
+    const data = await res.json();
+    const roles: string[] = (data?.data?.roles ?? []).map((r: any) => r.role as string);
+    return roles;
+  } catch {
+    return [];
+  }
+}
+
 export async function logout() {
-  await AsyncStorage.multiRemove(['instanceurl', 'cookie', 'user_email']);
+  await AsyncStorage.multiRemove(['instanceurl', 'cookie', 'user_email', 'user_roles']);
 }

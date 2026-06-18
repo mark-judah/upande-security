@@ -57,3 +57,37 @@ export const AWAITING_REVIEW_STATES: WorkflowState[] = [
   'Pending Secretary Review',
   'Pending Host Review',
 ];
+
+/**
+ * Maps Frappe role names → the workflow states they can act on + the
+ * workflow action strings to use with apply_workflow.
+ *
+ * Update role names to match exactly what is configured in Kaitet ERPNext
+ * (Settings → Role List). Action strings must match the workflow transitions.
+ */
+export type ApprovalRoleConfig = {
+  pendingState: WorkflowState;
+  actions: { label: string; action: string; color: string }[];
+  filterByHost?: boolean;
+};
+
+export const APPROVAL_ROLE_MAP: Record<string, ApprovalRoleConfig> = {
+  Secretary: {
+    pendingState: 'Pending Secretary Review',
+    actions: [
+      { label: 'Approve',    action: 'Approve by Secretary',        color: '#2E7D32' },
+      { label: 'Reschedule', action: 'Reschedule by Secretary',     color: '#1565C0' },
+      { label: 'Redirect',   action: 'Redirect to Another Host',    color: '#6A1B9A' },
+      { label: 'Reject',     action: 'Reject by Secretary',         color: '#C62828' },
+    ],
+  },
+  'Department Head': {
+    pendingState: 'Pending Host Review',
+    filterByHost: true,
+    actions: [
+      { label: 'Approve',    action: 'Approve by Host',   color: '#2E7D32' },
+      { label: 'Reschedule', action: 'Reschedule by Host', color: '#1565C0' },
+      { label: 'Reject',     action: 'Reject by Host',    color: '#C62828' },
+    ],
+  },
+};

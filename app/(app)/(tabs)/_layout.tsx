@@ -1,9 +1,11 @@
 import { Tabs } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useIsApprover } from '@/lib/hooks/usePendingApprovals';
 
 export default function TabsLayout() {
   const insets = useSafeAreaInsets();
+  const isApprover = useIsApprover();
 
   return (
     <Tabs
@@ -46,6 +48,16 @@ export default function TabsLayout() {
           title: 'Incidents',
           tabBarIcon: ({ color, size }) => (
             <MaterialIcons name="report" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="approvals"
+        options={{
+          title: 'Approvals',
+          href: isApprover ? undefined : null,
+          tabBarIcon: ({ color, size }) => (
+            <MaterialIcons name="approval" size={size} color={color} />
           ),
         }}
       />
