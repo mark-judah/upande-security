@@ -128,6 +128,7 @@ export type WalkInContractorData = {
   number_plate: string;
   vehicle_colour: string;
   mode_of_transport: 'On Foot' | 'Vehicle' | 'Motor Bike';
+  number_of_passengers?: number;
 };
 
 function WalkInBookingForm({
@@ -146,6 +147,7 @@ function WalkInBookingForm({
   const [mode, setMode] = useState<'On Foot' | 'Vehicle' | 'Motor Bike'>('On Foot');
   const [plate, setPlate] = useState('');
   const [colour, setColour] = useState('');
+  const [passengers, setPassengers] = useState('');
 
   const showVehicle = mode !== 'On Foot';
 
@@ -214,6 +216,12 @@ function WalkInBookingForm({
             autoCapitalize="characters"
           />
           <FieldInput label="Vehicle Colour" value={colour} onChangeText={setColour} />
+          <FieldInput
+            label="No. of Passengers (excl. driver)"
+            value={passengers}
+            onChangeText={(v) => setPassengers(v.replace(/[^0-9]/g, ''))}
+            keyboardType="number-pad"
+          />
         </>
       ) : null}
 
@@ -227,6 +235,7 @@ function WalkInBookingForm({
             number_plate: plate,
             vehicle_colour: colour,
             mode_of_transport: mode,
+            number_of_passengers: passengers ? parseInt(passengers, 10) : undefined,
           })
         }
         disabled={saving}
@@ -249,11 +258,12 @@ function ApprovedContractorCard({
   busy,
 }: {
   result: ContractorSearchResult;
-  onCheckIn: (vehicle?: ContractorVehicle) => void;
+  onCheckIn: (vehicle?: ContractorVehicle, passengers?: number) => void;
   onRegisterNew: () => void;
   busy?: boolean;
 }) {
   const [selectedVehicle, setSelectedVehicle] = useState<ContractorVehicle | null>(null);
+  const [passengers, setPassengers] = useState('');
   // Track how many check-ins have been done this session and last plate used
   const [checkInCount, setCheckInCount] = useState(0);
   const [lastPlate, setLastPlate] = useState<string | null>(null);
@@ -261,9 +271,11 @@ function ApprovedContractorCard({
 
   function handleCheckIn() {
     setLastPlate(selectedVehicle?.number_plate ?? null);
-    onCheckIn(selectedVehicle ?? undefined);
-    // Reset vehicle selection so guard can pick a different one for the next person
+    const pax = passengers ? parseInt(passengers, 10) : undefined;
+    onCheckIn(selectedVehicle ?? undefined, pax);
+    // Reset vehicle selection and passengers so guard can enter fresh values for the next person
     setSelectedVehicle(null);
+    setPassengers('');
     setCheckInCount((n) => n + 1);
   }
 
@@ -361,6 +373,16 @@ function ApprovedContractorCard({
           </View>
         ) : null}
 
+        {/* Passengers */}
+        <FieldInput
+          label="No. of Passengers (excl. driver)"
+          value={passengers}
+          onChangeText={(v) => setPassengers(v.replace(/[^0-9]/g, ''))}
+          keyboardType="number-pad"
+          placeholder="0"
+          style={{ marginTop: 10 }}
+        />
+
         {/* Check In button */}
         <TouchableOpacity
           onPress={handleCheckIn}
@@ -391,7 +413,7 @@ function ApprovedContractorCard({
 
 type Props = {
   result: ContractorSearchResult;
-  onCheckIn: (vehicle?: ContractorVehicle) => void;
+  onCheckIn: (vehicle?: ContractorVehicle, passengers?: number) => void;
   onRegisterNew: () => void;
   showWalkInForm?: boolean;
   onCloseWalkIn?: () => void;

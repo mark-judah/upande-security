@@ -222,7 +222,7 @@ export default function GateTab() {
     clearForm();
   }
 
-  async function onContractorCheckIn(vehicle?: ContractorVehicle) {
+  async function onContractorCheckIn(vehicle?: ContractorVehicle, passengers?: number) {
     if (!contractorResult) return;
     const payload = {
       contractor_ref: contractorResult.supplier_id,
@@ -233,6 +233,7 @@ export default function GateTab() {
       transport_mode: vehicle ? 'Vehicle' : 'On Foot',
       number_plate: vehicle?.number_plate,
       vehicle_color: vehicle?.colour,
+      passengers,
     };
     if (__DEV__) {
       console.log('[gate] onContractorCheckIn payload:', payload);
@@ -262,6 +263,7 @@ export default function GateTab() {
       transport_mode: data.mode_of_transport,
       number_plate: data.number_plate?.trim() || undefined,
       vehicle_color: data.vehicle_colour?.trim() || undefined,
+      passengers: data.number_of_passengers,
     };
     if (__DEV__) {
       console.log('[gate] onContractorWalkInSave payload:', payload);
