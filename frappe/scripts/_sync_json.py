@@ -42,10 +42,12 @@ MANIFEST = [
     ("List Incident Categories", "list_incident_categories", "list_incident_categories.py"),
     ("Create Incident", "create_incident", "create_incident.py"),
     ("My Incidents", "my_incidents", "my_incidents.py"),
+    ("List Incidents", "list_incidents", "list_incidents.py"),
     ("Notify Host", "notify_host", "notify_host.py"),
     ("Create Walk In Notify", "create_walk_in_notify", "create_walk_in_notify.py"),
     ("Pending Approvals", "pending_approvals", "pending_approvals.py"),
     ("Approved Appointments", "approved_appointments", "approved_appointments.py"),
+    ("Gate Activity", "gate_activity", "gate_activity.py"),
     ("Fetch Security Dashboard Data", "fetchSecurityDasboardData", "fetchSecurityDasboardData.py"),
     ("Fetch Patrol Data", "fetchPatrolData", "fetchPatrolData.py"),
 ]

@@ -65,7 +65,7 @@ export default function Login() {
         // Stored session is the authentication; biometric just gates the unlock.
         await hydrate();
         unlock();
-        router.replace('/gate');
+        router.replace('/');
       } else if (res.error && !['user_cancel', 'system_cancel'].includes(res.error)) {
         setErr("Couldn't verify biometric. Use your password.");
       }
@@ -89,7 +89,7 @@ export default function Login() {
       // authStore.login calls lib/api/auth.login which internally resolves
       // shortform URLs like 'kaitet' via getWorkingUrl.
       await login(url.trim(), email.trim(), password);
-      router.replace('/gate');
+      router.replace('/');
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'Login failed');
     } finally {

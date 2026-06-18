@@ -303,6 +303,13 @@ export type IncidentSummary = {
   description: string;
   status: string;
   reported_datetime: string;
+  reported_by?: string;
+};
+
+export type ListIncidentsInput = {
+  from_date?: string; // YYYY-MM-DD
+  to_date?: string;   // YYYY-MM-DD
+  limit?: number;
 };
 
 export type CreateIncidentInput = {
@@ -361,6 +368,32 @@ export type PendingApprovalRow = {
   workflow_state: string;
   host_id: string;
   host_name: string;
+};
+
+export type GateActivityRow = {
+  name: string;
+  customer_name: string;
+  phone: string;
+  purpose: string;
+  scheduled_time: string;
+  workflow_state:
+    | 'Open'
+    | 'Pending Secretary Review'
+    | 'Pending Host Review'
+    | 'Approved by Secretary'
+    | 'Rescheduled by Secretary'
+    | 'Rescheduled by Host'
+    | 'Redirected to Another Host'
+    | 'Rejected by Secretary'
+    | 'Rejected by Host'
+    | string;
+  modified: string;
+  host_id: string;
+  host_name: string;
+  actor: string;
+  reason: string;
+  extra_label: string;
+  extra_value: string;
 };
 
 export type ApprovedAppointmentRow = {
@@ -467,10 +500,13 @@ export const api = {
   // Pending approvals
   pendingApprovals: () => call<PendingApprovalRow[]>('pending_approvals'),
   approvedAppointments: () => call<ApprovedAppointmentRow[]>('approved_appointments'),
+  gateActivity: () => call<GateActivityRow[]>('gate_activity'),
 
   // Incidents
   listIncidentCategories: () => call<IncidentCategory[]>('list_incident_categories'),
   createIncident: (input: CreateIncidentInput) =>
     call<CreatedIncident>('create_incident', input),
   myIncidents: () => call<IncidentSummary[]>('my_incidents'),
+  listIncidents: (input: ListIncidentsInput = {}) =>
+    call<IncidentSummary[]>('list_incidents', input),
 };
