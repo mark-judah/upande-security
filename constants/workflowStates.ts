@@ -12,19 +12,25 @@ export type WorkflowState =
   | 'Visitor Checked In'
   | 'Visitor Checked Out';
 
-export const WORKFLOW_META: Record<WorkflowState, { color: string; icon: string }> = {
-  Open:                          { color: '#000000', icon: 'fiber-new' },
-  'Pending Host Review':         { color: '#666666', icon: 'hourglass-bottom' },
-  'Approved by Host':            { color: '#000000', icon: 'verified' },
-  'Rescheduled by Host':         { color: '#555555', icon: 'update' },
-  'Rejected by Host':            { color: '#333333', icon: 'block' },
-  'Pending Secretary Review':    { color: '#666666', icon: 'hourglass-top' },
-  'Approved by Secretary':       { color: '#000000', icon: 'check-circle' },
-  'Rescheduled by Secretary':    { color: '#555555', icon: 'schedule' },
-  'Redirected to Another Host':  { color: '#555555', icon: 'alt-route' },
-  'Rejected by Secretary':       { color: '#333333', icon: 'cancel' },
-  'Visitor Checked In':          { color: '#000000', icon: 'login' },
-  'Visitor Checked Out':         { color: '#999999', icon: 'logout' },
+import type { Ionicons } from '@expo/vector-icons';
+import { COLORS } from '@/src/core/theme';
+
+export const WORKFLOW_META: Record<
+  WorkflowState,
+  { color: string; icon: keyof typeof Ionicons.glyphMap }
+> = {
+  Open:                          { color: COLORS.text,          icon: 'sparkles-outline' },
+  'Pending Host Review':         { color: COLORS.textMuted,     icon: 'hourglass-outline' },
+  'Approved by Host':            { color: COLORS.success,       icon: 'shield-checkmark' },
+  'Rescheduled by Host':         { color: COLORS.info,          icon: 'refresh-circle-outline' },
+  'Rejected by Host':            { color: COLORS.danger,        icon: 'close-circle' },
+  'Pending Secretary Review':    { color: COLORS.textMuted,     icon: 'hourglass' },
+  'Approved by Secretary':       { color: COLORS.success,       icon: 'checkmark-circle' },
+  'Rescheduled by Secretary':    { color: COLORS.info,          icon: 'time-outline' },
+  'Redirected to Another Host':  { color: COLORS.info,          icon: 'git-branch-outline' },
+  'Rejected by Secretary':       { color: COLORS.danger,        icon: 'ban' },
+  'Visitor Checked In':          { color: COLORS.text,          icon: 'log-in' },
+  'Visitor Checked Out':         { color: COLORS.textMuted,     icon: 'log-out' },
 };
 
 /**

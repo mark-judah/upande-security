@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { View, Text, TouchableOpacity, TextInput } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import type { ContractorSearchResult } from '@/lib/api/types';
+import { COLORS, spacing, borderRadius, fontSize } from '@/src/core/theme';
 
 type Props = {
   result: ContractorSearchResult;
@@ -17,15 +18,15 @@ export function ContractorForm({ result, onCheckIn, busy }: Props) {
     return (
       <View
         style={{
-          backgroundColor: '#F5F5F5',
-          borderRadius: 10,
+          backgroundColor: COLORS.surfaceAlt,
+          borderRadius: borderRadius.md,
           padding: 14,
-          marginVertical: 8,
+          marginVertical: spacing.sm,
         }}
       >
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <MaterialIcons name="info" size={22} color="#000000" />
-          <Text style={{ color: '#000000', fontWeight: '700', marginLeft: 8 }}>
+          <Ionicons name="information-circle" size={22} color={COLORS.text} />
+          <Text style={{ color: COLORS.text, fontWeight: '700', marginLeft: spacing.sm }}>
             NO ACTIVE CONTRACT
           </Text>
         </View>
@@ -48,26 +49,26 @@ export function ContractorForm({ result, onCheckIn, busy }: Props) {
   return (
     <View
       style={{
-        backgroundColor: '#F5F5F5',
-        borderRadius: 10,
+        backgroundColor: COLORS.surfaceAlt,
+        borderRadius: borderRadius.md,
         padding: 14,
-        marginVertical: 8,
+        marginVertical: spacing.sm,
       }}
     >
       <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
-        <MaterialIcons name="engineering" size={22} color="#000000" />
+        <Ionicons name="construct-outline" size={22} color={COLORS.text} />
         <View style={{ flex: 1, marginLeft: 10 }}>
-          <Text style={{ fontSize: 16, fontWeight: '700', color: '#111111' }}>
+          <Text style={{ fontSize: 16, fontWeight: '700', color: COLORS.text }}>
             {result.contractor_name ?? '—'}
           </Text>
           {result.contract_name ? (
-            <Text style={{ color: '#333333', fontSize: 13 }}>Contract: {result.contract_name}</Text>
+            <Text style={{ color: COLORS.textSecondary, fontSize: fontSize.sm }}>Contract: {result.contract_name}</Text>
           ) : null}
         </View>
       </View>
 
       <View style={{ marginTop: 14 }}>
-        <Text style={{ fontSize: 12, fontWeight: '600', color: '#444444', marginBottom: 6 }}>
+        <Text style={{ fontSize: fontSize.xs, fontWeight: '600', color: COLORS.textSecondary, marginBottom: 6 }}>
           Number Of People In The Vehicle
         </Text>
         <View
@@ -75,32 +76,32 @@ export function ContractorForm({ result, onCheckIn, busy }: Props) {
             flexDirection: 'row',
             alignItems: 'center',
             borderWidth: 1,
-            borderColor: '#DDDDDD',
-            borderRadius: 8,
-            backgroundColor: '#FFFFFF',
-            paddingHorizontal: 12,
+            borderColor: COLORS.border,
+            borderRadius: borderRadius.md,
+            backgroundColor: COLORS.surface,
+            paddingHorizontal: spacing.md,
           }}
         >
-          <MaterialIcons name="group" size={18} color="#888888" />
+          <Ionicons name="people" size={18} color={COLORS.textMuted} />
           <TextInput
             value={passengers}
             onChangeText={(v) => setPassengers(v.replace(/[^0-9]/g, ''))}
             keyboardType="number-pad"
             inputMode="numeric"
             placeholder="0"
-            placeholderTextColor="#BBBBBB"
+            placeholderTextColor={COLORS.textMuted}
             maxLength={3}
             editable={!busy}
             style={{
               flex: 1,
               paddingVertical: 10,
-              paddingHorizontal: 8,
+              paddingHorizontal: spacing.sm,
               fontSize: 14,
-              color: '#111111',
+              color: COLORS.text,
             }}
           />
         </View>
-        <Text style={{ fontSize: 11, color: '#888888', marginTop: 4 }}>
+        <Text style={{ fontSize: fontSize.xs, color: COLORS.textMuted, marginTop: spacing.xs }}>
           Leave blank if not applicable
         </Text>
       </View>
@@ -111,19 +112,19 @@ export function ContractorForm({ result, onCheckIn, busy }: Props) {
         activeOpacity={0.8}
         accessibilityRole="button"
         style={{
-          backgroundColor: '#000000',
+          backgroundColor: COLORS.primary,
           opacity: busy ? 0.6 : 1,
-          borderRadius: 8,
+          borderRadius: borderRadius.md,
           paddingVertical: 14,
           minHeight: 48,
           alignItems: 'center',
           justifyContent: 'center',
           flexDirection: 'row',
-          marginTop: 12,
+          marginTop: spacing.md,
         }}
       >
-        <MaterialIcons name="login" size={18} color="#FFFFFF" />
-        <Text style={{ color: '#FFFFFF', fontWeight: '700', marginLeft: 6, letterSpacing: 0.5 }}>
+        <Ionicons name="log-in-outline" size={18} color={COLORS.textOnPrimary} />
+        <Text style={{ color: COLORS.textOnPrimary, fontWeight: '700', marginLeft: 6, letterSpacing: 0.5 }}>
           CHECK IN
         </Text>
       </TouchableOpacity>

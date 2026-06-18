@@ -1,80 +1,143 @@
-import '../global.css';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
+import { Stack, useRouter, useSegments } from 'expo-router';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
+import * as SplashScreen from 'expo-splash-screen';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { Stack } from 'expo-router';
-import Toast from 'react-native-toast-message';
-import { View, ActivityIndicator, Text, TextInput } from 'react-native';
-import { setAudioModeAsync } from 'expo-audio';
 import {
   useFonts,
+  DMSans_400Regular,
+  DMSans_500Medium,
+} from '@expo-google-fonts/dm-sans';
+import {
   Poppins_400Regular,
   Poppins_500Medium,
   Poppins_600SemiBold,
   Poppins_700Bold,
 } from '@expo-google-fonts/poppins';
+import 'react-native-reanimated';
 import { useAuthStore } from '@/lib/stores/authStore';
-import { theme } from '@/constants/theme';
+import { useNetworkStore } from '@/src/core/network/store';
+import { ToastProvider } from '@/src/core/ui/Toast';
+import { DrawerItemsProvider, type DrawerItem } from '@/src/core/ui/drawer-items-context';
+import { initPatrolDb } from '@/lib/services/patrolDb';
+import { useSosWatcher } from '@/lib/hooks/useSosWatcher';
+import '@/lib/services/patrolTracking';
+
+// Hold the native splash until fonts + auth hydrated.
+SplashScreen.preventAutoHideAsync().catch(() => {});
+
+// The biometric-lock screen lives at app/biometric-lock.tsx and is routable
+// when this flag is true. The auth store's biometricLocked flag still drives
+// when the route activates — see the routing effect below.
+const BIOMETRIC_LOCK_ROUTE_AVAILABLE = true;
 
 const queryClient = new QueryClient();
 
-let defaultFontApplied = false;
-function applyDefaultFont() {
-  if (defaultFontApplied) return;
-  defaultFontApplied = true;
-  const baseText: any = Text;
-  const baseInput: any = TextInput;
-  baseText.defaultProps = baseText.defaultProps || {};
-  baseInput.defaultProps = baseInput.defaultProps || {};
-  baseText.defaultProps.style = [
-    { fontFamily: 'Poppins_400Regular' },
-    baseText.defaultProps.style,
-  ];
-  baseInput.defaultProps.style = [
-    { fontFamily: 'Poppins_400Regular' },
-    baseInput.defaultProps.style,
-  ];
-}
+const DRAWER_ITEMS: DrawerItem[] = [
+  { label: 'Home',      route: '',           icon: 'home-outline' },
+  { label: 'Gate',      route: 'gate',       icon: 'log-in-outline' },
+  { label: 'Visits',    route: 'visits',     icon: 'people-outline' },
+  { label: 'Approved',  route: 'approved',   icon: 'checkmark-circle-outline' },
+  { label: 'Summary',   route: 'summary',    icon: 'stats-chart-outline' },
+  { label: 'Incidents', route: 'incidents',  icon: 'warning-outline' },
+  { label: 'Patrol',    route: 'patrol',     icon: 'walk-outline' },
+];
 
 export default function RootLayout() {
-  const hydrate = useAuthStore((s) => s.hydrate);
-  const [hydrated, setHydrated] = useState(false);
   const [fontsLoaded] = useFonts({
+    DMSans_400Regular,
+    DMSans_500Medium,
     Poppins_400Regular,
     Poppins_500Medium,
     Poppins_600SemiBold,
     Poppins_700Bold,
   });
 
-  useEffect(() => {
-    setAudioModeAsync({ playsInSilentMode: true }).catch(() => {});
-    hydrate().finally(() => setHydrated(true));
-  }, [hydrate]);
+  const hydrate = useAuthStore((s) => s.hydrate);
+  const hydrated = useAuthStore((s) => s.hydrated);
+  const hasSession = useAuthStore((s) => s.hasSession);
+  const biometricLocked = useAuthStore((s) => s.biometricLocked);
+  const initNetwork = useNetworkStore((s) => s.init);
+
+  const segments = useSegments();
+  const router = useRouter();
 
   useEffect(() => {
-    if (fontsLoaded) applyDefaultFont();
-  }, [fontsLoaded]);
+    hydrate();
+    initNetwork();
+  }, [hydrate, initNetwork]);
 
-  if (!hydrated || !fontsLoaded) {
-    return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-        <ActivityIndicator size="large" color={theme.primaryColor} />
-      </View>
-    );
+  useEffect(() => {
+    initPatrolDb().catch(() => {});
+  }, []);
+
+  useSosWatcher();
+
+  useEffect(() => {
+    if (fontsLoaded && hydrated) {
+      SplashScreen.hideAsync().catch(() => {});
+    }
+  }, [fontsLoaded, hydrated]);
+
+  // Safety net: never hold the splash forever. If fonts hang for 5 s, give up.
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      SplashScreen.hideAsync().catch(() => {});
+    }, 5000);
+    return () => clearTimeout(timeout);
+  }, []);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    const first = segments[0];
+    if (!hasSession && first !== 'login') {
+      router.replace('/login');
+      return;
+    }
+    if (
+      BIOMETRIC_LOCK_ROUTE_AVAILABLE &&
+      hasSession &&
+      biometricLocked &&
+      (first as string) !== 'biometric-lock'
+    ) {
+      router.replace('/biometric-lock' as any);
+      return;
+    }
+    if (
+      hasSession &&
+      !biometricLocked &&
+      (first as string) === 'login'
+    ) {
+      router.replace('/' as any);
+      return;
+    }
+  }, [hydrated, hasSession, biometricLocked, segments, router]);
+
+  if (!fontsLoaded || !hydrated) {
+    // Splash is still showing.
+    return null;
   }
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
-        <QueryClientProvider client={queryClient}>
-          <Stack screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="index" />
-            <Stack.Screen name="login" />
-            <Stack.Screen name="(app)" />
-          </Stack>
-          <Toast />
-        </QueryClientProvider>
+        <ToastProvider>
+          <DrawerItemsProvider items={DRAWER_ITEMS}>
+            <QueryClientProvider client={queryClient}>
+              <StatusBar style="dark" />
+              <Stack screenOptions={{ headerShown: false }}>
+                <Stack.Screen name="login" />
+                <Stack.Screen name="biometric-lock" />
+                <Stack.Screen name="(tabs)" />
+                <Stack.Screen name="scan" options={{ presentation: 'modal' }} />
+                <Stack.Screen name="incident-new" />
+                <Stack.Screen name="patrol-active" />
+              </Stack>
+            </QueryClientProvider>
+          </DrawerItemsProvider>
+        </ToastProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

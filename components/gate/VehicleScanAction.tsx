@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useTractorTaskSearch } from '@/lib/hooks/useTractorTaskSearch';
 import type { TractorTaskSearchResult } from '@/lib/api/vehicles';
+import { COLORS, spacing, borderRadius, fontSize } from '@/src/core/theme';
 
 type Props = {
   onPickTicket: (name: string) => void;
@@ -22,30 +23,30 @@ export function VehicleScanAction({ onPickTicket, disabled }: Props) {
   }
 
   return (
-    <View style={{ marginTop: 12 }}>
+    <View style={{ marginTop: spacing.md }}>
       <TouchableOpacity
-        onPress={() => router.push('/(app)/scan')}
+        onPress={() => router.push('/scan')}
         disabled={disabled}
         activeOpacity={0.8}
         accessibilityRole="button"
         style={{
-          backgroundColor: '#000000',
+          backgroundColor: COLORS.primary,
           opacity: disabled ? 0.6 : 1,
           paddingVertical: 18,
-          borderRadius: 12,
+          borderRadius: borderRadius.lg,
           flexDirection: 'row',
           alignItems: 'center',
           justifyContent: 'center',
           minHeight: 60,
         }}
       >
-        <MaterialIcons name="qr-code-scanner" size={24} color="#FFFFFF" />
+        <Ionicons name="qr-code-outline" size={24} color={COLORS.textOnPrimary} />
         <Text
           style={{
-            color: '#FFFFFF',
+            color: COLORS.textOnPrimary,
             fontWeight: '700',
-            marginLeft: 8,
-            fontSize: 15,
+            marginLeft: spacing.sm,
+            fontSize: fontSize.md,
             letterSpacing: 0.5,
           }}
         >
@@ -53,7 +54,7 @@ export function VehicleScanAction({ onPickTicket, disabled }: Props) {
         </Text>
       </TouchableOpacity>
 
-      <Text style={{ textAlign: 'center', color: '#666666', marginVertical: 10, fontSize: 12 }}>
+      <Text style={{ textAlign: 'center', color: COLORS.textMuted, marginVertical: 10, fontSize: fontSize.xs }}>
         Or search by ticket / vehicle reg
       </Text>
 
@@ -62,26 +63,26 @@ export function VehicleScanAction({ onPickTicket, disabled }: Props) {
           flexDirection: 'row',
           alignItems: 'center',
           borderWidth: 1,
-          borderColor: '#D0D0D0',
-          borderRadius: 8,
-          paddingHorizontal: 12,
-          backgroundColor: '#FFFFFF',
+          borderColor: COLORS.border,
+          borderRadius: borderRadius.md,
+          paddingHorizontal: spacing.md,
+          backgroundColor: COLORS.surface,
         }}
       >
         <TextInput
           value={query}
           onChangeText={setQuery}
           placeholder="e.g. KAY or 310780"
-          placeholderTextColor="#A0A0A0"
+          placeholderTextColor={COLORS.textMuted}
           autoCapitalize="characters"
           autoCorrect={false}
           editable={!disabled}
           returnKeyType="search"
           onSubmitEditing={onSearch}
-          style={{ flex: 1, paddingVertical: 10, fontSize: 15, color: '#111111' }}
+          style={{ flex: 1, paddingVertical: 10, fontSize: fontSize.md, color: COLORS.text }}
         />
         {search.isPending ? (
-          <ActivityIndicator size="small" color="#000000" />
+          <ActivityIndicator size="small" color={COLORS.primary} />
         ) : (
           <TouchableOpacity
             onPress={onSearch}
@@ -89,15 +90,15 @@ export function VehicleScanAction({ onPickTicket, disabled }: Props) {
             hitSlop={8}
             activeOpacity={0.6}
           >
-            <MaterialIcons name="search" size={22} color="#000000" />
+            <Ionicons name="search" size={22} color={COLORS.primary} />
           </TouchableOpacity>
         )}
       </View>
 
       {search.isSuccess && results.length === 0 ? (
-        <View style={{ padding: 16, alignItems: 'center' }}>
-          <MaterialIcons name="inbox" size={28} color="#999999" />
-          <Text style={{ color: '#666666', marginTop: 6, fontSize: 12 }}>
+        <View style={{ padding: spacing.lg, alignItems: 'center' }}>
+          <Ionicons name="archive-outline" size={28} color={COLORS.textMuted} />
+          <Text style={{ color: COLORS.textMuted, marginTop: 6, fontSize: fontSize.xs }}>
             No tickets match &quot;{query}&quot;
           </Text>
         </View>
@@ -108,9 +109,9 @@ export function VehicleScanAction({ onPickTicket, disabled }: Props) {
           style={{
             marginTop: 10,
             borderWidth: 1,
-            borderColor: '#E8E8E8',
-            borderRadius: 10,
-            backgroundColor: '#FFFFFF',
+            borderColor: COLORS.border,
+            borderRadius: borderRadius.md,
+            backgroundColor: COLORS.surface,
             overflow: 'hidden',
           }}
         >
@@ -120,9 +121,9 @@ export function VehicleScanAction({ onPickTicket, disabled }: Props) {
               onPress={() => onPickTicket(r.name)}
               activeOpacity={0.7}
               style={{
-                padding: 12,
+                padding: spacing.md,
                 borderBottomWidth: i === results.length - 1 ? 0 : 1,
-                borderBottomColor: '#F0F0F0',
+                borderBottomColor: COLORS.bgMuted,
                 flexDirection: 'row',
                 alignItems: 'center',
               }}
@@ -131,37 +132,37 @@ export function VehicleScanAction({ onPickTicket, disabled }: Props) {
                 style={{
                   width: 36,
                   height: 36,
-                  borderRadius: 8,
-                  backgroundColor: '#F5F5F5',
+                  borderRadius: borderRadius.md,
+                  backgroundColor: COLORS.surfaceAlt,
                   alignItems: 'center',
                   justifyContent: 'center',
                 }}
               >
-                <MaterialIcons name="agriculture" size={20} color="#000000" />
+                <Ionicons name="leaf-outline" size={20} color={COLORS.text} />
               </View>
               <View style={{ flex: 1, marginLeft: 10 }}>
                 <Text
                   numberOfLines={1}
-                  style={{ fontWeight: '700', color: '#111111', fontSize: 13 }}
+                  style={{ fontWeight: '700', color: COLORS.text, fontSize: fontSize.sm }}
                 >
                   {r.name}
                 </Text>
                 <Text
                   numberOfLines={1}
-                  style={{ color: '#666666', fontSize: 12, marginTop: 2 }}
+                  style={{ color: COLORS.textMuted, fontSize: fontSize.xs, marginTop: 2 }}
                 >
                   {[r.motor_vehicle, r.farm].filter(Boolean).join(' · ') || '—'}
                 </Text>
                 {r.date || r.workflow_state ? (
                   <Text
                     numberOfLines={1}
-                    style={{ color: '#999999', fontSize: 11, marginTop: 2 }}
+                    style={{ color: COLORS.textMuted, fontSize: fontSize.xs, marginTop: 2 }}
                   >
                     {[r.date, r.workflow_state].filter(Boolean).join(' · ')}
                   </Text>
                 ) : null}
               </View>
-              <MaterialIcons name="chevron-right" size={20} color="#999999" />
+              <Ionicons name="chevron-forward" size={20} color={COLORS.textMuted} />
             </TouchableOpacity>
           ))}
         </View>

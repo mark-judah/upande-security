@@ -1,6 +1,7 @@
 import { ReactNode } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
+import { COLORS, spacing, borderRadius } from '@/src/core/theme';
 
 type Props = {
   onClose: () => void;
@@ -11,31 +12,31 @@ type Props = {
 
 export function WalkInSection({ onClose, onSave, saving, children }: Props) {
   return (
-    <View style={{ marginTop: 8 }}>
+    <View style={{ marginTop: spacing.sm }}>
       <View
         style={{
           flexDirection: 'row',
           alignItems: 'center',
-          paddingVertical: 8,
+          paddingVertical: spacing.sm,
         }}
       >
-        <MaterialIcons name="person-add" size={20} color="#000000" />
+        <Ionicons name="person-add" size={20} color={COLORS.text} />
         <Text
           style={{
             flex: 1,
-            marginLeft: 8,
+            marginLeft: spacing.sm,
             fontSize: 15,
             fontWeight: '700',
-            color: '#111111',
+            color: COLORS.text,
           }}
         >
           Register Walk-In Visitor
         </Text>
         <TouchableOpacity onPress={onClose} hitSlop={8} activeOpacity={0.6}>
-          <MaterialIcons name="close" size={20} color="#666666" />
+          <Ionicons name="close" size={20} color={COLORS.textMuted} />
         </TouchableOpacity>
       </View>
-      <View style={{ height: 1, backgroundColor: '#E8E8E8', marginBottom: 10 }} />
+      <View style={{ height: 1, backgroundColor: COLORS.border, marginBottom: 10 }} />
 
       {children}
 
@@ -45,20 +46,20 @@ export function WalkInSection({ onClose, onSave, saving, children }: Props) {
         activeOpacity={0.8}
         accessibilityRole="button"
         style={{
-          backgroundColor: '#000000',
+          backgroundColor: COLORS.primary,
           opacity: saving ? 0.6 : 1,
-          borderRadius: 8,
-          paddingVertical: 16,
+          borderRadius: borderRadius.md,
+          paddingVertical: spacing.lg,
           minHeight: 52,
           alignItems: 'center',
           justifyContent: 'center',
           flexDirection: 'row',
-          marginTop: 4,
+          marginTop: spacing.xs,
         }}
       >
-        <MaterialIcons name="notifications" size={18} color="#FFFFFF" />
+        <Ionicons name="notifications" size={18} color={COLORS.textOnPrimary} />
         <Text
-          style={{ color: '#FFFFFF', fontWeight: '700', marginLeft: 6, letterSpacing: 0.5 }}
+          style={{ color: COLORS.textOnPrimary, fontWeight: '700', marginLeft: 6, letterSpacing: 0.5 }}
         >
           NOTIFY HOST
         </Text>

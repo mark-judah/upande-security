@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { View, Text, Pressable, Modal, ScrollView } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { COLORS } from '@/constants/colors';
+import { COLORS, borderRadius, fontSize, spacing } from '@/src/core/theme';
 
 type Props = {
   label?: string;
@@ -13,14 +13,14 @@ type Props = {
   /** Optional sheet title; defaults to the field label. */
   title?: string;
   /** Optional icon resolver for each option. Falls back to a generic marker. */
-  iconFor?: (option: string) => React.ComponentProps<typeof MaterialIcons>['name'];
+  iconFor?: (option: string) => keyof typeof Ionicons.glyphMap;
 };
 
 // Default icon hints for the common option vocabularies the gate uses.
-const DEFAULT_ICONS: Record<string, React.ComponentProps<typeof MaterialIcons>['name']> = {
-  'On Foot': 'directions-walk',
-  Vehicle: 'directions-car',
-  'Motor Bike': 'two-wheeler',
+const DEFAULT_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
+  'On Foot': 'walk-outline',
+  Vehicle: 'car-outline',
+  'Motor Bike': 'bicycle-outline',
 };
 
 export function FormSelect({
@@ -33,17 +33,17 @@ export function FormSelect({
   iconFor,
 }: Props) {
   const [open, setOpen] = useState(false);
-  const resolveIcon = (opt: string) =>
-    iconFor?.(opt) ?? DEFAULT_ICONS[opt] ?? 'radio-button-unchecked';
+  const resolveIcon = (opt: string): keyof typeof Ionicons.glyphMap =>
+    iconFor?.(opt) ?? DEFAULT_ICONS[opt] ?? 'radio-button-off-outline';
 
   return (
-    <View style={{ marginBottom: 12 }}>
+    <View style={{ marginBottom: spacing.md }}>
       {label ? (
         <Text
           style={{
-            fontSize: 11,
+            fontSize: fontSize.xs,
             color: COLORS.textMuted,
-            marginBottom: 4,
+            marginBottom: spacing.xs,
             textTransform: 'uppercase',
             letterSpacing: 0.4,
           }}
@@ -62,17 +62,17 @@ export function FormSelect({
           alignItems: 'center',
           borderWidth: 1,
           borderColor: error ? COLORS.danger : COLORS.border,
-          borderRadius: 8,
+          borderRadius: borderRadius.md,
           paddingLeft: 14,
           paddingRight: 10,
-          paddingVertical: 12,
+          paddingVertical: spacing.md,
           backgroundColor: pressed ? COLORS.bgMuted : COLORS.bg,
         })}
       >
         <Text
           style={{
             flex: 1,
-            fontSize: 15,
+            fontSize: fontSize.md,
             color: value ? COLORS.text : COLORS.textMuted,
             fontWeight: value ? '500' : '400',
           }}
@@ -80,11 +80,13 @@ export function FormSelect({
         >
           {value || 'Select…'}
         </Text>
-        <MaterialIcons name="arrow-drop-down" size={22} color={COLORS.textMuted} />
+        <Ionicons name="chevron-down" size={22} color={COLORS.textMuted} />
       </Pressable>
 
       {error ? (
-        <Text style={{ color: COLORS.danger, fontSize: 12, marginTop: 4 }}>{error}</Text>
+        <Text style={{ color: COLORS.danger, fontSize: fontSize.xs, marginTop: spacing.xs }}>
+          {error}
+        </Text>
       ) : null}
 
       <Modal
@@ -98,7 +100,7 @@ export function FormSelect({
           onPress={() => setOpen(false)}
           style={{
             flex: 1,
-            backgroundColor: 'rgba(0,0,0,0.45)',
+            backgroundColor: COLORS.overlay,
             justifyContent: 'flex-end',
           }}
         >
@@ -106,14 +108,14 @@ export function FormSelect({
             onPress={() => {}}
             style={{
               backgroundColor: COLORS.bg,
-              borderTopLeftRadius: 16,
-              borderTopRightRadius: 16,
+              borderTopLeftRadius: borderRadius.lg,
+              borderTopRightRadius: borderRadius.lg,
               overflow: 'hidden',
             }}
           >
             <SafeAreaView edges={['bottom']}>
               {/* Drag handle */}
-              <View style={{ alignItems: 'center', paddingTop: 8 }}>
+              <View style={{ alignItems: 'center', paddingTop: spacing.sm }}>
                 <View
                   style={{
                     width: 36,
@@ -127,14 +129,14 @@ export function FormSelect({
               {/* Header */}
               <View
                 style={{
-                  paddingHorizontal: 20,
-                  paddingTop: 12,
-                  paddingBottom: 12,
+                  paddingHorizontal: spacing.xl,
+                  paddingTop: spacing.md,
+                  paddingBottom: spacing.md,
                   borderBottomWidth: 1,
                   borderBottomColor: COLORS.bgMuted,
                 }}
               >
-                <Text style={{ fontSize: 16, fontWeight: '700', color: COLORS.text }}>
+                <Text style={{ fontSize: fontSize.md, fontWeight: '700', color: COLORS.text }}>
                   {title ?? label ?? 'Select an option'}
                 </Text>
               </View>
@@ -161,8 +163,8 @@ export function FormSelect({
                         style={{
                           flexDirection: 'row',
                           alignItems: 'center',
-                          paddingVertical: 16,
-                          paddingHorizontal: 20,
+                          paddingVertical: spacing.lg,
+                          paddingHorizontal: spacing.xl,
                         }}
                       >
                         <View
@@ -176,7 +178,7 @@ export function FormSelect({
                             marginRight: 14,
                           }}
                         >
-                          <MaterialIcons
+                          <Ionicons
                             name={resolveIcon(item)}
                             size={20}
                             color={isSelected ? COLORS.bg : COLORS.text}
@@ -185,7 +187,7 @@ export function FormSelect({
                         <Text
                           style={{
                             flex: 1,
-                            fontSize: 15,
+                            fontSize: fontSize.md,
                             fontWeight: isSelected ? '600' : '500',
                             color: COLORS.text,
                           }}
@@ -194,11 +196,11 @@ export function FormSelect({
                           {item}
                         </Text>
                         {isSelected ? (
-                          <MaterialIcons
-                            name="check"
+                          <Ionicons
+                            name="checkmark"
                             size={20}
                             color={COLORS.text}
-                            style={{ marginLeft: 12 }}
+                            style={{ marginLeft: spacing.md }}
                           />
                         ) : null}
                       </View>

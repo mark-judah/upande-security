@@ -1,6 +1,7 @@
 import { View, Text } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { WORKFLOW_META, type WorkflowState } from '@/constants/workflowStates';
+import { COLORS, borderRadius, fontFamily, fontSize, spacing } from '@/src/core/theme';
 
 type Props = { state: WorkflowState | string; compact?: boolean };
 
@@ -14,8 +15,8 @@ function hexWithAlpha(hex: string, alpha: number): string {
 
 export function StatusChip({ state, compact }: Props) {
   const meta = WORKFLOW_META[state as WorkflowState];
-  const color = meta?.color ?? '#757575';
-  const icon = (meta?.icon ?? 'info') as keyof typeof MaterialIcons.glyphMap;
+  const color = meta?.color ?? COLORS.textMuted;
+  const icon: keyof typeof Ionicons.glyphMap = meta?.icon ?? 'information-circle';
 
   return (
     <View
@@ -23,21 +24,21 @@ export function StatusChip({ state, compact }: Props) {
         flexDirection: 'row',
         alignItems: 'center',
         alignSelf: 'flex-start',
-        paddingHorizontal: compact ? 8 : 12,
-        paddingVertical: compact ? 3 : 6,
-        borderRadius: 999,
+        paddingHorizontal: compact ? spacing.sm : spacing.md,
+        paddingVertical: compact ? 3 : spacing.xs + 2,
+        borderRadius: borderRadius.full,
         backgroundColor: hexWithAlpha(color, 0.1),
         borderWidth: 1,
         borderColor: hexWithAlpha(color, 0.3),
       }}
     >
-      <MaterialIcons name={icon} size={compact ? 12 : 14} color={color} />
+      <Ionicons name={icon} size={compact ? 12 : 14} color={color} />
       <Text
         style={{
           color,
-          fontSize: compact ? 11 : 12,
-          fontWeight: '600',
-          marginLeft: 4,
+          fontSize: compact ? fontSize.xs : fontSize.sm - 1,
+          fontFamily: fontFamily.semiBold,
+          marginLeft: spacing.xs,
         }}
       >
         {state}

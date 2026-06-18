@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { View, Text } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
+import { COLORS, borderRadius, fontFamily, fontSize, spacing } from '@/src/core/theme';
 
 type Props = {
   entryTime: Date;
@@ -28,19 +29,19 @@ export function LiveTimer({ entryTime, compact }: Props) {
       style={{
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#000000',
-        borderRadius: 999,
-        paddingHorizontal: compact ? 8 : 10,
-        paddingVertical: compact ? 2 : 4,
+        backgroundColor: COLORS.text,
+        borderRadius: borderRadius.full,
+        paddingHorizontal: compact ? spacing.sm : spacing.sm + 2,
+        paddingVertical: compact ? 2 : spacing.xs,
       }}
     >
-      <MaterialIcons name="timer" size={compact ? 12 : 14} color="#FFFFFF" />
+      <Ionicons name="timer-outline" size={compact ? 12 : 14} color={COLORS.textOnPrimary} />
       <Text
         style={{
-          color: '#FFFFFF',
-          fontSize: compact ? 11 : 13,
-          fontWeight: '700',
-          marginLeft: 4,
+          color: COLORS.textOnPrimary,
+          fontSize: compact ? fontSize.xs : fontSize.sm,
+          fontFamily: fontFamily.bold,
+          marginLeft: spacing.xs,
           fontVariant: ['tabular-nums'],
         }}
       >

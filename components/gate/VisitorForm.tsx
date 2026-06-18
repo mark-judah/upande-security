@@ -4,6 +4,7 @@ import { FormInput } from '@/components/forms/FormInput';
 import { FormSelect } from '@/components/forms/FormSelect';
 import { HostSearchField } from '@/components/forms/HostSearchField';
 import { TRANSPORT_MODES } from '@/constants/transportModes';
+import { spacing } from '@/src/core/theme';
 import type { VisitorFormValues } from './visitorFormValues';
 
 type Props = {
@@ -42,7 +43,7 @@ export function VisitorForm({
         )}
       />
 
-      <View style={{ flexDirection: 'row', gap: 8 }}>
+      <View style={{ flexDirection: 'row', gap: spacing.sm }}>
         <View style={{ flex: 1 }}>
           <Controller
             control={control}

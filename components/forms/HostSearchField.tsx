@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { View, Text, TextInput, Pressable, ActivityIndicator, ScrollView } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { useEmployeeSearch } from '@/lib/hooks/useEmployeeSearch';
-import { COLORS } from '@/constants/colors';
+import { COLORS, borderRadius, fontSize, spacing } from '@/src/core/theme';
 
 type Props = {
   selectedHostId: string | null;
@@ -33,12 +33,12 @@ export function HostSearchField({
     !selectedHostId && debounced.length >= 2 && !isFetching && (results?.length ?? 0) === 0;
 
   return (
-    <View style={{ marginBottom: 12 }}>
+    <View style={{ marginBottom: spacing.md }}>
       <Text
         style={{
-          fontSize: 11,
+          fontSize: fontSize.xs,
           color: COLORS.textMuted,
-          marginBottom: 4,
+          marginBottom: spacing.xs,
           textTransform: 'uppercase',
           letterSpacing: 0.4,
         }}
@@ -52,16 +52,16 @@ export function HostSearchField({
           alignItems: 'center',
           borderWidth: 1,
           borderColor: error ? COLORS.danger : COLORS.border,
-          borderRadius: 8,
-          paddingHorizontal: 12,
+          borderRadius: borderRadius.md,
+          paddingHorizontal: spacing.md,
           backgroundColor: COLORS.bg,
         }}
       >
-        <MaterialIcons
-          name={selectedHostId ? 'person' : 'person-search'}
+        <Ionicons
+          name={selectedHostId ? 'person' : 'person-circle-outline'}
           size={20}
           color={COLORS.textMuted}
-          style={{ marginRight: 8 }}
+          style={{ marginRight: spacing.sm }}
         />
         <TextInput
           value={selectedHostName ?? query}
@@ -76,8 +76,8 @@ export function HostSearchField({
           autoCorrect={false}
           style={{
             flex: 1,
-            paddingVertical: 10,
-            fontSize: 15,
+            paddingVertical: spacing.sm + 2,
+            fontSize: fontSize.md,
             color: COLORS.text,
             fontWeight: selectedHostId ? '600' : '400',
           }}
@@ -88,12 +88,12 @@ export function HostSearchField({
             hitSlop={10}
             accessibilityLabel="Clear selected host"
           >
-            <MaterialIcons name="close" size={20} color={COLORS.text} />
+            <Ionicons name="close" size={20} color={COLORS.text} />
           </Pressable>
         ) : isFetching ? (
           <ActivityIndicator size="small" color={COLORS.text} />
         ) : (
-          <MaterialIcons name="search" size={20} color={COLORS.textMuted} />
+          <Ionicons name="search" size={20} color={COLORS.textMuted} />
         )}
       </View>
 
@@ -103,7 +103,7 @@ export function HostSearchField({
             marginTop: 6,
             borderWidth: 1,
             borderColor: COLORS.border,
-            borderRadius: 10,
+            borderRadius: borderRadius.md,
             backgroundColor: COLORS.bg,
             maxHeight: 260,
             overflow: 'hidden',
@@ -129,7 +129,7 @@ export function HostSearchField({
                   accessibilityRole="button"
                   accessibilityLabel={`Select ${fullName}`}
                   style={({ pressed }) => ({
-                    paddingVertical: 12,
+                    paddingVertical: spacing.md,
                     paddingHorizontal: 14,
                     backgroundColor: pressed ? COLORS.bgMuted : COLORS.bg,
                     borderBottomWidth: idx === (results?.length ?? 0) - 1 ? 0 : 1,
@@ -139,7 +139,7 @@ export function HostSearchField({
                   <Text
                     style={{
                       color: COLORS.text,
-                      fontSize: 15,
+                      fontSize: fontSize.md,
                       fontWeight: '600',
                     }}
                     numberOfLines={1}
@@ -151,7 +151,7 @@ export function HostSearchField({
                     <Text
                       style={{
                         color: COLORS.textMuted,
-                        fontSize: 12,
+                        fontSize: fontSize.xs,
                         marginTop: 2,
                       }}
                       numberOfLines={1}
@@ -168,13 +168,15 @@ export function HostSearchField({
       ) : null}
 
       {noResults ? (
-        <Text style={{ color: COLORS.textMuted, fontSize: 12, marginTop: 6 }}>
-          No active employees match “{debounced}”.
+        <Text style={{ color: COLORS.textMuted, fontSize: fontSize.xs, marginTop: 6 }}>
+          No active employees match "{debounced}".
         </Text>
       ) : null}
 
       {error ? (
-        <Text style={{ color: COLORS.danger, fontSize: 12, marginTop: 4 }}>{error}</Text>
+        <Text style={{ color: COLORS.danger, fontSize: fontSize.xs, marginTop: spacing.xs }}>
+          {error}
+        </Text>
       ) : null}
     </View>
   );
