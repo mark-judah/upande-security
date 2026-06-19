@@ -12,7 +12,7 @@ import { VisitorForm } from '@/components/gate/VisitorForm';
 import { WalkInSection } from '@/components/gate/WalkInSection';
 import { ActionButtons } from '@/components/gate/ActionButtons';
 import { StaffCheckInPanel } from '@/components/gate/StaffCheckInPanel';
-import { ContractorForm, type WalkInContractorData } from '@/components/gate/ContractorForm';
+import { ContractorForm, type WalkInContractorData, type ContractorCheckInData } from '@/components/gate/ContractorForm';
 import { VehicleScanAction } from '@/components/gate/VehicleScanAction';
 import { VehicleEntryDialog } from '@/components/gate/VehicleEntryDialog';
 import { VehicleInsideCard } from '@/components/gate/VehicleInsideCard';
@@ -30,7 +30,6 @@ import { useCreateWalkIn } from '@/lib/hooks/useCreateWalkIn';
 import { createGateTimesheet, submitGateTimesheet } from '@/lib/api/timesheets';
 import type { ActiveVehicleEntry } from '@/lib/stores/vehicleStore';
 import { useContractorCheckIn } from '@/lib/hooks/useContractorCheckIn';
-import { addVehicleToSupplier } from '@/lib/api/contractors';
 import { useFeedback } from '@/lib/hooks/useFeedback';
 import { useGateStore } from '@/lib/stores/gateStore';
 import { useVehicleStore } from '@/lib/stores/vehicleStore';
@@ -41,7 +40,6 @@ import { CheckInType } from '@/constants/checkInTypes';
 import type {
   VisitorAppointmentSearchResult,
   ContractorSearchResult,
-  ContractorVehicle,
   TractorDailyTask,
 } from '@/lib/api/types';
 
@@ -223,7 +221,7 @@ export default function GateTab() {
     clearForm();
   }
 
-  async function onContractorCheckIn(vehicle?: ContractorVehicle, passengers?: number) {
+  async function onContractorCheckIn(data: ContractorCheckInData) {
     if (!contractorResult) return;
     const payload = {
       contractor_ref: contractorResult.supplier_id,
@@ -231,10 +229,10 @@ export default function GateTab() {
         contractorResult.contractor_name ?? contractorResult.contract_name ?? '',
       phone: contractorResult.contact_phone,
       purpose: 'Approved contractor site access',
-      transport_mode: vehicle ? 'Vehicle' : 'On Foot',
-      number_plate: vehicle?.number_plate,
-      vehicle_color: vehicle?.colour,
-      passengers,
+      transport_mode: data.mode,
+      number_plate: data.plate,
+      vehicle_color: data.colour,
+      passengers: data.passengers,
     };
     if (__DEV__) {
       console.log('[gate] onContractorCheckIn payload:', payload);
@@ -244,25 +242,6 @@ export default function GateTab() {
       clearForm();
     } catch {
       // feedback handled by mutation onError
-    }
-  }
-
-  async function onContractorAddVehicle(
-    vehicle: ContractorVehicle,
-  ): Promise<'added' | 'duplicate'> {
-    const supplierId = contractorResult?.supplier_id;
-    if (!supplierId) return 'added';
-    try {
-      const res = await addVehicleToSupplier(supplierId, vehicle);
-      if (res.already_exists) {
-        feedback.warning('Vehicle already registered');
-        return 'duplicate';
-      }
-      feedback.success('Vehicle saved to contractor profile ✓');
-      return 'added';
-    } catch {
-      feedback.error('Failed to save vehicle');
-      return 'duplicate';
     }
   }
 
@@ -457,7 +436,6 @@ export default function GateTab() {
                 result={contractorResult ?? {}}
                 onCheckIn={onContractorCheckIn}
                 onRegisterNew={() => setContractorWalkInOpen(true)}
-                onAddVehicle={onContractorAddVehicle}
                 showWalkInForm={contractorWalkInOpen}
                 onCloseWalkIn={() => setContractorWalkInOpen(false)}
                 onSaveWalkIn={onContractorWalkInSave}

@@ -3,12 +3,13 @@ import {
   View,
   Text,
   TouchableOpacity,
-  ScrollView,
   TextInput,
   StyleSheet,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
-import type { ContractorSearchResult, ContractorVehicle } from '@/lib/api/types';
+import { FormSelect } from '@/components/forms/FormSelect';
+import { TRANSPORT_MODES, type TransportMode } from '@/constants/transportModes';
+import type { ContractorSearchResult } from '@/lib/api/types';
 
 // ─── Sub-components ─────────────────────────────────────────────────────────
 
@@ -30,47 +31,6 @@ function InfoRow({
         {value}
       </Text>
     </View>
-  );
-}
-
-function VehiclePill({
-  vehicle,
-  selected,
-  onSelect,
-}: {
-  vehicle: ContractorVehicle;
-  selected: boolean;
-  onSelect: () => void;
-}) {
-  return (
-    <TouchableOpacity
-      onPress={onSelect}
-      activeOpacity={0.7}
-      style={[styles.vehiclePill, selected && styles.vehiclePillSelected]}
-    >
-      <MaterialIcons
-        name="directions-car"
-        size={14}
-        color={selected ? '#FFFFFF' : '#666666'}
-      />
-      <Text
-        style={[styles.vehiclePillText, { color: selected ? '#FFFFFF' : '#333333' }]}
-        numberOfLines={1}
-      >
-        {vehicle.number_plate}
-      </Text>
-      {vehicle.colour ? (
-        <Text
-          style={[
-            styles.vehiclePillSub,
-            { color: selected ? 'rgba(255,255,255,0.7)' : '#888888' },
-          ]}
-          numberOfLines={1}
-        >
-          · {vehicle.colour}
-        </Text>
-      ) : null}
-    </TouchableOpacity>
   );
 }
 
@@ -127,8 +87,15 @@ export type WalkInContractorData = {
   purpose: string;
   number_plate: string;
   vehicle_colour: string;
-  mode_of_transport: 'On Foot' | 'Vehicle' | 'Motor Bike';
+  mode_of_transport: TransportMode;
   number_of_passengers?: number;
+};
+
+export type ContractorCheckInData = {
+  mode: TransportMode;
+  plate?: string;
+  colour?: string;
+  passengers?: number;
 };
 
 function WalkInBookingForm({
@@ -144,7 +111,7 @@ function WalkInBookingForm({
   const [phone, setPhone] = useState('');
   const [company, setCompany] = useState('');
   const [purpose, setPurpose] = useState('');
-  const [mode, setMode] = useState<'On Foot' | 'Vehicle' | 'Motor Bike'>('On Foot');
+  const [mode, setMode] = useState<TransportMode>('On Foot');
   const [plate, setPlate] = useState('');
   const [colour, setColour] = useState('');
   const [passengers, setPassengers] = useState('');
@@ -190,22 +157,12 @@ function WalkInBookingForm({
         style={{ minHeight: 52, textAlignVertical: 'top' }}
       />
 
-      <Text style={styles.fieldLabel}>Mode of Transport</Text>
-      <View style={styles.modeRow}>
-        {(['On Foot', 'Vehicle', 'Motor Bike'] as const).map((m) => (
-          <TouchableOpacity
-            key={m}
-            onPress={() => setMode(m)}
-            style={[styles.modeChip, mode === m && styles.modeChipSelected]}
-          >
-            <Text
-              style={[styles.modeChipText, mode === m && { color: '#FFFFFF' }]}
-            >
-              {m}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
+      <FormSelect
+        label="Mode of Transport"
+        value={mode}
+        options={TRANSPORT_MODES}
+        onChange={(v) => setMode(v as TransportMode)}
+      />
 
       {showVehicle ? (
         <>
@@ -255,77 +212,36 @@ function ApprovedContractorCard({
   result,
   onCheckIn,
   onRegisterNew,
-  onAddVehicle,
   busy,
 }: {
   result: ContractorSearchResult;
-  onCheckIn: (vehicle?: ContractorVehicle, passengers?: number) => void;
+  onCheckIn: (data: ContractorCheckInData) => void;
   onRegisterNew: () => void;
-  onAddVehicle?: (vehicle: ContractorVehicle) => Promise<'added' | 'duplicate'>;
   busy?: boolean;
 }) {
-  const [selectedVehicle, setSelectedVehicle] = useState<ContractorVehicle | null>(null);
+  const [mode, setMode] = useState<TransportMode>('On Foot');
+  const [plate, setPlate] = useState('');
+  const [colour, setColour] = useState('');
   const [passengers, setPassengers] = useState('');
   const [checkInCount, setCheckInCount] = useState(0);
   const [lastPlate, setLastPlate] = useState<string | null>(null);
 
-  const [showAddVehicle, setShowAddVehicle] = useState(false);
-  const [newPlate, setNewPlate] = useState('');
-  const [newColour, setNewColour] = useState('');
-  const [newVehicleType, setNewVehicleType] = useState('');
-  const [savingVehicle, setSavingVehicle] = useState(false);
-  const [addVehicleMsg, setAddVehicleMsg] = useState<{ text: string; ok: boolean } | null>(null);
-  const [localVehicles, setLocalVehicles] = useState<ContractorVehicle[]>(result.vehicles ?? []);
-
-  const vehicles = localVehicles;
+  const showVehicle = mode !== 'On Foot';
 
   function handleCheckIn() {
-    setLastPlate(selectedVehicle?.number_plate ?? null);
+    const trimmedPlate = plate.trim();
+    setLastPlate(showVehicle && trimmedPlate ? trimmedPlate : null);
     const pax = passengers ? parseInt(passengers, 10) : undefined;
-    onCheckIn(selectedVehicle ?? undefined, pax);
-    setSelectedVehicle(null);
+    onCheckIn({
+      mode,
+      plate: showVehicle ? trimmedPlate || undefined : undefined,
+      colour: showVehicle ? colour.trim() || undefined : undefined,
+      passengers: pax,
+    });
+    setPlate('');
+    setColour('');
     setPassengers('');
     setCheckInCount((n) => n + 1);
-  }
-
-  async function handleSaveNewVehicle() {
-    const plate = newPlate.trim().toUpperCase();
-    if (!plate) return;
-
-    // Client-side duplicate check
-    if (localVehicles.some((v) => v.number_plate.toUpperCase() === plate)) {
-      setAddVehicleMsg({ text: 'Already registered', ok: false });
-      return;
-    }
-
-    const vehicle: ContractorVehicle = {
-      number_plate: plate,
-      colour: newColour.trim() || undefined,
-      vehicle_type: newVehicleType.trim() || undefined,
-    };
-
-    if (onAddVehicle) {
-      setSavingVehicle(true);
-      setAddVehicleMsg(null);
-      const result = await onAddVehicle(vehicle);
-      setSavingVehicle(false);
-      if (result === 'duplicate') {
-        setAddVehicleMsg({ text: 'Already registered on supplier', ok: false });
-      } else {
-        setLocalVehicles((prev) => [...prev, vehicle]);
-        setSelectedVehicle(vehicle);
-        setAddVehicleMsg({ text: 'Vehicle saved ✓', ok: true });
-        setNewPlate('');
-        setNewColour('');
-        setNewVehicleType('');
-        setShowAddVehicle(false);
-      }
-    } else {
-      // No supplier ID available — just use locally for this session
-      setLocalVehicles((prev) => [...prev, vehicle]);
-      setSelectedVehicle(vehicle);
-      setShowAddVehicle(false);
-    }
   }
 
   return (
@@ -370,139 +286,49 @@ function ApprovedContractorCard({
           </View>
         ) : null}
 
-        {/* Registered vehicles */}
-        <View style={{ marginTop: 10 }}>
-          {vehicles.length > 0 ? (
-            <>
-              <Text style={styles.subSectionLabel}>Select vehicle (optional)</Text>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                style={{ marginTop: 4 }}
-              >
-                {vehicles.map((v) => (
-                  <VehiclePill
-                    key={v.number_plate}
-                    vehicle={v}
-                    selected={selectedVehicle?.number_plate === v.number_plate}
-                    onSelect={() =>
-                      setSelectedVehicle(
-                        selectedVehicle?.number_plate === v.number_plate ? null : v,
-                      )
-                    }
-                  />
-                ))}
-              </ScrollView>
-            </>
-          ) : (
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <MaterialIcons name="no-transfer" size={14} color="#888888" />
-              <Text style={{ fontSize: 12, color: '#888888', marginLeft: 4, fontStyle: 'italic' }}>
-                No vehicles registered yet
-              </Text>
-            </View>
-          )}
+        {/* Transport */}
+        <View style={{ marginTop: 12 }}>
+          <FormSelect
+            label="Mode of Transport"
+            value={mode}
+            options={TRANSPORT_MODES}
+            onChange={(v) => setMode(v as TransportMode)}
+          />
 
-          {/* Add new vehicle toggle */}
-          {!showAddVehicle ? (
-            <TouchableOpacity
-              onPress={() => { setShowAddVehicle(true); setAddVehicleMsg(null); }}
-              style={styles.addVehicleLink}
-              activeOpacity={0.7}
-            >
-              <MaterialIcons name="add-circle-outline" size={15} color="#FB8C00" />
-              <Text style={styles.addVehicleLinkText}>Add new vehicle</Text>
-            </TouchableOpacity>
-          ) : (
-            <View style={styles.addVehicleBox}>
-              <View style={styles.addVehicleHeader}>
-                <MaterialIcons name="directions-car" size={15} color="#FB8C00" />
-                <Text style={styles.addVehicleTitle}>New Vehicle</Text>
-                <TouchableOpacity
-                  onPress={() => { setShowAddVehicle(false); setAddVehicleMsg(null); }}
-                  style={{ marginLeft: 'auto' }}
-                >
-                  <MaterialIcons name="close" size={16} color="#999999" />
-                </TouchableOpacity>
-              </View>
+          {showVehicle ? (
+            <>
               <FieldInput
-                label="Number Plate *"
-                value={newPlate}
-                onChangeText={setNewPlate}
+                label="Number Plate"
+                value={plate}
+                onChangeText={setPlate}
                 autoCapitalize="characters"
                 placeholder="e.g. KDA 123A"
               />
               <FieldInput
-                label="Colour"
-                value={newColour}
-                onChangeText={setNewColour}
+                label="Vehicle Colour"
+                value={colour}
+                onChangeText={setColour}
                 autoCapitalize="words"
                 placeholder="e.g. White"
               />
-              <FieldInput
-                label="Vehicle Type"
-                value={newVehicleType}
-                onChangeText={setNewVehicleType}
-                autoCapitalize="words"
-                placeholder="e.g. Pickup"
-              />
-              {addVehicleMsg ? (
-                <Text style={[
-                  styles.addVehicleFeedback,
-                  { color: addVehicleMsg.ok ? '#2E7D32' : '#C62828' },
-                ]}>
-                  {addVehicleMsg.text}
-                </Text>
-              ) : null}
-              <TouchableOpacity
-                onPress={handleSaveNewVehicle}
-                disabled={savingVehicle || !newPlate.trim()}
-                activeOpacity={0.8}
-                style={[styles.addVehicleSaveBtn, { opacity: savingVehicle || !newPlate.trim() ? 0.5 : 1 }]}
-              >
-                <MaterialIcons name="save" size={15} color="#FFFFFF" />
-                <Text style={styles.addVehicleSaveBtnText}>
-                  {savingVehicle ? 'SAVING…' : 'SAVE VEHICLE'}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          )}
+            </>
+          ) : null}
+
+          <FieldInput
+            label="No. of Passengers (excl. driver)"
+            value={passengers}
+            onChangeText={(v) => setPassengers(v.replace(/[^0-9]/g, ''))}
+            keyboardType="number-pad"
+            placeholder="0"
+          />
         </View>
-
-        {/* Selected vehicle summary banner */}
-        {selectedVehicle ? (
-          <View style={styles.selectedVehicleBanner}>
-            <MaterialIcons name="directions-car" size={14} color="#FFFFFF" />
-            <Text style={styles.selectedVehicleBannerText}>
-              {selectedVehicle.number_plate}
-              {selectedVehicle.colour ? ` · ${selectedVehicle.colour}` : ''}
-              {selectedVehicle.vehicle_type ? ` · ${selectedVehicle.vehicle_type}` : ''}
-            </Text>
-            <TouchableOpacity
-              onPress={() => setSelectedVehicle(null)}
-              style={{ marginLeft: 'auto' }}
-            >
-              <MaterialIcons name="close" size={14} color="rgba(255,255,255,0.7)" />
-            </TouchableOpacity>
-          </View>
-        ) : null}
-
-        {/* Passengers */}
-        <FieldInput
-          label="No. of Passengers (excl. driver)"
-          value={passengers}
-          onChangeText={(v) => setPassengers(v.replace(/[^0-9]/g, ''))}
-          keyboardType="number-pad"
-          placeholder="0"
-          style={{ marginTop: 10 }}
-        />
 
         {/* Check In button */}
         <TouchableOpacity
           onPress={handleCheckIn}
           disabled={busy}
           activeOpacity={0.8}
-          style={[styles.actionBtn, { opacity: busy ? 0.6 : 1, marginTop: 14, backgroundColor: '#FB8C00' }]}
+          style={[styles.actionBtn, { opacity: busy ? 0.6 : 1, marginTop: 6, backgroundColor: '#FB8C00' }]}
         >
           <MaterialIcons name="login" size={18} color="#FFFFFF" />
           <Text style={styles.actionBtnText}>
@@ -527,9 +353,8 @@ function ApprovedContractorCard({
 
 type Props = {
   result: ContractorSearchResult;
-  onCheckIn: (vehicle?: ContractorVehicle, passengers?: number) => void;
+  onCheckIn: (data: ContractorCheckInData) => void;
   onRegisterNew: () => void;
-  onAddVehicle?: (vehicle: ContractorVehicle) => Promise<'added' | 'duplicate'>;
   showWalkInForm?: boolean;
   onCloseWalkIn?: () => void;
   onSaveWalkIn?: (data: WalkInContractorData) => void;
@@ -541,7 +366,6 @@ export function ContractorForm({
   result,
   onCheckIn,
   onRegisterNew,
-  onAddVehicle,
   showWalkInForm,
   onCloseWalkIn,
   onSaveWalkIn,
@@ -569,13 +393,10 @@ export function ContractorForm({
       result={result}
       onCheckIn={onCheckIn}
       onRegisterNew={onRegisterNew}
-      onAddVehicle={onAddVehicle}
       busy={busy}
     />
   );
 }
-
-export type { ContractorVehicle };
 
 // ─── Styles ──────────────────────────────────────────────────────────────────
 
@@ -630,53 +451,6 @@ const styles = StyleSheet.create({
   infoValue: {
     fontSize: 12,
     color: '#333333',
-    flex: 1,
-  },
-  subSectionLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#666666',
-    textTransform: 'uppercase',
-    letterSpacing: 0.3,
-  },
-  vehiclePill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#E8E8E8',
-    borderWidth: 1,
-    borderColor: '#D0D0D0',
-    borderRadius: 20,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    marginRight: 6,
-  },
-  vehiclePillSelected: {
-    backgroundColor: '#000000',
-    borderColor: '#000000',
-  },
-  vehiclePillText: {
-    fontSize: 13,
-    fontWeight: '600',
-    marginLeft: 4,
-  },
-  vehiclePillSub: {
-    fontSize: 12,
-    marginLeft: 2,
-  },
-  selectedVehicleBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#333333',
-    borderRadius: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    marginTop: 8,
-  },
-  selectedVehicleBannerText: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '600',
-    marginLeft: 6,
     flex: 1,
   },
   actionBtn: {
@@ -736,78 +510,5 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#111111',
     backgroundColor: '#FFFFFF',
-  },
-  modeRow: {
-    flexDirection: 'row',
-    gap: 6,
-    marginBottom: 8,
-  },
-  modeChip: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: '#D0D0D0',
-    borderRadius: 7,
-    paddingVertical: 8,
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-  },
-  modeChipSelected: {
-    backgroundColor: '#000000',
-    borderColor: '#000000',
-  },
-  modeChipText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#333333',
-  },
-  addVehicleLink: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 8,
-    gap: 4,
-  },
-  addVehicleLinkText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#FB8C00',
-  },
-  addVehicleBox: {
-    marginTop: 8,
-    backgroundColor: '#FFF8F0',
-    borderWidth: 1,
-    borderColor: '#FFCC80',
-    borderRadius: 8,
-    padding: 10,
-  },
-  addVehicleHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-    gap: 5,
-  },
-  addVehicleTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#111111',
-  },
-  addVehicleFeedback: {
-    fontSize: 12,
-    fontWeight: '600',
-    marginBottom: 6,
-  },
-  addVehicleSaveBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#FB8C00',
-    borderRadius: 7,
-    paddingVertical: 10,
-    gap: 5,
-    marginTop: 4,
-  },
-  addVehicleSaveBtnText: {
-    color: '#FFFFFF',
-    fontWeight: '700',
-    fontSize: 13,
   },
 });
