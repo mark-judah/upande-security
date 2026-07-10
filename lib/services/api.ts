@@ -227,6 +227,23 @@ export type CreateWalkInNotifyResult = {
   notified: number;
 };
 
+export type CreateContractorNotifyInput = {
+  contractor_ref?: string;
+  contractor_name?: string;
+  host: string;
+  phone?: string;
+  purpose?: string;
+  plate?: string;
+  passengers?: number;
+};
+export type CreateContractorNotifyResult = {
+  name: string;
+  customer_name: string;
+  host_id: string;
+  workflow_state: string;
+  notified: number;
+};
+
 export type CheckInInput = {
   name: string;
   transport?: string;
@@ -469,6 +486,8 @@ export const api = {
   notifyHost: (name: string) => call<NotifyHostResult>('notify_host', { name }),
   createWalkInAndNotify: (input: CreateWalkInInput) =>
     call<CreateWalkInNotifyResult>('create_walk_in_notify', input),
+  createContractorNotify: (input: CreateContractorNotifyInput) =>
+    call<CreateContractorNotifyResult>('create_contractor_notify', input),
   checkInVisitor: (input: CheckInInput) => call<CheckInResult>('check_in_visitor', input),
   checkOutVisitor: (name: string) => call<CheckOutResult>('check_out_visitor', { name }),
   createWalkIn: (input: CreateWalkInInput) =>

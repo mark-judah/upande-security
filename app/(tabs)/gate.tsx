@@ -244,7 +244,6 @@ export default function GateTab() {
         customer_name: values.customer_name.trim(),
         phone,
         host: values.custom_meet_with,
-        email: `${phone}@walkin.gate`,
         purpose: values.customer_details,
         transport: values.custom_mode_of_transport,
         plate: values.custom_vehicles_number_plate,
@@ -270,23 +269,44 @@ export default function GateTab() {
     }
   }
 
-  async function onContractorCheckIn(input: { passengers?: number }) {
+  async function onContractorNotify(input: {
+    host: string;
+    plate?: string;
+    passengers?: number;
+  }) {
     if (!contractorResult) return;
     setVehicleBusy(true);
     try {
-      await api.contractorCheckIn({
+      const result = await api.createContractorNotify({
         contractor_ref: contractorResult.contract_name ?? undefined,
         contractor_name: contractorResult.contractor_name ?? undefined,
-        transport_mode: 'On Foot',
+        host: input.host,
+        plate: input.plate,
         passengers: input.passengers,
       });
-      feedback.success('Contractor checked in');
-      clearForm();
+      // Collapse the contractor form and hand off to the shared ActionButtons,
+      // which polls the workflow and surfaces CHECK IN once the host approves.
+      setSelectedAppointment({
+        has_appointment: true,
+        name: result.name,
+        visitor_name: contractorResult.contractor_name ?? '',
+        host_name: result.host_id,
+      } as VisitorAppointmentSearchResult);
+      setContractorResult(null);
+      feedback.success('Host notified — waiting for approval');
     } catch (e) {
-      feedback.error(e instanceof Error ? e.message : 'Contractor check-in failed');
+      feedback.error(e instanceof Error ? e.message : 'Failed to notify host');
     } finally {
       setVehicleBusy(false);
     }
+  }
+
+  async function onContractorCheckIn() {
+    if (!selectedAppointment?.name) return;
+    // Plate / transport were stored at notify time — send only the name so the
+    // server preserves them rather than overwriting with blanks.
+    await checkIn.mutateAsync({ name: selectedAppointment.name });
+    workflowQuery.refetch();
   }
 
   async function onWorkTicketScanned(raw: string) {
@@ -416,9 +436,21 @@ export default function GateTab() {
           {selectedType === CheckInType.Contractor && contractorResult ? (
             <ContractorForm
               result={contractorResult}
-              onCheckIn={onContractorCheckIn}
+              onNotify={onContractorNotify}
               busy={vehicleBusy}
             />
+          ) : null}
+
+          {selectedType === CheckInType.Contractor && selectedAppointment ? (
+            <View style={s.appointmentSection}>
+              <ActionButtons
+                appointment={workflowQuery.data}
+                loading={workflowQuery.isLoading}
+                onNotifyHost={() => {}}
+                onCheckIn={onContractorCheckIn}
+                busy={checkIn.isPending || vehicleBusy}
+              />
+            </View>
           ) : null}
 
           {isWalkIn ? (
@@ -441,7 +473,7 @@ export default function GateTab() {
             </WalkInSection>
           ) : null}
 
-          {selectedAppointment && !isWalkIn ? (
+          {selectedType === CheckInType.Visitor && selectedAppointment && !isWalkIn ? (
             <View style={s.appointmentSection}>
               <VisitorForm
                 control={control}

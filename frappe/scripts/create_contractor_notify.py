@@ -16,61 +16,68 @@ try:
         except (KeyError, TypeError):
             return ""
 
-    customer_name = s("customer_name")
+    contractor_ref = s("contractor_ref")
+    contractor_name = s("contractor_name")
     phone = s("phone")
-    email = s("email")
     host = s("host")
-    purpose = s("purpose")
-    transport = s("transport") or "On Foot"
+    purpose = s("purpose") or "Contractor site access"
     plate = s("plate")
-    colour = s("colour")
-    scheduled_time = s("scheduled_time")
     passengers_raw = ""
     try:
         passengers_raw = str(data["passengers"]) if data["passengers"] is not None else ""
     except (KeyError, TypeError):
         passengers_raw = ""
 
-    if not customer_name:
-        frappe.response["message"] = {"error": "customer_name is required"}
-    elif not phone:
-        frappe.response["message"] = {"error": "phone is required"}
+    if not contractor_name and contractor_ref:
+        contractor_name = frappe.db.get_value("Supplier", contractor_ref, "supplier_name") or contractor_ref
+
+    if not contractor_name:
+        frappe.response["message"] = {"error": "contractor_name or contractor_ref is required"}
     elif not host:
         frappe.response["message"] = {"error": "host is required"}
     else:
-        if not scheduled_time:
-            scheduled_time = str(frappe.utils.now_datetime())
-
         host_rec = frappe.db.get_value("Employee", host, ["name", "user_id", "employee_name"], as_dict=True)
         if not host_rec:
             frappe.response["message"] = {"error": "Host " + host + " not found"}
         else:
             host_email_dbg = host_rec.user_id or ""
             frappe.log_error(
-                title="create_walk_in_notify debug",
+                title="create_contractor_notify debug",
                 message="Payload: " + str(data) + "\nHost: " + host + "\nHost email (user_id): " + host_email_dbg,
             )
 
+            transport = "Vehicle" if plate else "On Foot"
+            now_str = str(frappe.utils.now_datetime())
+
             doc = frappe.new_doc("Appointment")
-            doc.flags.ignore_mandatory = True
-            doc.customer_name = customer_name
-            doc.customer_phone_number = phone
-            doc.customer_email = email
+            doc.customer_name = contractor_name
+            doc.customer_email = ""
             doc.custom_meet_with = host
-            doc.scheduled_time = scheduled_time
+            doc.scheduled_time = now_str
             doc.customer_details = purpose
             doc.custom_mode_of_transport = transport
             doc.custom_vehicles_number_plate = plate
-            doc.custom_vehicles_colour = colour
-            if passengers_raw:
-                try:
-                    doc.custom_number_of_passengers = int(passengers_raw)
-                except Exception:
-                    pass
             doc.status = "Open"
             doc.custom_reporting_status = "Scheduled"
+            doc.flags.ignore_validate = True
+            doc.flags.ignore_links = True
+            doc.flags.ignore_mandatory = True
             doc.insert(ignore_permissions=True)
             appt_name = doc.name
+
+            updates = {
+                "custom_visitor_type": "Contractor",
+            }
+            if phone:
+                updates["customer_phone_number"] = phone
+            if contractor_ref:
+                updates["custom_contractor_ref"] = contractor_ref
+            if passengers_raw:
+                try:
+                    updates["custom_number_of_passengers"] = int(passengers_raw)
+                except Exception:
+                    pass
+            frappe.db.set_value("Appointment", appt_name, updates, update_modified=False)
 
             # Apply "Notify Host" workflow transition
             try:
@@ -91,7 +98,7 @@ try:
                 )
                 frappe.db.commit()
 
-            # Send notifications to host + secretary
+            # Send notifications to host (user_id is an email) + secretaries
             host_user_id = host_rec.user_id or ""
             host_name = host_rec.employee_name or host
             recipient_users = []
@@ -109,10 +116,12 @@ try:
             except Exception:
                 pass
 
-            subject = "Walk-in Visitor: " + customer_name + " at the gate to see " + host_name
-            body = "<p><strong>" + customer_name + "</strong> (walk-in) has arrived at the gate to see <strong>" + host_name + "</strong></p>"
+            subject = "Contractor: " + contractor_name + " at the gate to see " + host_name
+            body = "<p><strong>" + contractor_name + "</strong> (contractor) has arrived at the gate to see <strong>" + host_name + "</strong></p>"
             if purpose:
                 body = body + "<p>Purpose: " + purpose + "</p>"
+            if plate:
+                body = body + "<p>Vehicle: " + plate + "</p>"
             body = body + "<p>Please <strong>approve, reschedule, or reject</strong> this visit in ERPNext.</p>"
 
             notified = 0
@@ -130,12 +139,12 @@ try:
 
             frappe.response["message"] = {
                 "name": appt_name,
-                "customer_name": customer_name,
+                "customer_name": contractor_name,
                 "host_id": host,
                 "workflow_state": "Pending Host Review",
                 "notified": notified,
             }
 except Exception as e:
     frappe.db.rollback()
-    frappe.log_error("create_walk_in_notify", str(e))
+    frappe.log_error("create_contractor_notify", str(e))
     frappe.response["message"] = {"error": str(e)}

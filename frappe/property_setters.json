@@ -7,5 +7,14 @@
     "property": "options",
     "property_type": "Text",
     "value": "SUP-.YYYY.-"
+  },
+  {
+    "name": "Appointment-customer_email-reqd",
+    "doctype_or_field": "DocField",
+    "doc_type": "Appointment",
+    "field_name": "customer_email",
+    "property": "reqd",
+    "property_type": "Check",
+    "value": "0"
   }
 ]

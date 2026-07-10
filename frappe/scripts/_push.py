@@ -12,20 +12,24 @@ import os
 import sys
 import urllib.request
 
-FAC_URL = "http://kaitet.local:8001/api/method/frappe_assistant_core.api.fac_endpoint.handle_mcp"
+FAC_PATH = "/api/method/frappe_assistant_core.api.fac_endpoint.handle_mcp"
+DEFAULT_BASE_URL = "https://kaitet-group.upande.com"
 
-def _load_token():
+def _load_creds():
     here = os.path.dirname(os.path.abspath(__file__))
     creds_path = os.path.join(here, "..", "..", ".kaitet-credentials.json")
     try:
         with open(creds_path) as f:
             c = json.load(f)
-            return c["api_key"] + ":" + c["api_secret"]
+            token = c["api_key"] + ":" + c["api_secret"]
+            base = c.get("base_url") or DEFAULT_BASE_URL
+            return token, base.rstrip("/")
     except Exception:
         pass
-    return os.environ.get("FAC_TOKEN", "")
+    return os.environ.get("FAC_TOKEN", ""), os.environ.get("FAC_BASE_URL", DEFAULT_BASE_URL).rstrip("/")
 
-API_TOKEN = _load_token()
+API_TOKEN, BASE_URL = _load_creds()
+FAC_URL = BASE_URL + FAC_PATH
 MODULE = "Upande Security"
 
 

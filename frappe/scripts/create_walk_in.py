@@ -38,8 +38,6 @@ try:
     elif not host:
         frappe.response["message"] = {"error": "host is required"}
     else:
-        if not email:
-            email = phone + "@walkin.gate"
         if not scheduled_time:
             scheduled_time = str(frappe.utils.now_datetime())
 
@@ -49,6 +47,7 @@ try:
         else:
             now = frappe.utils.now_datetime()
             doc = frappe.new_doc("Appointment")
+            doc.flags.ignore_mandatory = True
             doc.customer_name = customer_name
             doc.customer_phone_number = phone
             doc.customer_email = email

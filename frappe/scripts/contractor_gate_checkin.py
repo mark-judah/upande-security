@@ -28,8 +28,6 @@ now_str = frappe.utils.now()
 
 try:
     if not appt_name:
-        safe_id = contractor_ref or contractor_name
-        safe_email = safe_id.replace(' ', '').lower() + '@contractor.gate'
         detail_str = purpose
         if company:
             detail_str = detail_str + '\nCompany: ' + company
@@ -38,7 +36,7 @@ try:
 
         doc = frappe.new_doc('Appointment')
         doc.customer_name  = contractor_name
-        doc.customer_email = safe_email
+        doc.customer_email = ''
         doc.scheduled_time = now_str
         doc.status         = 'Open'
         doc.flags.ignore_validate        = True
