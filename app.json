@@ -75,20 +75,12 @@
     "runtimeVersion": {
       "policy": "appVersion"
     },
-    "updates": {
-      "url": "https://u.expo.dev/b11b481a-da03-48fe-b12b-81ebff4136dc"
-    },
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "a2daef29-28e9-4316-8445-a3bf026ed8f9"
+        "projectId": "375a13da-630b-4a49-96e2-0c89c3c9f3d1"
       }
     },
-    "runtimeVersion": {
-      "policy": "appVersion"
-    },
-    "updates": {
-      "url": "https://u.expo.dev/a2daef29-28e9-4316-8445-a3bf026ed8f9"
-    }
+    "owner": "ngetich1"
   }
 }

@@ -1,5 +1,5 @@
 import api from './client';
-import type { Appointment, VisitorAppointmentSearchResult } from './types';
+import type { Appointment, VisitorAppointmentSearchResult, VisitorHistoryResult } from './types';
 
 export async function fetchVisitorAppointment(query: string) {
   const res = await api.post<{ message: VisitorAppointmentSearchResult }>(
@@ -7,6 +7,25 @@ export async function fetchVisitorAppointment(query: string) {
     { query },
   );
   return res.data.message;
+}
+
+/**
+ * For a walk-in visitor with no appointment scheduled today, look up their
+ * most recent PAST visit (matched by phone/name) so the form can be
+ * prefilled instead of re-entered from scratch. Never throws — a lookup
+ * failure just falls back to a blank walk-in form.
+ */
+export async function fetchVisitorHistory(query: string): Promise<VisitorHistoryResult> {
+  const q = query.trim();
+  if (!q) return { found: false };
+  try {
+    const res = await api.post<{ message: VisitorHistoryResult }>('/api/method/getVisitorHistory', {
+      query: q,
+    });
+    return res.data.message ?? { found: false };
+  } catch {
+    return { found: false };
+  }
 }
 
 export async function fetchAppointmentDoc(name: string) {

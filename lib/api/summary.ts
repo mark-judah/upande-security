@@ -29,6 +29,7 @@ export async function fetchDailySummary({ date }: { date: Date }): Promise<Daily
       'custom_visitor_type',
       'custom_contractor_ref',
       'customer_details',
+      'custom_temp_exit_time',
     ]),
   );
 

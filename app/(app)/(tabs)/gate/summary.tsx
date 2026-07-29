@@ -1,14 +1,17 @@
 import { View, Text, ScrollView, RefreshControl, TouchableOpacity } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useDailySummary } from '@/lib/hooks/useDailySummary';
+import { useStaffAttendanceSummary } from '@/lib/hooks/useStaffAttendanceSummary';
 import { StatCard } from '@/components/ui/StatCard';
 import { InsideCard } from '@/components/gate/InsideCard';
 import { ActivityRow } from '@/components/gate/ActivityRow';
+import { StaffAttendanceRow } from '@/components/gate/StaffAttendanceRow';
 import { fmtLongDate } from '@/lib/utils/date';
 
 export default function SummaryTab() {
   const today = new Date();
   const { data, isFetching, isLoading, refetch, error } = useDailySummary(today);
+  const staffAttendance = useStaffAttendanceSummary();
 
   if (!data && !isLoading && !error) {
     return (
@@ -23,7 +26,10 @@ export default function SummaryTab() {
       >
         <MaterialIcons name="dashboard" size={60} color="#999999" />
         <TouchableOpacity
-          onPress={() => refetch()}
+          onPress={() => {
+            refetch();
+            staffAttendance.refetch();
+          }}
           activeOpacity={0.8}
           accessibilityRole="button"
           style={{
@@ -51,7 +57,13 @@ export default function SummaryTab() {
       style={{ flex: 1, backgroundColor: '#F5F5F5' }}
       contentContainerStyle={{ padding: 12, paddingBottom: 40 }}
       refreshControl={
-        <RefreshControl refreshing={isFetching} onRefresh={() => refetch()} />
+        <RefreshControl
+          refreshing={isFetching || staffAttendance.isFetching}
+          onRefresh={() => {
+            refetch();
+            staffAttendance.refetch();
+          }}
+        />
       }
     >
       <Text style={{ fontSize: 16, fontWeight: '700', color: '#111111', marginBottom: 12 }}>
@@ -125,6 +137,29 @@ export default function SummaryTab() {
               </View>
               {data.still_inside_list.map((a) => (
                 <InsideCard key={a.name} appointment={a} />
+              ))}
+            </View>
+          ) : null}
+
+          {staffAttendance.data && staffAttendance.data.length > 0 ? (
+            <View style={{ marginBottom: 16 }}>
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  backgroundColor: '#43A047',
+                  padding: 10,
+                  borderRadius: 8,
+                  marginBottom: 8,
+                }}
+              >
+                <MaterialIcons name="badge" size={18} color="#FFFFFF" />
+                <Text style={{ color: '#FFFFFF', fontWeight: '700', marginLeft: 6 }}>
+                  Staff Attendance Today ({staffAttendance.data.length})
+                </Text>
+              </View>
+              {staffAttendance.data.map((a) => (
+                <StaffAttendanceRow key={a.name} attendance={a} />
               ))}
             </View>
           ) : null}

@@ -1,10 +1,11 @@
 import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { LiveTimer } from '@/components/ui/LiveTimer';
-import { fmtTime } from '@/lib/utils/date';
+import { fmtTime, getDuration } from '@/lib/utils/date';
 import { WORKFLOW_META } from '@/constants/workflowStates';
 import { useCheckOut } from '@/lib/hooks/useCheckOut';
 import { useContractorCheckOut } from '@/lib/hooks/useContractorCheckOut';
+import { useAppointmentTempExit } from '@/lib/hooks/useAppointmentTempExit';
 import type { Appointment } from '@/lib/api/types';
 
 type Props = { appointment: Appointment };
@@ -46,7 +47,9 @@ export function InsideCard({ appointment: a }: Props) {
 
   const visitorCheckOut = useCheckOut();
   const contractorCheckOut = useContractorCheckOut();
+  const tempExit = useAppointmentTempExit();
   const busy = visitorCheckOut.isPending || contractorCheckOut.isPending;
+  const steppedOut = Boolean(a.custom_temp_exit_time);
 
   async function handleCheckOut() {
     if (isContractor) {
@@ -54,6 +57,10 @@ export function InsideCard({ appointment: a }: Props) {
     } else {
       await visitorCheckOut.mutateAsync(a.name);
     }
+  }
+
+  async function handleTempExit() {
+    await tempExit.mutateAsync({ name: a.name, direction: steppedOut ? 'in' : 'out' });
   }
 
   return (
@@ -151,34 +158,88 @@ export function InsideCard({ appointment: a }: Props) {
         ) : null}
       </View>
 
-      {/* Check Out button */}
-      <TouchableOpacity
-        onPress={handleCheckOut}
-        disabled={busy}
-        activeOpacity={0.8}
-        style={{
-          marginTop: 10,
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'center',
-          backgroundColor: isContractor ? '#FB8C00' : '#000000',
-          borderRadius: 7,
-          paddingVertical: 10,
-          opacity: busy ? 0.6 : 1,
-          minHeight: 40,
-        }}
-      >
-        {busy ? (
-          <ActivityIndicator size="small" color="#FFFFFF" />
-        ) : (
-          <>
-            <MaterialIcons name="logout" size={16} color="#FFFFFF" />
-            <Text style={{ color: '#FFFFFF', fontWeight: '700', marginLeft: 6, fontSize: 13 }}>
-              CHECK OUT
-            </Text>
-          </>
-        )}
-      </TouchableOpacity>
+      {steppedOut ? (
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            backgroundColor: '#FFF3E0',
+            borderRadius: 8,
+            paddingHorizontal: 10,
+            paddingVertical: 6,
+            marginTop: 8,
+          }}
+        >
+          <MaterialIcons name="directions-walk" size={14} color="#E65100" />
+          <Text style={{ color: '#E65100', fontSize: 12, fontWeight: '600', marginLeft: 6 }}>
+            Stepped out at {fmtTime(a.custom_temp_exit_time)} ·{' '}
+            {getDuration(a.custom_temp_exit_time)}
+          </Text>
+        </View>
+      ) : null}
+
+      {/* Step Out / Confirm Return + Check Out buttons */}
+      <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
+        <TouchableOpacity
+          onPress={handleTempExit}
+          disabled={tempExit.isPending}
+          activeOpacity={0.8}
+          style={{
+            flex: 1,
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: steppedOut ? '#2E7D32' : '#EF6C00',
+            borderRadius: 7,
+            paddingVertical: 10,
+            opacity: tempExit.isPending ? 0.6 : 1,
+            minHeight: 40,
+          }}
+        >
+          {tempExit.isPending ? (
+            <ActivityIndicator size="small" color="#FFFFFF" />
+          ) : (
+            <>
+              <MaterialIcons
+                name={steppedOut ? 'login' : 'directions-walk'}
+                size={16}
+                color="#FFFFFF"
+              />
+              <Text style={{ color: '#FFFFFF', fontWeight: '700', marginLeft: 6, fontSize: 13 }}>
+                {steppedOut ? 'CONFIRM RETURN' : 'STEP OUT'}
+              </Text>
+            </>
+          )}
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          onPress={handleCheckOut}
+          disabled={busy}
+          activeOpacity={0.8}
+          style={{
+            flex: 1,
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: isContractor ? '#FB8C00' : '#000000',
+            borderRadius: 7,
+            paddingVertical: 10,
+            opacity: busy ? 0.6 : 1,
+            minHeight: 40,
+          }}
+        >
+          {busy ? (
+            <ActivityIndicator size="small" color="#FFFFFF" />
+          ) : (
+            <>
+              <MaterialIcons name="logout" size={16} color="#FFFFFF" />
+              <Text style={{ color: '#FFFFFF', fontWeight: '700', marginLeft: 6, fontSize: 13 }}>
+                CHECK OUT
+              </Text>
+            </>
+          )}
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }

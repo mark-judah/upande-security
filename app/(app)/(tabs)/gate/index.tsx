@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { View, Text, Platform, Keyboard } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
+import { router } from 'expo-router';
 import { useForm } from 'react-hook-form';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useAuthStore } from '@/lib/stores/authStore';
@@ -21,6 +22,7 @@ import {
   emptyVisitorForm,
   type VisitorFormValues,
 } from '@/components/gate/visitorFormValues';
+import { fetchVisitorHistory } from '@/lib/api/visitors';
 import { useVisitorSearch } from '@/lib/hooks/useVisitorSearch';
 import { useContractorSearch } from '@/lib/hooks/useContractorSearch';
 import { useAppointmentWorkflowState } from '@/lib/hooks/useAppointmentWorkflowState';
@@ -35,10 +37,11 @@ import { useGateStore } from '@/lib/stores/gateStore';
 import { useVehicleStore } from '@/lib/stores/vehicleStore';
 import { fetchTractorDailyTask, markTractorTaskRowCompleted } from '@/lib/api/vehicles';
 import { extractTicketName } from '@/lib/utils/qr';
-import { toFrappeDateTime } from '@/lib/utils/date';
+import { toFrappeDateTime, fmtDateTime } from '@/lib/utils/date';
 import { CheckInType } from '@/constants/checkInTypes';
 import type {
   VisitorAppointmentSearchResult,
+  VisitorHistoryResult,
   ContractorSearchResult,
   TractorDailyTask,
 } from '@/lib/api/types';
@@ -58,6 +61,7 @@ export default function GateTab() {
   const [selectedAppointment, setSelectedAppointment] =
     useState<VisitorAppointmentSearchResult | null>(null);
   const [isWalkIn, setIsWalkIn] = useState(false);
+  const [revisitInfo, setRevisitInfo] = useState<VisitorHistoryResult | null>(null);
 
   const [contractorResult, setContractorResult] = useState<ContractorSearchResult | null>(null);
   const [contractorWalkInOpen, setContractorWalkInOpen] = useState(false);
@@ -72,6 +76,8 @@ export default function GateTab() {
 
   const pendingScanned = useGateStore((s) => s.pendingScannedTicket);
   const setPendingScanned = useGateStore((s) => s.setPendingScannedTicket);
+  const pendingScannedIdCard = useGateStore((s) => s.pendingScannedIdCard);
+  const setPendingScannedIdCard = useGateStore((s) => s.setPendingScannedIdCard);
 
   const vehicleStore = useVehicleStore();
 
@@ -113,6 +119,7 @@ export default function GateTab() {
     setShowVisitorResult(false);
     setSelectedAppointment(null);
     setIsWalkIn(false);
+    setRevisitInfo(null);
     setContractorResult(null);
     setContractorWalkInOpen(false);
     reset(emptyVisitorForm);
@@ -140,6 +147,14 @@ export default function GateTab() {
         const result = await visitorSearch.mutateAsync(q);
         setVisitorResult(result);
         setShowVisitorResult(true);
+        if (!result.has_appointment) {
+          // No appointment today — check whether they've visited before so
+          // we can skip re-typing their details for a walk-in registration.
+          const history = await fetchVisitorHistory(q);
+          if (history.found) {
+            onRegisterAsWalkIn(history);
+          }
+        }
       } else if (selectedType === CheckInType.Contractor) {
         const result = await contractorSearch.mutateAsync(q);
         setContractorResult(result);
@@ -166,11 +181,28 @@ export default function GateTab() {
     });
   }
 
-  function onRegisterAsWalkIn() {
+  function onRegisterAsWalkIn(history?: VisitorHistoryResult) {
     setIsWalkIn(true);
     setSelectedAppointment(null);
     setShowVisitorResult(false);
-    reset({ ...emptyVisitorForm, customer_name: searchQuery.trim() });
+    if (history?.found) {
+      setRevisitInfo(history);
+      reset({
+        customer_name: history.visitor_name || searchQuery.trim(),
+        id_ref: '',
+        customer_phone_number: history.phone_number ?? '',
+        custom_mode_of_transport: history.transport_mode ?? 'On Foot',
+        custom_vehicles_number_plate: history.vehicle_reg_no ?? '',
+        custom_vehicles_colour: history.vehicle_color ?? '',
+        custom_number_of_passengers: undefined,
+        custom_meet_with: history.host_id ?? '',
+        host_name: history.host_name ?? '',
+        customer_details: history.purpose ?? '',
+      });
+    } else {
+      setRevisitInfo(null);
+      reset({ ...emptyVisitorForm, customer_name: searchQuery.trim() });
+    }
   }
 
   async function onVisitorCheckIn() {
@@ -360,6 +392,21 @@ export default function GateTab() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingScanned]);
 
+  useEffect(() => {
+    if (pendingScannedIdCard) {
+      const { name, idNumber } = pendingScannedIdCard;
+      setPendingScannedIdCard(null);
+      if (name) setValue('customer_name', name);
+      if (idNumber) setValue('id_ref', idNumber);
+      if (name || idNumber) {
+        feedback.success('Scanned — please confirm details');
+      } else {
+        feedback.warning('Could not read the ID card — enter details manually');
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingScannedIdCard]);
+
   return (
     <View style={{ flex: 1, backgroundColor: '#F5F5F5' }}>
       <View
@@ -448,11 +495,39 @@ export default function GateTab() {
               <WalkInSection
                 onClose={() => {
                   setIsWalkIn(false);
+                  setRevisitInfo(null);
                   reset(emptyVisitorForm);
                 }}
                 onSave={onCreateWalkIn}
                 saving={createWalkIn.isPending}
               >
+                {revisitInfo?.found ? (
+                  <View
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'flex-start',
+                      backgroundColor: '#E3F2FD',
+                      borderRadius: 8,
+                      paddingHorizontal: 12,
+                      paddingVertical: 10,
+                      marginBottom: 10,
+                    }}
+                  >
+                    <MaterialIcons
+                      name="history"
+                      size={16}
+                      color="#1565C0"
+                      style={{ marginTop: 1 }}
+                    />
+                    <Text style={{ color: '#0D47A1', fontSize: 12, marginLeft: 6, flex: 1 }}>
+                      Welcome back! Details filled in from their last visit
+                      {revisitInfo.last_visit_date
+                        ? ` on ${fmtDateTime(revisitInfo.last_visit_date)}`
+                        : ''}
+                      . Please confirm the transport / vehicle details below.
+                    </Text>
+                  </View>
+                ) : null}
                 <VisitorForm
                   control={control}
                   errors={errors}
@@ -460,6 +535,7 @@ export default function GateTab() {
                   watchTransport={watchTransport}
                   watchHostId={watchHostId}
                   watchHostName={watchHostName}
+                  onScanId={() => router.push('/(app)/scan-id')}
                 />
               </WalkInSection>
             ) : null}

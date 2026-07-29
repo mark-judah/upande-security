@@ -1,5 +1,6 @@
-import { View } from 'react-native';
+import { View, Text, TouchableOpacity } from 'react-native';
 import { Controller, Control, FieldErrors } from 'react-hook-form';
+import { MaterialIcons } from '@expo/vector-icons';
 import { FormInput } from '@/components/forms/FormInput';
 import { FormSelect } from '@/components/forms/FormSelect';
 import { HostSearchField } from '@/components/forms/HostSearchField';
@@ -13,6 +14,7 @@ type Props = {
   watchTransport: string;
   watchHostId: string;
   watchHostName: string;
+  onScanId?: () => void;
 };
 
 export function VisitorForm({
@@ -22,11 +24,34 @@ export function VisitorForm({
   watchTransport,
   watchHostId,
   watchHostName,
+  onScanId,
 }: Props) {
   const showVehicleFields = watchTransport && watchTransport !== 'On Foot';
 
   return (
     <View>
+      {onScanId ? (
+        <TouchableOpacity
+          onPress={onScanId}
+          activeOpacity={0.8}
+          accessibilityRole="button"
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: '#111111',
+            borderRadius: 8,
+            paddingVertical: 12,
+            marginBottom: 12,
+          }}
+        >
+          <MaterialIcons name="badge" size={18} color="#FFFFFF" />
+          <Text style={{ color: '#FFFFFF', fontWeight: '700', marginLeft: 8, fontSize: 13 }}>
+            SCAN ID CARD
+          </Text>
+        </TouchableOpacity>
+      ) : null}
+
       <Controller
         control={control}
         name="customer_name"

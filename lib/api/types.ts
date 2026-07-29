@@ -37,6 +37,20 @@ export type Appointment = {
   custom_number_of_passengers?: number;
   custom_visitor_type?: 'Visitor' | 'Staff' | 'Contractor' | 'Customer';
   custom_contractor_ref?: string;
+  custom_temp_exit_time?: string;
+};
+
+export type VisitorHistoryResult = {
+  found: boolean;
+  visitor_name?: string;
+  phone_number?: string;
+  host_id?: string;
+  host_name?: string;
+  purpose?: string;
+  transport_mode?: TransportMode;
+  vehicle_reg_no?: string;
+  vehicle_color?: string;
+  last_visit_date?: string;
 };
 
 export type EmployeeResult = {
@@ -91,6 +105,8 @@ export type Attendance = {
   custom_location?: string;
   custom_employee_category?: string;
   custom_vehicle_number_plate?: string;
+  custom_mode_of_transport?: TransportMode;
+  custom_temp_exit_time?: string;
 };
 
 export type StaffSearchResult = {
