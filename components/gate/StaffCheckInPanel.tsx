@@ -14,7 +14,7 @@ import { useQuery } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { COLORS, spacing, borderRadius, fontSize } from '@/src/core/theme';
+import { COLORS, spacing, borderRadius, fontFamily, fontSize } from '@/src/core/theme';
 
 export function StaffCheckInPanel() {
   const [employeeId, setEmployeeId] = useState<string | null>(null);
@@ -131,7 +131,7 @@ export function StaffCheckInPanel() {
           <Text
             style={{
               color: COLORS.textOnPrimary,
-              fontWeight: '700',
+              fontFamily: fontFamily.bold,
               marginLeft: spacing.sm,
               fontSize: fontSize.md,
               letterSpacing: 0.5,
@@ -141,7 +141,7 @@ export function StaffCheckInPanel() {
           </Text>
         </TouchableOpacity>
 
-        <Text style={{ textAlign: 'center', color: COLORS.textMuted, marginVertical: 10, fontSize: fontSize.xs }}>
+        <Text style={{ textAlign: 'center', color: COLORS.textMuted, marginVertical: 10, fontSize: fontSize.xs, fontFamily: fontFamily.regular }}>
           Or enter employee ID manually
         </Text>
 
@@ -179,7 +179,7 @@ export function StaffCheckInPanel() {
     return (
       <View style={{ padding: spacing.xl, alignItems: 'center' }}>
         <ActivityIndicator color={COLORS.primary} />
-        <Text style={{ color: COLORS.textMuted, marginTop: spacing.sm, fontSize: fontSize.xs }}>
+        <Text style={{ color: COLORS.textMuted, marginTop: spacing.sm, fontSize: fontSize.xs, fontFamily: fontFamily.regular }}>
           Loading employee {employeeId}…
         </Text>
       </View>
@@ -198,12 +198,12 @@ export function StaffCheckInPanel() {
         >
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <Ionicons name="alert-circle-outline" size={22} color={COLORS.text} />
-            <Text style={{ color: COLORS.text, fontWeight: '700', marginLeft: spacing.sm, flex: 1 }}>
+            <Text style={{ color: COLORS.text, fontFamily: fontFamily.semiBold, marginLeft: spacing.sm, flex: 1 }}>
               Employee {employeeId} not found
             </Text>
           </View>
           {employeeQuery.error instanceof Error ? (
-            <Text style={{ color: COLORS.textMuted, fontSize: fontSize.xs, marginTop: 6 }}>
+            <Text style={{ color: COLORS.textMuted, fontSize: fontSize.xs, fontFamily: fontFamily.regular, marginTop: 6 }}>
               {employeeQuery.error.message}
             </Text>
           ) : null}
@@ -222,7 +222,7 @@ export function StaffCheckInPanel() {
             marginTop: 10,
           }}
         >
-          <Text style={{ color: COLORS.primary, fontWeight: '600' }}>Try another</Text>
+          <Text style={{ color: COLORS.primary, fontFamily: fontFamily.semiBold }}>Try another</Text>
         </TouchableOpacity>
       </View>
     );
@@ -240,23 +240,26 @@ export function StaffCheckInPanel() {
         }}
       >
         <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
-          {/* TODO: Wave 4 follow-up — icon mapping: no direct Ionicons equivalent for 'badge' */}
           <Ionicons name="card-outline" size={22} color={COLORS.text} />
           <View style={{ flex: 1, marginLeft: 10 }}>
-            <Text style={{ fontSize: 16, fontWeight: '700', color: COLORS.text }}>
+            <Text style={{ fontSize: fontSize.md, fontFamily: fontFamily.semiBold, color: COLORS.text }}>
               {emp.employee_name}
             </Text>
-            <Text style={{ color: COLORS.textSecondary, fontSize: fontSize.sm }}>ID: {emp.name}</Text>
+            <Text style={{ color: COLORS.textSecondary, fontSize: fontSize.sm, fontFamily: fontFamily.regular }}>
+              ID: {emp.name}
+            </Text>
             {emp.designation ? (
-              <Text style={{ color: COLORS.textSecondary, fontSize: fontSize.xs, marginTop: 2 }}>
+              <Text style={{ color: COLORS.textSecondary, fontSize: fontSize.xs, fontFamily: fontFamily.regular, marginTop: 2 }}>
                 {emp.designation}
               </Text>
             ) : null}
             {emp.department ? (
-              <Text style={{ color: COLORS.textSecondary, fontSize: fontSize.xs }}>{emp.department}</Text>
+              <Text style={{ color: COLORS.textSecondary, fontSize: fontSize.xs, fontFamily: fontFamily.regular }}>
+                {emp.department}
+              </Text>
             ) : null}
             {emp.custom_location || emp.custom_farm ? (
-              <Text style={{ color: COLORS.textSecondary, fontSize: fontSize.xs }}>
+              <Text style={{ color: COLORS.textSecondary, fontSize: fontSize.xs, fontFamily: fontFamily.regular }}>
                 {[emp.custom_location, emp.custom_farm].filter(Boolean).join(' · ')}
               </Text>
             ) : null}
@@ -267,7 +270,7 @@ export function StaffCheckInPanel() {
       {todayAttendanceQuery.isLoading ? (
         <View style={{ alignItems: 'center', marginTop: 16 }}>
           <ActivityIndicator color={COLORS.primary} />
-          <Text style={{ color: COLORS.textMuted, marginTop: 8, fontSize: fontSize.xs }}>
+          <Text style={{ color: COLORS.textMuted, marginTop: 8, fontSize: fontSize.xs, fontFamily: fontFamily.regular }}>
             Checking attendance status…
           </Text>
         </View>
@@ -277,7 +280,7 @@ export function StaffCheckInPanel() {
             style={{
               flexDirection: 'row',
               alignItems: 'center',
-              backgroundColor: '#E8F5E9',
+              backgroundColor: '#F0FDF4',
               borderRadius: borderRadius.md,
               paddingHorizontal: spacing.md,
               paddingVertical: 10,
@@ -285,7 +288,7 @@ export function StaffCheckInPanel() {
             }}
           >
             <Ionicons name="log-in-outline" size={16} color={COLORS.success} />
-            <Text style={{ color: COLORS.success, fontSize: fontSize.sm, fontWeight: '600', marginLeft: 6 }}>
+            <Text style={{ color: COLORS.success, fontSize: fontSize.sm, fontFamily: fontFamily.semiBold, marginLeft: 6 }}>
               Checked in at {fmtTime(openAttendance!.in_time)}
             </Text>
           </View>
@@ -295,7 +298,7 @@ export function StaffCheckInPanel() {
               style={{
                 flexDirection: 'row',
                 alignItems: 'center',
-                backgroundColor: '#FFF3E0',
+                backgroundColor: '#FFFBEB',
                 borderRadius: borderRadius.md,
                 paddingHorizontal: spacing.md,
                 paddingVertical: 10,
@@ -303,7 +306,7 @@ export function StaffCheckInPanel() {
               }}
             >
               <Ionicons name="walk-outline" size={16} color={COLORS.warn} />
-              <Text style={{ color: COLORS.warn, fontSize: fontSize.sm, fontWeight: '600', marginLeft: 6 }}>
+              <Text style={{ color: COLORS.warn, fontSize: fontSize.sm, fontFamily: fontFamily.semiBold, marginLeft: 6 }}>
                 Stepped out at {fmtTime(openAttendance!.custom_temp_exit_time)} ·{' '}
                 {getDuration(openAttendance!.custom_temp_exit_time)}
               </Text>
@@ -329,7 +332,7 @@ export function StaffCheckInPanel() {
               }}
             >
               <Ionicons name={steppedOut ? 'log-in-outline' : 'walk-outline'} size={18} color={COLORS.textOnPrimary} />
-              <Text style={{ color: COLORS.textOnPrimary, fontWeight: '700', marginLeft: 6, letterSpacing: 0.5, fontSize: fontSize.sm }}>
+              <Text style={{ color: COLORS.textOnPrimary, fontFamily: fontFamily.semiBold, marginLeft: 6, letterSpacing: 0.5, fontSize: fontSize.sm }}>
                 {steppedOut ? 'RETURN' : 'STEP OUT'}
               </Text>
             </TouchableOpacity>
@@ -352,7 +355,7 @@ export function StaffCheckInPanel() {
               }}
             >
               <Ionicons name="log-out-outline" size={18} color={COLORS.textOnPrimary} />
-              <Text style={{ color: COLORS.textOnPrimary, fontWeight: '700', marginLeft: 6, letterSpacing: 0.5, fontSize: fontSize.sm }}>
+              <Text style={{ color: COLORS.textOnPrimary, fontFamily: fontFamily.semiBold, marginLeft: 6, letterSpacing: 0.5, fontSize: fontSize.sm }}>
                 CHECK OUT
               </Text>
             </TouchableOpacity>
@@ -376,7 +379,7 @@ export function StaffCheckInPanel() {
                   fontSize: fontSize.sm,
                   color: COLORS.textSecondary,
                   marginBottom: 4,
-                  fontWeight: '600',
+                  fontFamily: fontFamily.semiBold,
                 }}
               >
                 {transportMode === TransportMode.MotorBike
@@ -424,7 +427,7 @@ export function StaffCheckInPanel() {
             }}
           >
             <Ionicons name="log-in-outline" size={18} color={COLORS.textOnPrimary} />
-            <Text style={{ color: COLORS.textOnPrimary, fontWeight: '700', marginLeft: 6, letterSpacing: 0.5 }}>
+            <Text style={{ color: COLORS.textOnPrimary, fontFamily: fontFamily.semiBold, marginLeft: 6, letterSpacing: 0.5 }}>
               CHECK IN
             </Text>
           </TouchableOpacity>
@@ -437,7 +440,9 @@ export function StaffCheckInPanel() {
         disabled={attendance.isPending || checkOut.isPending || tempExit.isPending}
         style={{ alignItems: 'center', paddingVertical: 10, marginTop: spacing.xs }}
       >
-        <Text style={{ color: COLORS.textMuted, fontSize: fontSize.sm }}>Cancel · Scan another</Text>
+        <Text style={{ color: COLORS.textMuted, fontSize: fontSize.sm, fontFamily: fontFamily.regular }}>
+          Cancel · Scan another
+        </Text>
       </TouchableOpacity>
     </View>
   );

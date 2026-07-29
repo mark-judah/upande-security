@@ -1,33 +1,24 @@
-import { View, Text } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
+import { View, Text, StyleSheet } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { TransportMode } from '@/constants/transportModes';
 import { fmtTime, getDuration } from '@/lib/utils/date';
+import { COLORS, spacing, borderRadius, fontFamily, fontSize } from '@/src/core/theme';
 import type { Attendance } from '@/lib/api/types';
 
 type Props = { attendance: Attendance };
 
-const TRANSPORT_ICON: Record<string, keyof typeof import('@expo/vector-icons').MaterialIcons.glyphMap> = {
-  [TransportMode.OnFoot]: 'directions-walk',
-  [TransportMode.Vehicle]: 'directions-car',
-  [TransportMode.MotorBike]: 'two-wheeler',
+const TRANSPORT_ICON: Record<string, keyof typeof Ionicons.glyphMap> = {
+  [TransportMode.OnFoot]: 'walk-outline',
+  [TransportMode.Vehicle]: 'car-outline',
+  [TransportMode.MotorBike]: 'bicycle-outline',
 };
 
 function TransportPill({ mode, plate }: { mode?: string; plate?: string }) {
-  const icon = (mode && TRANSPORT_ICON[mode]) || 'directions-walk';
+  const icon = (mode && TRANSPORT_ICON[mode]) || 'walk-outline';
   return (
-    <View
-      style={{
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: '#EEEEEE',
-        borderRadius: 4,
-        paddingHorizontal: 5,
-        paddingVertical: 2,
-        marginRight: 6,
-      }}
-    >
-      <MaterialIcons name={icon} size={11} color="#333333" />
-      <Text style={{ fontSize: 10, color: '#111111', fontWeight: '700', marginLeft: 3 }}>
+    <View style={styles.transportPill}>
+      <Ionicons name={icon} size={11} color={COLORS.textSecondary} />
+      <Text style={styles.transportPillText}>
         {mode ?? TransportMode.OnFoot}
         {plate ? ` · ${plate}` : ''}
       </Text>
@@ -48,42 +39,32 @@ export function StaffAttendanceRow({ attendance: a }: Props) {
   const checkedOut = Boolean(a.out_time);
   const currentlyInside = Boolean(a.in_time) && !checkedOut;
   const steppedOut = currentlyInside && Boolean(a.custom_temp_exit_time);
-  const bg = checkedOut ? '#F5F5F5' : currentlyInside ? '#FAFAFA' : '#FFFFFF';
+  const bg = checkedOut ? COLORS.surfaceAlt : currentlyInside ? COLORS.bgMuted : COLORS.surface;
 
   return (
     <View
-      style={{
-        backgroundColor: bg,
-        borderRadius: 10,
-        borderLeftWidth: 3,
-        borderLeftColor: currentlyInside ? '#43A047' : '#999999',
-        borderWidth: 1,
-        borderColor: '#E8E8E8',
-        marginBottom: 8,
-        padding: 12,
-      }}
+      style={[
+        styles.row,
+        {
+          backgroundColor: bg,
+          borderLeftColor: currentlyInside ? COLORS.success : COLORS.border,
+        },
+      ]}
     >
       <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-        <MaterialIcons name="badge" size={18} color={currentlyInside ? '#43A047' : '#666666'} />
-        <View style={{ flex: 1, marginLeft: 8 }}>
-          <Text style={{ fontWeight: '700', color: '#111111' }} numberOfLines={1}>
+        <Ionicons name="card-outline" size={18} color={currentlyInside ? COLORS.success : COLORS.textMuted} />
+        <View style={{ flex: 1, marginLeft: spacing.sm }}>
+          <Text style={styles.name} numberOfLines={1}>
             {a.employee_name ?? a.employee}
           </Text>
-          <View
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              marginTop: 4,
-              flexWrap: 'wrap',
-            }}
-          >
+          <View style={styles.detailRow}>
             <TransportPill mode={a.custom_mode_of_transport} plate={a.custom_vehicle_number_plate} />
-            <Text style={{ fontSize: 11, color: '#333333' }}>
+            <Text style={styles.timeText}>
               {a.in_time ? `In ${fmtTime(a.in_time)}` : '—'}
               {checkedOut ? ` → Out ${fmtTime(a.out_time)}` : ''}
             </Text>
             <View style={{ flex: 1 }} />
-            <Text style={{ fontSize: 11, color: '#666666' }}>
+            <Text style={styles.durationText}>
               {checkedOut
                 ? durationBetween(a.in_time, a.out_time)
                 : currentlyInside
@@ -91,30 +72,12 @@ export function StaffAttendanceRow({ attendance: a }: Props) {
                   : ''}
             </Text>
             {steppedOut ? (
-              <View
-                style={{
-                  marginLeft: 6,
-                  backgroundColor: '#E65100',
-                  paddingHorizontal: 6,
-                  paddingVertical: 2,
-                  borderRadius: 4,
-                }}
-              >
-                <Text style={{ color: '#FFFFFF', fontSize: 9, fontWeight: '700' }}>
-                  STEPPED OUT
-                </Text>
+              <View style={[styles.statusBadge, { backgroundColor: COLORS.warn }]}>
+                <Text style={styles.statusBadgeText}>STEPPED OUT</Text>
               </View>
             ) : currentlyInside ? (
-              <View
-                style={{
-                  marginLeft: 6,
-                  backgroundColor: '#000000',
-                  paddingHorizontal: 6,
-                  paddingVertical: 2,
-                  borderRadius: 4,
-                }}
-              >
-                <Text style={{ color: '#FFFFFF', fontSize: 9, fontWeight: '700' }}>INSIDE</Text>
+              <View style={[styles.statusBadge, { backgroundColor: COLORS.text }]}>
+                <Text style={styles.statusBadgeText}>INSIDE</Text>
               </View>
             ) : null}
           </View>
@@ -123,3 +86,61 @@ export function StaffAttendanceRow({ attendance: a }: Props) {
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  row: {
+    borderRadius: borderRadius.md,
+    borderLeftWidth: 3,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: COLORS.border,
+    marginBottom: spacing.sm,
+    padding: spacing.md,
+  },
+  name: {
+    fontFamily: fontFamily.semiBold,
+    fontSize: fontSize.sm,
+    color: COLORS.text,
+  },
+  detailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+    flexWrap: 'wrap',
+  },
+  transportPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.bgMuted,
+    borderRadius: borderRadius.sm,
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    marginRight: spacing.sm - 2,
+  },
+  transportPillText: {
+    fontSize: 10,
+    color: COLORS.textSecondary,
+    fontFamily: fontFamily.semiBold,
+    marginLeft: 3,
+  },
+  timeText: {
+    fontSize: fontSize.xs,
+    fontFamily: fontFamily.regular,
+    color: COLORS.textSecondary,
+  },
+  durationText: {
+    fontSize: fontSize.xs,
+    fontFamily: fontFamily.regular,
+    color: COLORS.textMuted,
+  },
+  statusBadge: {
+    marginLeft: spacing.sm - 2,
+    paddingHorizontal: spacing.sm - 2,
+    paddingVertical: 2,
+    borderRadius: borderRadius.sm,
+  },
+  statusBadgeText: {
+    color: COLORS.textOnPrimary,
+    fontSize: 9,
+    fontFamily: fontFamily.bold,
+  },
+});

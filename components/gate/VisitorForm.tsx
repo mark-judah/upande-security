@@ -1,11 +1,11 @@
 import { View, Text, TouchableOpacity } from 'react-native';
 import { Controller, Control, FieldErrors } from 'react-hook-form';
-import { MaterialIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { FormInput } from '@/components/forms/FormInput';
 import { FormSelect } from '@/components/forms/FormSelect';
 import { HostSearchField } from '@/components/forms/HostSearchField';
 import { TRANSPORT_MODES } from '@/constants/transportModes';
-import { spacing } from '@/src/core/theme';
+import { COLORS, spacing, borderRadius, fontFamily, fontSize } from '@/src/core/theme';
 import type { VisitorFormValues } from './visitorFormValues';
 
 type Props = {
@@ -40,14 +40,14 @@ export function VisitorForm({
             flexDirection: 'row',
             alignItems: 'center',
             justifyContent: 'center',
-            backgroundColor: '#111111',
-            borderRadius: 8,
-            paddingVertical: 12,
-            marginBottom: 12,
+            backgroundColor: COLORS.primary,
+            borderRadius: borderRadius.md,
+            paddingVertical: spacing.md,
+            marginBottom: spacing.md,
           }}
         >
-          <MaterialIcons name="badge" size={18} color="#FFFFFF" />
-          <Text style={{ color: '#FFFFFF', fontWeight: '700', marginLeft: 8, fontSize: 13 }}>
+          <Ionicons name="card-outline" size={18} color={COLORS.textOnPrimary} />
+          <Text style={{ color: COLORS.textOnPrimary, fontFamily: fontFamily.semiBold, marginLeft: spacing.sm, fontSize: fontSize.sm }}>
             SCAN ID CARD
           </Text>
         </TouchableOpacity>

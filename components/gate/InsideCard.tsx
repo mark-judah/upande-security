@@ -5,7 +5,7 @@ import { fmtTime, getDuration } from '@/lib/utils/date';
 import { WORKFLOW_META } from '@/constants/workflowStates';
 import { useAppointmentTempExit } from '@/lib/hooks/useAppointmentTempExit';
 import type { Appointment } from '@/lib/api/types';
-import { COLORS, spacing, borderRadius, fontSize } from '@/src/core/theme';
+import { COLORS, spacing, borderRadius, fontFamily, fontSize } from '@/src/core/theme';
 
 type Props = {
   appointment: Appointment;
@@ -18,9 +18,9 @@ const VISITOR_TYPE_STYLE: Record<
   { bg: string; fg: string }
 > = {
   Visitor: { bg: COLORS.primary, fg: COLORS.textOnPrimary },
-  Staff: { bg: '#43A047', fg: '#FFFFFF' },
-  Contractor: { bg: '#FB8C00', fg: '#FFFFFF' },
-  Customer: { bg: '#8E24AA', fg: '#FFFFFF' },
+  Staff: { bg: COLORS.success, fg: COLORS.textOnPrimary },
+  Contractor: { bg: COLORS.warn, fg: COLORS.textOnPrimary },
+  Customer: { bg: '#8E24AA', fg: COLORS.textOnPrimary },
 };
 
 function VisitorTypeBadge({ type }: { type?: Appointment['custom_visitor_type'] }) {
@@ -32,11 +32,11 @@ function VisitorTypeBadge({ type }: { type?: Appointment['custom_visitor_type'] 
         backgroundColor: palette.bg,
         paddingHorizontal: 6,
         paddingVertical: 2,
-        borderRadius: 4,
-        marginRight: 6,
+        borderRadius: borderRadius.sm,
+        marginRight: spacing.sm - 2,
       }}
     >
-      <Text style={{ color: palette.fg, fontSize: 9, fontWeight: '800', letterSpacing: 0.5 }}>
+      <Text style={{ color: palette.fg, fontSize: 9, fontFamily: fontFamily.bold, letterSpacing: 0.5 }}>
         {resolved.toUpperCase()}
       </Text>
     </View>
@@ -72,15 +72,20 @@ export function InsideCard({ appointment: a, onCheckOut, busy }: Props) {
         <View style={{ flex: 1, marginLeft: spacing.sm }}>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <VisitorTypeBadge type={a.custom_visitor_type} />
-            <Text style={{ fontWeight: '700', color: COLORS.text, flexShrink: 1 }} numberOfLines={1}>
+            <Text
+              style={{ fontFamily: fontFamily.semiBold, fontSize: fontSize.sm, color: COLORS.text, flexShrink: 1 }}
+              numberOfLines={1}
+            >
               {a.customer_name}
             </Text>
           </View>
           {a.customer_phone_number ? (
-            <Text style={{ color: COLORS.textMuted, fontSize: fontSize.xs }}>{a.customer_phone_number}</Text>
+            <Text style={{ color: COLORS.textMuted, fontSize: fontSize.xs, fontFamily: fontFamily.regular }}>
+              {a.customer_phone_number}
+            </Text>
           ) : null}
           {isContractor && a.custom_contractor_ref ? (
-            <Text style={{ color: '#FB8C00', fontSize: 11, fontWeight: '600' }}>
+            <Text style={{ color: COLORS.warn, fontSize: 11, fontFamily: fontFamily.semiBold }}>
               {a.custom_contractor_ref}
             </Text>
           ) : null}
@@ -99,18 +104,18 @@ export function InsideCard({ appointment: a, onCheckOut, busy }: Props) {
         {meta ? (
           <>
             <Ionicons name={meta.icon} size={14} color={meta.color} />
-            <Text style={{ color: meta.color, fontSize: fontSize.xs, marginLeft: spacing.xs, marginRight: 10 }}>
+            <Text style={{ color: meta.color, fontSize: fontSize.xs, fontFamily: fontFamily.regular, marginLeft: spacing.xs, marginRight: 10 }}>
               {a.workflow_state}
             </Text>
           </>
         ) : null}
         {checkInDate ? (
-          <Text style={{ color: COLORS.textMuted, fontSize: fontSize.xs, marginRight: 10 }}>
+          <Text style={{ color: COLORS.textMuted, fontSize: fontSize.xs, fontFamily: fontFamily.regular, marginRight: 10 }}>
             In {fmtTime(a.custom_check_in_time)}
           </Text>
         ) : null}
         {a.custom_mode_of_transport ? (
-          <Text style={{ color: COLORS.textMuted, fontSize: fontSize.xs, marginRight: 10 }}>
+          <Text style={{ color: COLORS.textMuted, fontSize: fontSize.xs, fontFamily: fontFamily.regular, marginRight: 10 }}>
             {a.custom_mode_of_transport}
           </Text>
         ) : null}
@@ -119,22 +124,22 @@ export function InsideCard({ appointment: a, onCheckOut, busy }: Props) {
             style={{
               flexDirection: 'row',
               alignItems: 'center',
-              backgroundColor: '#EEEEEE',
-              borderRadius: 4,
+              backgroundColor: COLORS.bgMuted,
+              borderRadius: borderRadius.sm,
               paddingHorizontal: 5,
               paddingVertical: 2,
               marginRight: 10,
             }}
           >
-            <Ionicons name="car-outline" size={11} color="#333333" />
-            <Text style={{ fontSize: 11, color: '#111111', fontWeight: '700', marginLeft: 3 }}>
+            <Ionicons name="car-outline" size={11} color={COLORS.textSecondary} />
+            <Text style={{ fontSize: 11, color: COLORS.text, fontFamily: fontFamily.semiBold, marginLeft: 3 }}>
               {a.custom_vehicles_number_plate}
               {a.custom_vehicles_colour ? ` · ${a.custom_vehicles_colour}` : ''}
             </Text>
           </View>
         ) : null}
         {a.custom_number_of_passengers ? (
-          <Text style={{ color: COLORS.textSecondary, fontSize: fontSize.xs }}>
+          <Text style={{ color: COLORS.textSecondary, fontSize: fontSize.xs, fontFamily: fontFamily.regular }}>
             +{a.custom_number_of_passengers} pax
           </Text>
         ) : null}
@@ -145,22 +150,22 @@ export function InsideCard({ appointment: a, onCheckOut, busy }: Props) {
           style={{
             flexDirection: 'row',
             alignItems: 'center',
-            backgroundColor: '#FFF3E0',
-            borderRadius: 8,
-            paddingHorizontal: 10,
-            paddingVertical: 6,
-            marginTop: 8,
+            backgroundColor: '#FFFBEB',
+            borderRadius: borderRadius.sm,
+            paddingHorizontal: spacing.sm + 2,
+            paddingVertical: spacing.sm - 2,
+            marginTop: spacing.sm,
           }}
         >
-          <Ionicons name="walk-outline" size={14} color="#E65100" />
-          <Text style={{ color: '#E65100', fontSize: 12, fontWeight: '600', marginLeft: 6 }}>
+          <Ionicons name="walk-outline" size={14} color={COLORS.warn} />
+          <Text style={{ color: COLORS.warn, fontSize: fontSize.xs, fontFamily: fontFamily.semiBold, marginLeft: spacing.sm - 2 }}>
             Stepped out at {fmtTime(a.custom_temp_exit_time)} ·{' '}
             {getDuration(a.custom_temp_exit_time)}
           </Text>
         </View>
       ) : null}
 
-      <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
+      <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm + 2 }}>
         <TouchableOpacity
           onPress={handleTempExit}
           disabled={tempExit.isPending}
@@ -170,19 +175,19 @@ export function InsideCard({ appointment: a, onCheckOut, busy }: Props) {
             flexDirection: 'row',
             alignItems: 'center',
             justifyContent: 'center',
-            backgroundColor: steppedOut ? '#2E7D32' : '#EF6C00',
+            backgroundColor: steppedOut ? COLORS.success : COLORS.warn,
             borderRadius: borderRadius.sm,
-            paddingVertical: 10,
+            paddingVertical: spacing.sm + 2,
             opacity: tempExit.isPending ? 0.6 : 1,
             minHeight: 40,
           }}
         >
           {tempExit.isPending ? (
-            <ActivityIndicator size="small" color="#FFFFFF" />
+            <ActivityIndicator size="small" color={COLORS.textOnPrimary} />
           ) : (
             <>
-              <Ionicons name={steppedOut ? 'log-in-outline' : 'walk-outline'} size={16} color="#FFFFFF" />
-              <Text style={{ color: '#FFFFFF', fontWeight: '700', marginLeft: 6, fontSize: 13 }}>
+              <Ionicons name={steppedOut ? 'log-in-outline' : 'walk-outline'} size={16} color={COLORS.textOnPrimary} />
+              <Text style={{ color: COLORS.textOnPrimary, fontFamily: fontFamily.semiBold, marginLeft: spacing.sm - 2, fontSize: fontSize.sm }}>
                 {steppedOut ? 'CONFIRM RETURN' : 'STEP OUT'}
               </Text>
             </>
@@ -201,7 +206,7 @@ export function InsideCard({ appointment: a, onCheckOut, busy }: Props) {
               justifyContent: 'center',
               backgroundColor: busy ? COLORS.border : COLORS.primary,
               borderRadius: borderRadius.sm,
-              paddingVertical: 10,
+              paddingVertical: spacing.sm + 2,
               minHeight: 40,
             }}
           >
@@ -210,7 +215,7 @@ export function InsideCard({ appointment: a, onCheckOut, busy }: Props) {
             ) : (
               <>
                 <Ionicons name="log-out-outline" size={16} color={COLORS.textOnPrimary} />
-                <Text style={{ color: COLORS.textOnPrimary, fontWeight: '700', fontSize: fontSize.sm, marginLeft: 6 }}>
+                <Text style={{ color: COLORS.textOnPrimary, fontFamily: fontFamily.semiBold, fontSize: fontSize.sm, marginLeft: spacing.sm - 2 }}>
                   CHECK OUT
                 </Text>
               </>

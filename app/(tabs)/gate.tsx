@@ -20,6 +20,7 @@ import { VehicleEntryDialog } from '@/components/gate/VehicleEntryDialog';
 import { VehicleInsideCard } from '@/components/gate/VehicleInsideCard';
 import { Loader } from '@/components/ui/Loader';
 import { Screen } from '@/src/core/ui/Screen';
+import { Alert as InfoAlert } from '@/src/core/ui/Card';
 import {
   emptyVisitorForm,
   type VisitorFormValues,
@@ -511,26 +512,13 @@ export default function GateTab() {
               saving={vehicleBusy}
             >
               {revisitInfo?.found ? (
-                <View
-                  style={{
-                    flexDirection: 'row',
-                    alignItems: 'flex-start',
-                    backgroundColor: '#E3F2FD',
-                    borderRadius: 8,
-                    paddingHorizontal: 12,
-                    paddingVertical: 10,
-                    marginBottom: 10,
-                  }}
-                >
-                  <Ionicons name="time-outline" size={16} color="#1565C0" style={{ marginTop: 1 }} />
-                  <Text style={{ color: '#0D47A1', fontSize: 12, marginLeft: 6, flex: 1 }}>
-                    Welcome back! Details filled in from their last visit
-                    {revisitInfo.last_visit_date
-                      ? ` on ${fmtDateTime(revisitInfo.last_visit_date)}`
-                      : ''}
-                    . Please confirm the transport / vehicle details below.
-                  </Text>
-                </View>
+                <InfoAlert tone="info">
+                  Welcome back! Details filled in from their last visit
+                  {revisitInfo.last_visit_date
+                    ? ` on ${fmtDateTime(revisitInfo.last_visit_date)}`
+                    : ''}
+                  . Please confirm the transport / vehicle details below.
+                </InfoAlert>
               ) : null}
               <VisitorForm
                 control={control}
