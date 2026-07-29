@@ -1,7 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { updateAppointmentStatus } from '@/lib/api/visitors';
-import { runWorkflowAction } from '@/lib/api/workflow';
-import { toFrappeDateTime } from '@/lib/utils/date';
+import { api } from '@/lib/services/api';
+import type { PendingApprovalRow } from '@/lib/services/api';
 import { useFeedback } from './useFeedback';
 
 export type CheckInInput = {
@@ -15,17 +14,21 @@ export function useCheckIn() {
   const qc = useQueryClient();
   const feedback = useFeedback();
   return useMutation({
-    mutationFn: async (input: CheckInInput) => {
-      await updateAppointmentStatus({
-        ...input,
-        custom_check_in_time: toFrappeDateTime(),
-        custom_reporting_status: 'Checked in',
-      });
-      return runWorkflowAction({ name: input.name, action: 'Confirm Check In' });
-    },
+    mutationFn: (input: CheckInInput) =>
+      api.checkInVisitor({
+        name: input.name,
+        transport: input.custom_mode_of_transport,
+        plate: input.custom_vehicles_number_plate,
+        colour: input.custom_vehicles_colour,
+      }),
     onSuccess: (_, vars) => {
+      qc.setQueryData<PendingApprovalRow[]>(['pending-approvals'], (old) =>
+        old ? old.filter((row) => row.name !== vars.name) : old,
+      );
       qc.invalidateQueries({ queryKey: ['appointment', vars.name] });
       qc.invalidateQueries({ queryKey: ['daily-summary'] });
+      qc.invalidateQueries({ queryKey: ['pending-approvals'] });
+      qc.invalidateQueries({ queryKey: ['approved-appointments'] });
       feedback.success('Checked in ✓');
     },
     onError: (err: Error) => feedback.error(err.message || 'Check-in failed'),

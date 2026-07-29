@@ -57,6 +57,11 @@ export async function login(email: string, password: string, urlInput: string) {
   return { fullUrl, sid, userId: userId ?? '', message };
 }
 
+/**
+ * Roles drive visibility of the role-gated Approvals tab (Secretary /
+ * Department Head). Best-effort — an empty list just hides the tab rather
+ * than blocking login.
+ */
 export async function fetchUserRoles(instanceUrl: string, email: string): Promise<string[]> {
   try {
     const cookie = await AsyncStorage.getItem('cookie');
@@ -73,6 +78,13 @@ export async function fetchUserRoles(instanceUrl: string, email: string): Promis
   }
 }
 
+// Soft logout — intentional no-op at the API layer.
+//
+// Storage cleanup is owned by `authStore.forgetDevice` (the hard path). The
+// soft path (`authStore.logout`) deliberately preserves the cookie, instance
+// URL, biometric flag, and cached email in AsyncStorage so that the login
+// screen pre-fills URL + email on return and the biometric quick-unlock FAB
+// stays available (it requires cookie + biometric_enabled both present).
 export async function logout() {
-  await AsyncStorage.multiRemove(['instanceurl', 'cookie', 'user_email', 'user_roles']);
+  // no-op
 }

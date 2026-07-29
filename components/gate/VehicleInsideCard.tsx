@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { fmtDateTime } from '@/lib/utils/date';
 import type { ActiveVehicleEntry } from '@/lib/stores/vehicleStore';
+import { COLORS, spacing, borderRadius, fontSize } from '@/src/core/theme';
 
 type Props = {
   entry: ActiveVehicleEntry;
@@ -21,12 +22,12 @@ export function VehicleInsideCard({ entry, onCheckOut, busy }: Props) {
   return (
     <View
       style={{
-        backgroundColor: '#FFFFFF',
-        borderRadius: 12,
+        backgroundColor: COLORS.surface,
+        borderRadius: borderRadius.lg,
         borderWidth: 1.5,
-        borderColor: '#000000',
+        borderColor: COLORS.primary,
         padding: 14,
-        marginTop: 12,
+        marginTop: spacing.md,
       }}
     >
       <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -35,49 +36,49 @@ export function VehicleInsideCard({ entry, onCheckOut, busy }: Props) {
             width: 38,
             height: 38,
             borderRadius: 10,
-            backgroundColor: '#F5F5F5',
+            backgroundColor: COLORS.surfaceAlt,
             alignItems: 'center',
             justifyContent: 'center',
           }}
         >
-          <MaterialIcons name="agriculture" size={22} color="#000000" />
+          <Ionicons name="leaf-outline" size={22} color={COLORS.text} />
         </View>
         <View style={{ flex: 1, marginLeft: 10 }}>
-          <Text style={{ fontWeight: '700', fontSize: 14, color: '#111111' }}>
+          <Text style={{ fontWeight: '700', fontSize: 14, color: COLORS.text }}>
             {ticket.motor_vehicle ?? ticket.name}
           </Text>
           {ticket.farm ? (
-            <Text style={{ color: '#666666', fontSize: 12 }}>{ticket.farm}</Text>
+            <Text style={{ color: COLORS.textMuted, fontSize: fontSize.xs }}>{ticket.farm}</Text>
           ) : null}
         </View>
         <View
           style={{
-            backgroundColor: '#000000',
-            paddingHorizontal: 8,
+            backgroundColor: COLORS.primary,
+            paddingHorizontal: spacing.sm,
             paddingVertical: 3,
-            borderRadius: 999,
+            borderRadius: borderRadius.full,
           }}
         >
-          <Text style={{ color: '#FFFFFF', fontSize: 10, fontWeight: '700', letterSpacing: 0.5 }}>
+          <Text style={{ color: COLORS.textOnPrimary, fontSize: 10, fontWeight: '700', letterSpacing: 0.5 }}>
             INSIDE
           </Text>
         </View>
       </View>
 
-      <View style={{ height: 1, backgroundColor: '#E8E8E8', marginVertical: 10 }} />
+      <View style={{ height: 1, backgroundColor: COLORS.border, marginVertical: 10 }} />
 
-      <Text style={{ color: '#999999', fontSize: 11, marginBottom: 2 }}>TICKET</Text>
-      <Text style={{ color: '#333333', fontSize: 13, marginBottom: 8 }}>{ticket.name}</Text>
+      <Text style={{ color: COLORS.textMuted, fontSize: fontSize.xs, marginBottom: 2 }}>TICKET</Text>
+      <Text style={{ color: COLORS.textSecondary, fontSize: fontSize.sm, marginBottom: spacing.sm }}>{ticket.name}</Text>
 
-      <Text style={{ color: '#999999', fontSize: 11, marginBottom: 2 }}>TIMESHEET</Text>
-      <Text style={{ color: '#333333', fontSize: 13, marginBottom: 8 }}>
+      <Text style={{ color: COLORS.textMuted, fontSize: fontSize.xs, marginBottom: 2 }}>TIMESHEET</Text>
+      <Text style={{ color: COLORS.textSecondary, fontSize: fontSize.sm, marginBottom: spacing.sm }}>
         {timesheetName}
       </Text>
 
       {activities.length ? (
         <>
-          <Text style={{ color: '#999999', fontSize: 11, marginBottom: 2 }}>ACTIVITY</Text>
-          <Text style={{ color: '#333333', fontSize: 13, marginBottom: 8 }}>
+          <Text style={{ color: COLORS.textMuted, fontSize: fontSize.xs, marginBottom: 2 }}>ACTIVITY</Text>
+          <Text style={{ color: COLORS.textSecondary, fontSize: fontSize.sm, marginBottom: spacing.sm }}>
             {activities.join(', ')}
           </Text>
         </>
@@ -85,8 +86,8 @@ export function VehicleInsideCard({ entry, onCheckOut, busy }: Props) {
 
       {entry.description ? (
         <>
-          <Text style={{ color: '#999999', fontSize: 11, marginBottom: 2 }}>DETAILS</Text>
-          <Text style={{ color: '#333333', fontSize: 13, marginBottom: 8 }}>
+          <Text style={{ color: COLORS.textMuted, fontSize: fontSize.xs, marginBottom: 2 }}>DETAILS</Text>
+          <Text style={{ color: COLORS.textSecondary, fontSize: fontSize.sm, marginBottom: spacing.sm }}>
             {entry.description}
           </Text>
         </>
@@ -94,41 +95,41 @@ export function VehicleInsideCard({ entry, onCheckOut, busy }: Props) {
 
       <View
         style={{
-          backgroundColor: '#F5F5F5',
+          backgroundColor: COLORS.surfaceAlt,
           paddingVertical: 6,
           paddingHorizontal: 10,
-          borderRadius: 6,
-          marginBottom: 12,
+          borderRadius: borderRadius.sm,
+          marginBottom: spacing.md,
         }}
       >
-        <Text style={{ color: '#111111', fontSize: 12, fontWeight: '600' }}>
+        <Text style={{ color: COLORS.text, fontSize: fontSize.xs, fontWeight: '600' }}>
           Entered at {fmtDateTime(entryTime)}
         </Text>
       </View>
 
-      <Text style={{ fontSize: 13, color: '#555555', marginBottom: 4, fontWeight: '600' }}>
+      <Text style={{ fontSize: fontSize.sm, color: COLORS.textSecondary, marginBottom: spacing.xs, fontWeight: '600' }}>
         Completion Note *
       </Text>
       <TextInput
         value={note}
         onChangeText={setNote}
         placeholder="e.g. Avocado transportation — 54ha covered"
-        placeholderTextColor="#A0A0A0"
+        placeholderTextColor={COLORS.textMuted}
         multiline
         numberOfLines={2}
         editable={!busy}
         style={{
           borderWidth: 1,
-          borderColor: '#D0D0D0',
-          borderRadius: 8,
-          paddingHorizontal: 12,
+          borderColor: COLORS.border,
+          borderRadius: borderRadius.md,
+          paddingHorizontal: spacing.md,
           paddingVertical: 10,
           minHeight: 60,
           textAlignVertical: 'top',
           fontSize: 14,
-          color: '#111111',
-          backgroundColor: '#FFFFFF',
-          marginBottom: 12,
+          color: COLORS.text,
+          backgroundColor: COLORS.surface,
+          marginBottom: spacing.md,
         }}
       />
 
@@ -138,11 +139,11 @@ export function VehicleInsideCard({ entry, onCheckOut, busy }: Props) {
         activeOpacity={0.8}
         accessibilityRole="button"
         style={{
-          backgroundColor: '#FFFFFF',
+          backgroundColor: COLORS.surface,
           borderWidth: 2,
-          borderColor: '#000000',
+          borderColor: COLORS.primary,
           opacity: busy ? 0.6 : 1,
-          borderRadius: 10,
+          borderRadius: borderRadius.md,
           paddingVertical: 14,
           minHeight: 52,
           alignItems: 'center',
@@ -150,9 +151,9 @@ export function VehicleInsideCard({ entry, onCheckOut, busy }: Props) {
           flexDirection: 'row',
         }}
       >
-        <MaterialIcons name="logout" size={20} color="#000000" />
+        <Ionicons name="log-out-outline" size={20} color={COLORS.primary} />
         <Text
-          style={{ color: '#000000', fontWeight: '700', marginLeft: 8, letterSpacing: 0.5 }}
+          style={{ color: COLORS.primary, fontWeight: '700', marginLeft: spacing.sm, letterSpacing: 0.5 }}
         >
           TASK COMPLETE — CHECK OUT
         </Text>

@@ -1,61 +1,65 @@
 export type WorkflowState =
   | 'Open'
-  | 'Pending Secretary Review'
   | 'Pending Host Review'
+  | 'Approved by Host'
+  | 'Rescheduled by Host'
+  | 'Rejected by Host'
+  | 'Pending Secretary Review'
   | 'Approved by Secretary'
   | 'Rescheduled by Secretary'
   | 'Redirected to Another Host'
   | 'Rejected by Secretary'
-  | 'Approved by Host'
-  | 'Rescheduled by Host'
-  | 'Rejected by Host'
+  | 'Visitor Checked In'
   | 'Visitor Checked Out';
 
-export const WORKFLOW_META: Record<WorkflowState, { color: string; icon: string }> = {
-  Open: { color: '#000000', icon: 'fiber-new' },
-  'Pending Secretary Review': { color: '#666666', icon: 'hourglass-top' },
-  'Pending Host Review': { color: '#666666', icon: 'hourglass-bottom' },
-  'Approved by Secretary': { color: '#000000', icon: 'check-circle' },
-  'Rescheduled by Secretary': { color: '#555555', icon: 'schedule' },
-  'Redirected to Another Host': { color: '#555555', icon: 'alt-route' },
-  'Rejected by Secretary': { color: '#333333', icon: 'cancel' },
-  'Approved by Host': { color: '#000000', icon: 'verified' },
-  'Rescheduled by Host': { color: '#555555', icon: 'update' },
-  'Rejected by Host': { color: '#333333', icon: 'block' },
-  'Visitor Checked Out': { color: '#999999', icon: 'logout' },
+import type { Ionicons } from '@expo/vector-icons';
+import { COLORS } from '@/src/core/theme';
+
+export const WORKFLOW_META: Record<
+  WorkflowState,
+  { color: string; icon: keyof typeof Ionicons.glyphMap }
+> = {
+  Open:                          { color: COLORS.text,          icon: 'sparkles-outline' },
+  'Pending Host Review':         { color: COLORS.textMuted,     icon: 'hourglass-outline' },
+  'Approved by Host':            { color: COLORS.success,       icon: 'shield-checkmark' },
+  'Rescheduled by Host':         { color: COLORS.info,          icon: 'refresh-circle-outline' },
+  'Rejected by Host':            { color: COLORS.danger,        icon: 'close-circle' },
+  'Pending Secretary Review':    { color: COLORS.textMuted,     icon: 'hourglass' },
+  'Approved by Secretary':       { color: COLORS.success,       icon: 'checkmark-circle' },
+  'Rescheduled by Secretary':    { color: COLORS.info,          icon: 'time-outline' },
+  'Redirected to Another Host':  { color: COLORS.info,          icon: 'git-branch-outline' },
+  'Rejected by Secretary':       { color: COLORS.danger,        icon: 'ban' },
+  'Visitor Checked In':          { color: COLORS.text,          icon: 'log-in' },
+  'Visitor Checked Out':         { color: COLORS.textMuted,     icon: 'log-out' },
 };
 
 /**
- * Transitions the Gate Guard (this app) is allowed to perform.
- * All other transitions happen on the ERP side by Secretary or Host.
+ * States where the guard has notified the host and is waiting for a response.
+ * The app polls the appointment every 5 seconds while in these states.
  */
-export const GUARD_ACTIONS = {
-  CONFIRM_CHECK_IN: 'Confirm Check In',
-  CONFIRM_CHECK_OUT: 'Confirm Check Out',
-} as const;
+export const AWAITING_HOST_STATES: WorkflowState[] = ['Pending Host Review'];
 
 /**
- * States from which the guard can check the visitor out.
- * Mirrors every "Confirm Check Out" transition allowed to Gate Guard in the workflow.
- * CHECK OUT is not allowed from Pending Secretary/Host Review — those are waiting states.
+ * States from which the guard may check the visitor IN.
+ * Host (or secretary) must have approved first.
  */
-export const CHECK_OUT_ALLOWED_FROM: WorkflowState[] = [
-  'Approved by Secretary',
-  'Rescheduled by Secretary',
-  'Redirected to Another Host',
-  'Rejected by Secretary',
+export const CHECK_IN_ALLOWED_FROM: WorkflowState[] = [
   'Approved by Host',
-  'Rescheduled by Host',
-  'Rejected by Host',
+  'Approved by Secretary',
 ];
 
 /**
- * States where the visitor is checked in but awaiting approval — the guard
- * cannot yet check them out and must wait for Secretary/Host action on ERP.
+ * States from which the guard may check the visitor OUT.
  */
-export const AWAITING_REVIEW_STATES: WorkflowState[] = [
-  'Pending Secretary Review',
-  'Pending Host Review',
+export const CHECK_OUT_ALLOWED_FROM: WorkflowState[] = ['Visitor Checked In'];
+
+/**
+ * Terminal states where no further guard action is possible.
+ */
+export const TERMINAL_STATES: WorkflowState[] = [
+  'Visitor Checked Out',
+  'Rejected by Host',
+  'Rejected by Secretary',
 ];
 
 /**

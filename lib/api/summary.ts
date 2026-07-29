@@ -1,52 +1,22 @@
-import api from './client';
+// Thin shim over the server-script verbs in lib/services/api.ts.
+// The daily_summary script does the aggregation server-side.
+import { api } from '@/lib/services/api';
 import type { Appointment, DailySummary } from './types';
 
+function toFrappeDate(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
 export async function fetchDailySummary({ date }: { date: Date }): Promise<DailySummary> {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  const d = String(date.getDate()).padStart(2, '0');
-  const start = `${y}-${m}-${d} 00:00:00`;
-  const end = `${y}-${m}-${d} 23:59:59`;
-
-  const filters = encodeURIComponent(
-    JSON.stringify([['Appointment', 'scheduled_time', 'between', [start, end]]]),
-  );
-  const fields = encodeURIComponent(
-    JSON.stringify([
-      'name',
-      'customer_name',
-      'customer_phone_number',
-      'custom_meet_with',
-      'workflow_state',
-      'custom_reporting_status',
-      'custom_check_in_time',
-      'custom_check_out_time',
-      'scheduled_time',
-      'custom_mode_of_transport',
-      'custom_vehicles_number_plate',
-      'custom_vehicles_colour',
-      'custom_number_of_passengers',
-      'custom_visitor_type',
-      'custom_contractor_ref',
-      'customer_details',
-      'custom_temp_exit_time',
-    ]),
-  );
-
-  const res = await api.get<{ data: Appointment[] }>(
-    `/api/resource/Appointment?filters=${filters}&fields=${fields}&limit_page_length=200&order_by=custom_check_in_time desc`,
-  );
-
-  const all = res.data.data;
-  const checkedIn = all.filter((a) => a.custom_check_in_time);
-  const checkedOut = all.filter((a) => a.custom_check_out_time);
-  const stillInside = checkedIn.filter((a) => !a.custom_check_out_time);
-
+  const result = await api.dailySummary(toFrappeDate(date));
   return {
-    total_checked_in: checkedIn.length,
-    total_checked_out: checkedOut.length,
-    still_inside: stillInside.length,
-    still_inside_list: stillInside,
-    all,
+    total_checked_in: result.total_checked_in,
+    total_checked_out: result.total_checked_out,
+    still_inside: result.still_inside,
+    still_inside_list: result.still_inside_list as unknown as Appointment[],
+    all: result.all as unknown as Appointment[],
   };
 }

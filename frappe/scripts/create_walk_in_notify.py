@@ -1,0 +1,141 @@
+try:
+    data = {}
+    try:
+        data = frappe.request.get_json(silent=True) or {}
+    except Exception:
+        data = {}
+    if not data:
+        data = dict(frappe.form_dict or {})
+
+    def s(key):
+        try:
+            v = data[key]
+            if v is None:
+                return ""
+            return str(v).strip()
+        except (KeyError, TypeError):
+            return ""
+
+    customer_name = s("customer_name")
+    phone = s("phone")
+    email = s("email")
+    host = s("host")
+    purpose = s("purpose")
+    transport = s("transport") or "On Foot"
+    plate = s("plate")
+    colour = s("colour")
+    scheduled_time = s("scheduled_time")
+    passengers_raw = ""
+    try:
+        passengers_raw = str(data["passengers"]) if data["passengers"] is not None else ""
+    except (KeyError, TypeError):
+        passengers_raw = ""
+
+    if not customer_name:
+        frappe.response["message"] = {"error": "customer_name is required"}
+    elif not phone:
+        frappe.response["message"] = {"error": "phone is required"}
+    elif not host:
+        frappe.response["message"] = {"error": "host is required"}
+    else:
+        if not scheduled_time:
+            scheduled_time = str(frappe.utils.now_datetime())
+
+        host_rec = frappe.db.get_value("Employee", host, ["name", "user_id", "employee_name"], as_dict=True)
+        if not host_rec:
+            frappe.response["message"] = {"error": "Host " + host + " not found"}
+        else:
+            host_email_dbg = host_rec.user_id or ""
+            frappe.log_error(
+                title="create_walk_in_notify debug",
+                message="Payload: " + str(data) + "\nHost: " + host + "\nHost email (user_id): " + host_email_dbg,
+            )
+
+            doc = frappe.new_doc("Appointment")
+            doc.flags.ignore_mandatory = True
+            doc.customer_name = customer_name
+            doc.customer_phone_number = phone
+            doc.customer_email = email
+            doc.custom_meet_with = host
+            doc.scheduled_time = scheduled_time
+            doc.customer_details = purpose
+            doc.custom_mode_of_transport = transport
+            doc.custom_vehicles_number_plate = plate
+            doc.custom_vehicles_colour = colour
+            if passengers_raw:
+                try:
+                    doc.custom_number_of_passengers = int(passengers_raw)
+                except Exception:
+                    pass
+            doc.status = "Open"
+            doc.custom_reporting_status = "Scheduled"
+            doc.insert(ignore_permissions=True)
+            appt_name = doc.name
+
+            # Apply "Notify Host" workflow transition
+            try:
+                from frappe.model.workflow import apply_workflow
+                doc2 = frappe.get_doc("Appointment", appt_name)
+                doc2.flags.ignore_mandatory = True
+                apply_workflow(doc2, "Notify Host")
+                doc2.save(ignore_permissions=True)
+                frappe.db.commit()
+            except Exception:
+                frappe.db.set_value(
+                    "Appointment",
+                    appt_name,
+                    {
+                        "workflow_state": "Pending Host Review",
+                        "custom_reporting_status": "Pending Host Review",
+                    },
+                )
+                frappe.db.commit()
+
+            # Send notifications to host + secretary
+            host_user_id = host_rec.user_id or ""
+            host_name = host_rec.employee_name or host
+            recipient_users = []
+            if host_user_id:
+                recipient_users.append(host_user_id)
+
+            try:
+                sec_rows = frappe.db.sql(
+                    "SELECT DISTINCT parent FROM `tabHas Role` WHERE role = 'Secretary' AND parent NOT IN ('Administrator', 'Guest')",
+                    as_dict=False,
+                )
+                for row in sec_rows:
+                    if row and row[0] and row[0] not in recipient_users:
+                        recipient_users.append(row[0])
+            except Exception:
+                pass
+
+            subject = "Walk-in Visitor: " + customer_name + " at the gate to see " + host_name
+            body = "<p><strong>" + customer_name + "</strong> (walk-in) has arrived at the gate to see <strong>" + host_name + "</strong></p>"
+            if purpose:
+                body = body + "<p>Purpose: " + purpose + "</p>"
+            body = body + "<p>Please <strong>approve, reschedule, or reject</strong> this visit in ERPNext.</p>"
+
+            notified = 0
+            if recipient_users:
+                try:
+                    frappe.sendmail(
+                        recipients=recipient_users,
+                        subject=subject,
+                        message=body,
+                        now=True,
+                    )
+                    notified = len(recipient_users)
+                except Exception:
+                    pass
+
+            frappe.response["message"] = {
+                "name": appt_name,
+                "customer_name": customer_name,
+                "host_id": host,
+                "workflow_state": "Pending Host Review",
+                "notified": notified,
+            }
+except Exception as e:
+    frappe.db.rollback()
+    frappe.log_error("create_walk_in_notify", str(e))
+    frappe.response["message"] = {"error": str(e)}

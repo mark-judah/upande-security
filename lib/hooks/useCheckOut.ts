@@ -1,24 +1,16 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { updateAppointmentStatus } from '@/lib/api/visitors';
-import { runWorkflowAction } from '@/lib/api/workflow';
-import { toFrappeDateTime } from '@/lib/utils/date';
+import { api } from '@/lib/services/api';
 import { useFeedback } from './useFeedback';
 
 export function useCheckOut() {
   const qc = useQueryClient();
   const feedback = useFeedback();
   return useMutation({
-    mutationFn: async (name: string) => {
-      await updateAppointmentStatus({
-        name,
-        custom_check_out_time: toFrappeDateTime(),
-        custom_reporting_status: 'Checked out',
-      });
-      return runWorkflowAction({ name, action: 'Confirm Check Out' });
-    },
+    mutationFn: (name: string) => api.checkOutVisitor(name),
     onSuccess: (_, name) => {
       qc.invalidateQueries({ queryKey: ['appointment', name] });
       qc.invalidateQueries({ queryKey: ['daily-summary'] });
+      qc.invalidateQueries({ queryKey: ['approved-appointments'] });
       feedback.success('Checked out ✓');
     },
     onError: (err: Error) => feedback.error(err.message || 'Check-out failed'),

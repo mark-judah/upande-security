@@ -1,7 +1,8 @@
-import api from './client';
+// Thin shim over the server-script verbs in lib/services/api.ts.
+import { api } from '@/lib/services/api';
+import client from '@/lib/api/client';
 import type { Attendance, Employee } from './types';
 import type { TransportMode } from '@/constants/transportModes';
-import { toFrappeDateTime } from '@/lib/utils/date';
 
 function toFrappeDate(d: Date = new Date()): string {
   const pad = (n: number) => String(n).padStart(2, '0');
@@ -13,44 +14,26 @@ export async function createStaffAttendance(input: {
   transportMode?: TransportMode;
   numberPlate?: string;
 }): Promise<Attendance> {
-  const emp = input.employee;
-  const body: Partial<Attendance> = {
-    naming_series: 'HR-ATT-.YYYY.-',
-    employee: emp.name,
-    employee_name: emp.employee_name,
-    status: 'Present',
-    attendance_date: toFrappeDate(),
-    in_time: toFrappeDateTime(),
-    company: emp.company,
-    department: emp.department,
-    shift: emp.default_shift,
-    custom_farm: emp.custom_farm,
-    custom_location: emp.custom_location,
-    custom_employee_category: emp.custom_employee_category,
-    custom_mode_of_transport: input.transportMode ?? 'On Foot',
-  };
-  if (input.numberPlate && input.numberPlate.trim()) {
-    body.custom_vehicle_number_plate = input.numberPlate.trim();
-  }
-  const res = await api.post<{ data: Attendance }>('/api/resource/Attendance', body);
-  return res.data.data;
+  const result = await api.createStaffAttendance(
+    input.employee.name,
+    input.numberPlate?.trim() || undefined,
+    input.transportMode,
+  );
+  return result as unknown as Attendance;
 }
 
 export async function submitAttendance(name: string): Promise<Attendance> {
-  const getRes = await api.get<{ data: Attendance }>(
-    `/api/resource/Attendance/${encodeURIComponent(name)}`,
-  );
-  const doc = getRes.data.data;
-  doc.docstatus = 1;
-  const res = await api.post<{ message: Attendance }>('/api/method/frappe.client.submit', {
-    doc: JSON.stringify(doc),
-  });
-  return res.data.message;
+  const result = await api.submitStaffAttendance(name);
+  return result as unknown as Attendance;
 }
 
 /**
  * Today's most recent submitted Attendance record for an employee, if any.
  * Used to decide whether the gate should offer CHECK IN or CHECK OUT.
+ *
+ * No dedicated server verb exists for this yet, so it still hits the stock
+ * Frappe resource list endpoint directly via the raw client (not the
+ * services/api.ts verb surface).
  */
 export async function fetchTodayAttendance(employeeId: string): Promise<Attendance | null> {
   const filters = encodeURIComponent(
@@ -71,7 +54,7 @@ export async function fetchTodayAttendance(employeeId: string): Promise<Attendan
       'custom_temp_exit_time',
     ]),
   );
-  const res = await api.get<{ data: Attendance[] }>(
+  const res = await client.get<{ data: Attendance[] }>(
     `/api/resource/Attendance?filters=${filters}&fields=${fields}&order_by=creation desc&limit_page_length=1`,
   );
   return res.data.data[0] ?? null;
@@ -101,7 +84,7 @@ export async function fetchTodayStaffAttendance(): Promise<Attendance[]> {
       'custom_temp_exit_time',
     ]),
   );
-  const res = await api.get<{ data: Attendance[] }>(
+  const res = await client.get<{ data: Attendance[] }>(
     `/api/resource/Attendance?filters=${filters}&fields=${fields}&limit_page_length=200&order_by=in_time desc`,
   );
   return res.data.data;
@@ -117,12 +100,5 @@ export async function checkOutStaffAttendance(attendanceName: string): Promise<{
   out_time: string;
   working_hours?: number;
 }> {
-  const params = new URLSearchParams();
-  params.append('attendance_name', attendanceName);
-  const res = await api.post<{
-    message: { success: boolean; out_time: string; working_hours?: number };
-  }>('/api/method/staff_gate_checkout', params.toString(), {
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-  });
-  return res.data.message;
+  return api.checkOutStaffAttendance(attendanceName);
 }

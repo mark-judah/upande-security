@@ -1,6 +1,6 @@
 import { View, TextInput, Pressable } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
-import { theme } from '@/constants/theme';
+import { Ionicons } from '@expo/vector-icons';
+import { COLORS, spacing, borderRadius } from '@/src/core/theme';
 
 type Props = {
   value: string;
@@ -17,25 +17,25 @@ export function SearchBar({ value, placeholder, onChangeText, onSubmit, disabled
         flexDirection: 'row',
         alignItems: 'center',
         borderWidth: 1,
-        borderColor: '#D0D0D0',
-        borderRadius: 8,
-        paddingHorizontal: 12,
-        backgroundColor: 'white',
-        marginVertical: 8,
+        borderColor: COLORS.border,
+        borderRadius: borderRadius.md,
+        paddingHorizontal: spacing.md,
+        backgroundColor: COLORS.surface,
+        marginVertical: spacing.sm,
       }}
     >
       <TextInput
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
-        placeholderTextColor="#A0A0A0"
+        placeholderTextColor={COLORS.textMuted}
         onSubmitEditing={onSubmit}
         editable={!disabled}
         returnKeyType="search"
-        style={{ flex: 1, paddingVertical: 10, fontSize: 15, color: '#111' }}
+        style={{ flex: 1, paddingVertical: 10, fontSize: 15, color: COLORS.text }}
       />
       <Pressable onPress={onSubmit} disabled={disabled} hitSlop={8}>
-        <MaterialIcons name="search" size={22} color={theme.primaryColor} />
+        <Ionicons name="search" size={22} color={COLORS.primary} />
       </Pressable>
     </View>
   );

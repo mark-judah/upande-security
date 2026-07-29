@@ -1,7 +1,8 @@
 import { Modal, View, Text, TouchableOpacity, ScrollView } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { DialogRow } from '@/components/ui/DialogRow';
 import type { TractorDailyTask } from '@/lib/api/types';
+import { COLORS, spacing, borderRadius, fontSize } from '@/src/core/theme';
 
 type Props = {
   visible: boolean;
@@ -23,39 +24,39 @@ export function VehicleEntryDialog({ visible, ticket, onCancel, onConfirm, busy 
       <View
         style={{
           flex: 1,
-          backgroundColor: 'rgba(0,0,0,0.5)',
+          backgroundColor: COLORS.overlay,
           justifyContent: 'center',
-          paddingHorizontal: 24,
+          paddingHorizontal: spacing.xl,
         }}
       >
-        <View style={{ backgroundColor: '#FFFFFF', borderRadius: 14, overflow: 'hidden' }}>
+        <View style={{ backgroundColor: COLORS.surface, borderRadius: borderRadius.lg, overflow: 'hidden' }}>
           <View
             style={{
               flexDirection: 'row',
               alignItems: 'center',
               padding: 14,
               borderBottomWidth: 1,
-              borderBottomColor: '#E8E8E8',
+              borderBottomColor: COLORS.border,
             }}
           >
-            <MaterialIcons name="agriculture" size={22} color="#000000" />
-            <Text style={{ fontSize: 16, fontWeight: '700', marginLeft: 8, color: '#111111' }}>
+            <Ionicons name="leaf-outline" size={22} color={COLORS.text} />
+            <Text style={{ fontSize: 16, fontWeight: '700', marginLeft: spacing.sm, color: COLORS.text }}>
               Confirm Vehicle Entry
             </Text>
           </View>
 
           <ScrollView style={{ maxHeight: 420 }} contentContainerStyle={{ padding: 14 }}>
-            <DialogRow icon="directions-car" label="Vehicle" value={ticket.motor_vehicle} />
-            <DialogRow icon="place" label="Farm" value={ticket.farm} />
+            <DialogRow icon="car" label="Vehicle" value={ticket.motor_vehicle} />
+            <DialogRow icon="location" label="Farm" value={ticket.farm} />
             <DialogRow icon="person" label="Operator" value={ticket.operator} />
             <DialogRow
-              icon="task-alt"
+              icon="checkmark-done-circle-outline"
               label="Activity"
               value={activities.length ? activities.join(', ') : '—'}
             />
             {ticket.task?.[0]?.description ? (
               <DialogRow
-                icon="description"
+                icon="document-text-outline"
                 label="Details"
                 value={ticket.task[0].description}
               />
@@ -65,14 +66,14 @@ export function VehicleEntryDialog({ visible, ticket, onCancel, onConfirm, busy 
               style={{
                 flexDirection: 'row',
                 alignItems: 'center',
-                backgroundColor: '#F5F5F5',
-                borderRadius: 8,
+                backgroundColor: COLORS.surfaceAlt,
+                borderRadius: borderRadius.md,
                 padding: 10,
-                marginTop: 12,
+                marginTop: spacing.md,
               }}
             >
-              <MaterialIcons name="timer" size={18} color="#000000" />
-              <Text style={{ color: '#333333', fontSize: 12, marginLeft: 8, flex: 1 }}>
+              <Ionicons name="timer-outline" size={18} color={COLORS.text} />
+              <Text style={{ color: COLORS.textSecondary, fontSize: fontSize.xs, marginLeft: spacing.sm, flex: 1 }}>
                 Timer starts on entry. Time is recorded to the timesheet when the vehicle exits.
               </Text>
             </View>
@@ -83,7 +84,7 @@ export function VehicleEntryDialog({ visible, ticket, onCancel, onConfirm, busy 
               flexDirection: 'row',
               padding: 10,
               borderTopWidth: 1,
-              borderTopColor: '#E8E8E8',
+              borderTopColor: COLORS.border,
             }}
           >
             <TouchableOpacity
@@ -98,7 +99,7 @@ export function VehicleEntryDialog({ visible, ticket, onCancel, onConfirm, busy 
                 justifyContent: 'center',
               }}
             >
-              <Text style={{ color: '#666666', fontWeight: '600' }}>Cancel</Text>
+              <Text style={{ color: COLORS.textMuted, fontWeight: '600' }}>Cancel</Text>
             </TouchableOpacity>
             <TouchableOpacity
               onPress={onConfirm}
@@ -107,21 +108,21 @@ export function VehicleEntryDialog({ visible, ticket, onCancel, onConfirm, busy 
               accessibilityRole="button"
               style={{
                 flex: 2,
-                backgroundColor: '#000000',
+                backgroundColor: COLORS.primary,
                 opacity: busy ? 0.6 : 1,
-                borderRadius: 8,
+                borderRadius: borderRadius.md,
                 paddingVertical: 14,
                 minHeight: 48,
                 alignItems: 'center',
                 justifyContent: 'center',
                 flexDirection: 'row',
-                marginLeft: 8,
+                marginLeft: spacing.sm,
               }}
             >
-              <MaterialIcons name="login" size={18} color="#FFFFFF" />
+              <Ionicons name="log-in-outline" size={18} color={COLORS.textOnPrimary} />
               <Text
                 style={{
-                  color: '#FFFFFF',
+                  color: COLORS.textOnPrimary,
                   fontWeight: '700',
                   marginLeft: 6,
                   letterSpacing: 0.5,

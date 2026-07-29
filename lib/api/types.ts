@@ -56,6 +56,8 @@ export type VisitorHistoryResult = {
 export type EmployeeResult = {
   name: string;
   employee_name: string;
+  first_name?: string;
+  last_name?: string;
   designation?: string;
   department?: string;
   status: string;
