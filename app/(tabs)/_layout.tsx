@@ -66,6 +66,7 @@ export default function TabsLayout() {
       {/* Drawer-only routes — registered so they're navigable, hidden from the bar */}
       <Tabs.Screen name="visits" options={{ title: 'Visits', href: null }} />
       <Tabs.Screen name="summary" options={{ title: 'Summary', href: null }} />
+      <Tabs.Screen name="reports" options={{ title: 'Reports', href: null }} />
       <Tabs.Screen name="settings" options={{ title: 'Settings', href: null }} />
     </Tabs>
   );

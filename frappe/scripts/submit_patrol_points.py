@@ -38,13 +38,30 @@ try:
         any_success = False
         current_user = frappe.session.user
 
-        emp_rows = frappe.db.sql(
-            "SELECT name FROM `tabEmployee` WHERE user_id = %s LIMIT 1",
-            (current_user,),
-        )
+        # Resolve who is patrolling, so guards (not just Employees) can submit.
+        # Order: Employee linked to this login -> Security Guard matched by the
+        # user's full name -> fall back to the raw user identity. guard_type
+        # makes `guard` a Dynamic Link (Employee / Security Guard).
+        user_full = ""
+        try:
+            user_full = frappe.db.get_value("User", current_user, "full_name") or ""
+        except Exception:
+            user_full = ""
+
+        resolved_type = ""
         resolved_guard = ""
-        if emp_rows and emp_rows[0] and emp_rows[0][0]:
-            resolved_guard = emp_rows[0][0]
+        emp = frappe.db.get_value("Employee", {"user_id": current_user}, "name")
+        if emp:
+            resolved_type = "Employee"
+            resolved_guard = emp
+        elif user_full:
+            sg = frappe.db.get_value("Security Guard", {"full_name": user_full}, "name")
+            if sg:
+                resolved_type = "Security Guard"
+                resolved_guard = sg
+
+        if not resolved_guard:
+            resolved_guard = user_full or current_user
 
         for entry in data_list:
             try:
@@ -127,11 +144,15 @@ try:
                 log = frappe.new_doc("Patrol GPS Log")
                 log.patrol = patrol_tag
                 log.guard = guard
+                log.guard_type = resolved_type
                 log.captured_at = captured_at
                 log.latitude = str(latitude)
                 log.longitude = str(longitude)
                 if accuracy:
                     log.gps_accuracy = str(accuracy)
+                # guard now holds a User full name / email, not an Employee — skip
+                # link validation so users without an Employee record can submit.
+                log.flags.ignore_links = True
                 log.insert(ignore_permissions=True)
 
                 any_success = True

@@ -15,6 +15,7 @@ const ROUTE_HINTS: Record<string, string> = {
   summary:   "Today's gate totals and full activity timeline",
   incidents: 'File a new incident or browse what you reported',
   patrol:    'Start a patrol or resume an active one',
+  reports:   'Security dashboard across all gate workflows',
 };
 
 export default function HomeScreen() {

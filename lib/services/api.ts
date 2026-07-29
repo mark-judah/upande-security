@@ -446,6 +446,80 @@ export type PatrolPointResult = {
   message?: string;
 };
 
+export type ReportKpi = { label: string; value: number | string; sub?: string };
+export type ReportColumn = { key: string; label: string; align?: 'left' | 'right' };
+export type ReportTable = {
+  title: string;
+  columns: ReportColumn[];
+  rows: Record<string, string | number>[];
+};
+export type ReportWatch = {
+  title: string;
+  tone: 'danger' | 'warn' | 'ok';
+  rows: { label: string; detail: string }[];
+};
+export type IncidentPerson = {
+  name: string;
+  type: string;
+  id_number: string;
+  contact: string;
+  notes: string;
+};
+export type IncidentDetail = {
+  name: string;
+  datetime: string;
+  severity: string;
+  status: string;
+  nature: string;
+  location: string;
+  reporter: string;
+  description: string;
+  remarks: string;
+  corrective_actions: string;
+  resolution: string;
+  resolution_datetime: string;
+  assigned_to: string;
+  attachments: string[];
+  witnesses: IncidentPerson[];
+  victims: IncidentPerson[];
+  responsible: IncidentPerson[];
+};
+export type PatrolPoint = {
+  lat: string;
+  lng: string;
+  at: string;
+  guard: string;
+  patrol: string;
+};
+
+export type SecurityReport = {
+  tab: string;
+  from_date: string;
+  to_date: string;
+  kpis: ReportKpi[];
+  tables: ReportTable[];
+  watch: ReportWatch[];
+  /** incidents tab only — full incident records */
+  details?: IncidentDetail[];
+  /** patrols tab only — GPS points for the map */
+  points?: PatrolPoint[];
+  /** visitors/contractors tabs — farm filter options */
+  farms?: string[];
+  /** incidents tab — location filter options */
+  locations?: string[];
+};
+
+export type SecurityReportFilters = { farm?: string; location?: string };
+
+export type ReportTab =
+  | 'overview'
+  | 'visitors'
+  | 'contractors'
+  | 'staff'
+  | 'vehicles'
+  | 'incidents'
+  | 'patrols';
+
 // --- API surface ---
 
 export const api = {
@@ -520,6 +594,21 @@ export const api = {
   pendingApprovals: () => call<PendingApprovalRow[]>('pending_approvals'),
   approvedAppointments: () => call<ApprovedAppointmentRow[]>('approved_appointments'),
   gateActivity: () => call<GateActivityRow[]>('gate_activity'),
+
+  // Reports (security management dashboard)
+  securityReport: (
+    tab: ReportTab,
+    from_date: string,
+    to_date: string,
+    filters: SecurityReportFilters = {},
+  ) =>
+    call<SecurityReport>('security_report', {
+      tab,
+      from_date,
+      to_date,
+      farm: filters.farm || undefined,
+      location: filters.location || undefined,
+    }),
 
   // Incidents
   listIncidentCategories: () => call<IncidentCategory[]>('list_incident_categories'),

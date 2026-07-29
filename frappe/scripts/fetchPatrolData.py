@@ -81,6 +81,7 @@ try:
                     LAG(CAST(longitude AS DECIMAL(12,8))) OVER (PARTITION BY patrol ORDER BY captured_at) AS prev_lng
                 FROM `tabPatrol GPS Log`
                 WHERE captured_at BETWEEN %(from_dt)s AND %(to_dt)s
+                  AND (gps_accuracy IS NULL OR gps_accuracy = '' OR CAST(gps_accuracy AS DECIMAL(12,2)) <= 30)
             ) inner_t
         ) t
         GROUP BY t.patrol, t.guard
@@ -133,6 +134,7 @@ try:
                 FROM `tabPatrol GPS Log`
                 WHERE patrol IN %(tags)s
                   AND captured_at BETWEEN %(from_dt)s AND %(to_dt)s
+                  AND (gps_accuracy IS NULL OR gps_accuracy = '' OR CAST(gps_accuracy AS DECIMAL(12,2)) <= 30)
                 ORDER BY patrol, captured_at
             """, points_params, as_dict=True)
         else:
@@ -148,6 +150,7 @@ try:
                     FROM `tabPatrol GPS Log`
                     WHERE patrol IN %(tags)s
                       AND captured_at BETWEEN %(from_dt)s AND %(to_dt)s
+                      AND (gps_accuracy IS NULL OR gps_accuracy = '' OR CAST(gps_accuracy AS DECIMAL(12,2)) <= 30)
                 ) t
                 WHERE MOD(rn - 1, %(stride)s) = 0
                 ORDER BY patrol, captured_at

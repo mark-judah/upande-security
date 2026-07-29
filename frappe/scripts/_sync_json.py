@@ -46,6 +46,7 @@ MANIFEST = [
     ("Notify Host", "notify_host", "notify_host.py"),
     ("Create Walk In Notify", "create_walk_in_notify", "create_walk_in_notify.py"),
     ("Create Contractor Notify", "create_contractor_notify", "create_contractor_notify.py"),
+    ("Security Report", "security_report", "security_report.py"),
     ("Pending Approvals", "pending_approvals", "pending_approvals.py"),
     ("Approved Appointments", "approved_appointments", "approved_appointments.py"),
     ("Gate Activity", "gate_activity", "gate_activity.py"),

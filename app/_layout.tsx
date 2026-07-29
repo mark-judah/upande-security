@@ -43,6 +43,7 @@ const DRAWER_ITEMS: DrawerItem[] = [
   { label: 'Summary',   route: 'summary',    icon: 'stats-chart-outline' },
   { label: 'Incidents', route: 'incidents',  icon: 'warning-outline' },
   { label: 'Patrol',    route: 'patrol',     icon: 'walk-outline' },
+  { label: 'Reports',   route: 'reports',    icon: 'bar-chart-outline' },
 ];
 
 export default function RootLayout() {
