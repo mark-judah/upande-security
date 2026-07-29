@@ -624,22 +624,17 @@ export const api = {
     }),
   submitStaffAttendance: (name: string) =>
     call<StaffAttendanceResult>('submit_staff_attendance', { name }),
-  // No server verb dedicated to this yet — staff_gate_checkout.py is a
-  // paste-into-ERPNext script (server_scripts/), not yet ported to
-  // frappe/scripts/*.py + frappe/server_scripts.json like the rest of this
-  // API surface. Functionally equivalent call shape either way.
   checkOutStaffAttendance: (attendance_name: string) =>
     call<StaffCheckOutResult>('staff_gate_checkout', { attendance_name }),
 
   // Temp exit ("step out" / "return") — shared by the visitor/contractor
-  // Inside list and the staff gate panel. Same server-script caveat as above.
+  // Inside list and the staff gate panel.
   setTempExit: (reference_doctype: TempExitDoctype, reference_name: string, direction: TempExitDirection) =>
     call<TempExitResult>('gate_temp_exit', { reference_doctype, reference_name, direction }),
 
-  // Walk-in visitor history lookup (pre-fill from a past visit). Same
-  // server-script caveat as above.
+  // Walk-in visitor history lookup (pre-fill from a past visit).
   getVisitorHistory: (query: string) =>
-    call<VisitorHistoryResult>('getVisitorHistory', { query }),
+    call<VisitorHistoryResult>('get_visitor_history', { query }),
 
   // Pending approvals
   pendingApprovals: () => call<PendingApprovalRow[]>('pending_approvals'),

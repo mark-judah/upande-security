@@ -54,7 +54,7 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Allow Upande Security to scan vehicle work tickets."
+          "cameraPermission": "Allow Upande Security to scan vehicle work tickets and ID cards."
         }
       ],
       [
