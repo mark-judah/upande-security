@@ -116,7 +116,6 @@ export default function GateTab() {
     setIsWalkIn(false);
     setRevisitInfo(null);
     setContractorResult(null);
-    setContractorWalkInOpen(false);
     reset(emptyVisitorForm);
     Keyboard.dismiss();
   }

@@ -7,7 +7,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import TextRecognition from '@react-native-ml-kit/text-recognition';
 import { useGateStore } from '@/lib/stores/gateStore';
 import { parseIdCardText } from '@/lib/utils/idCard';
-import { playBeep } from '@/lib/services/sounds';
+import { audio } from '@/src/core/audio';
 
 const CARD_ASPECT_RATIO = 1.586; // standard ID card width:height
 
@@ -96,7 +96,7 @@ export default function ScanIdModal() {
       if (!photo?.uri) throw new Error('No photo captured');
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-      void playBeep();
+      audio.beep();
 
       const result = await TextRecognition.recognize(photo.uri);
       const parsed = parseIdCardText(result.text);
