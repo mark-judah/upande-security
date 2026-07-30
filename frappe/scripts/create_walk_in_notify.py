@@ -17,6 +17,7 @@ try:
             return ""
 
     customer_name = s("customer_name")
+    id_number = s("id_number")
     phone = s("phone")
     email = s("email")
     host = s("host")
@@ -54,6 +55,7 @@ try:
             doc = frappe.new_doc("Appointment")
             doc.flags.ignore_mandatory = True
             doc.customer_name = customer_name
+            doc.custom_id_number = id_number
             doc.customer_phone_number = phone
             doc.customer_email = email
             doc.custom_meet_with = host

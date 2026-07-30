@@ -275,6 +275,7 @@ export default function GateTab() {
     try {
       const result = await api.createWalkInAndNotify({
         customer_name: values.customer_name.trim(),
+        id_number: values.id_ref?.trim() || undefined,
         phone,
         host: values.custom_meet_with,
         purpose: values.customer_details,

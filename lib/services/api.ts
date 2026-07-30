@@ -396,6 +396,7 @@ export type VisitorHistoryResult =
 
 export type CreateWalkInInput = {
   customer_name: string;
+  id_number?: string;
   phone: string;
   host: string;
   email?: string;
