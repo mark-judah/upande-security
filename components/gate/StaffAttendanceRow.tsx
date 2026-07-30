@@ -1,30 +1,10 @@
 import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { TransportMode } from '@/constants/transportModes';
 import { fmtTime, getDuration } from '@/lib/utils/date';
 import { COLORS, spacing, borderRadius, fontFamily, fontSize } from '@/src/core/theme';
 import type { Attendance } from '@/lib/api/types';
 
 type Props = { attendance: Attendance };
-
-const TRANSPORT_ICON: Record<string, keyof typeof Ionicons.glyphMap> = {
-  [TransportMode.OnFoot]: 'walk-outline',
-  [TransportMode.Vehicle]: 'car-outline',
-  [TransportMode.MotorBike]: 'bicycle-outline',
-};
-
-function TransportPill({ mode, plate }: { mode?: string; plate?: string }) {
-  const icon = (mode && TRANSPORT_ICON[mode]) || 'walk-outline';
-  return (
-    <View style={styles.transportPill}>
-      <Ionicons name={icon} size={11} color={COLORS.textSecondary} />
-      <Text style={styles.transportPillText}>
-        {mode ?? TransportMode.OnFoot}
-        {plate ? ` · ${plate}` : ''}
-      </Text>
-    </View>
-  );
-}
 
 function durationBetween(inIso?: string, outIso?: string): string {
   if (!inIso || !outIso) return '';
@@ -58,7 +38,6 @@ export function StaffAttendanceRow({ attendance: a }: Props) {
             {a.employee_name ?? a.employee}
           </Text>
           <View style={styles.detailRow}>
-            <TransportPill mode={a.custom_mode_of_transport} plate={a.custom_vehicle_number_plate} />
             <Text style={styles.timeText}>
               {a.in_time ? `In ${fmtTime(a.in_time)}` : '—'}
               {checkedOut ? ` → Out ${fmtTime(a.out_time)}` : ''}
@@ -106,21 +85,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 4,
     flexWrap: 'wrap',
-  },
-  transportPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.bgMuted,
-    borderRadius: borderRadius.sm,
-    paddingHorizontal: 5,
-    paddingVertical: 2,
-    marginRight: spacing.sm - 2,
-  },
-  transportPillText: {
-    fontSize: 10,
-    color: COLORS.textSecondary,
-    fontFamily: fontFamily.semiBold,
-    marginLeft: 3,
   },
   timeText: {
     fontSize: fontSize.xs,

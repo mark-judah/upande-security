@@ -617,12 +617,8 @@ export const api = {
     }),
 
   // Staff attendance
-  createStaffAttendance: (employee: string, vehicle_plate?: string, transport_mode?: string) =>
-    call<StaffAttendanceResult>('create_staff_attendance', {
-      employee,
-      vehicle_plate,
-      transport_mode,
-    }),
+  createStaffAttendance: (employee: string) =>
+    call<StaffAttendanceResult>('create_staff_attendance', { employee }),
   submitStaffAttendance: (name: string) =>
     call<StaffAttendanceResult>('submit_staff_attendance', { name }),
   checkOutStaffAttendance: (attendance_name: string) =>

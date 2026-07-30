@@ -103,11 +103,6 @@ export type Attendance = {
   department?: string;
   shift?: string;
   docstatus?: 0 | 1 | 2;
-  custom_farm?: string;
-  custom_location?: string;
-  custom_employee_category?: string;
-  custom_vehicle_number_plate?: string;
-  custom_mode_of_transport?: TransportMode;
   custom_temp_exit_time?: string;
 };
 

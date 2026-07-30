@@ -1,7 +1,6 @@
-import { FormSelect } from '@/components/forms/FormSelect';
 import { fetchEmployee } from '@/lib/api/employees';
+import { fetchStaffEmployee } from '@/lib/api/staff';
 import { fetchTodayAttendance } from '@/lib/api/attendance';
-import { TRANSPORT_MODES, TransportMode } from '@/constants/transportModes';
 import { useFeedback } from '@/lib/hooks/useFeedback';
 import { useStaffAttendance } from '@/lib/hooks/useStaffAttendance';
 import { useStaffCheckOut } from '@/lib/hooks/useStaffCheckOut';
@@ -18,9 +17,8 @@ import { COLORS, spacing, borderRadius, fontFamily, fontSize } from '@/src/core/
 
 export function StaffCheckInPanel() {
   const [employeeId, setEmployeeId] = useState<string | null>(null);
-  const [transportMode, setTransportMode] = useState<TransportMode>(TransportMode.OnFoot);
-  const [numberPlate, setNumberPlate] = useState('');
   const [manualInput, setManualInput] = useState('');
+  const [searching, setSearching] = useState(false);
 
   const feedback = useFeedback();
   const pendingEmployee = useGateStore((s) => s.pendingScannedEmployee);
@@ -63,28 +61,34 @@ export function StaffCheckInPanel() {
 
   function reset() {
     setEmployeeId(null);
-    setTransportMode(TransportMode.OnFoot);
-    setNumberPlate('');
     setManualInput('');
   }
 
-  function onManualSubmit() {
+  async function onManualSubmit() {
     const v = manualInput.trim();
     if (!v) {
-      feedback.warning('Enter an employee ID');
+      feedback.warning('Enter an employee ID or name');
       return;
     }
-    setEmployeeId(v);
+    setSearching(true);
+    try {
+      const result = await fetchStaffEmployee(v);
+      if (result.employee_id) {
+        setEmployeeId(result.employee_id);
+      } else {
+        feedback.error(`No active employee found matching "${v}"`);
+      }
+    } catch (e) {
+      feedback.error(e instanceof Error ? e.message : 'Staff search failed');
+    } finally {
+      setSearching(false);
+    }
   }
 
   async function onCheckIn() {
     if (!employeeQuery.data) return;
     try {
-      await attendance.mutateAsync({
-        employee: employeeQuery.data,
-        transportMode,
-        numberPlate: transportMode !== TransportMode.OnFoot ? numberPlate : undefined,
-      });
+      await attendance.mutateAsync({ employee: employeeQuery.data });
       reset();
     } catch {
       // feedback handled in the hook
@@ -159,16 +163,21 @@ export function StaffCheckInPanel() {
           <TextInput
             value={manualInput}
             onChangeText={setManualInput}
-            placeholder="Payroll ID or Employee ID"
+            placeholder="Employee ID or name"
             placeholderTextColor={COLORS.textMuted}
             autoCapitalize="none"
             autoCorrect={false}
             returnKeyType="search"
+            editable={!searching}
             onSubmitEditing={onManualSubmit}
             style={{ flex: 1, paddingVertical: 10, fontSize: fontSize.md, color: COLORS.text }}
           />
-          <TouchableOpacity onPress={onManualSubmit} hitSlop={8} activeOpacity={0.6}>
-            <Ionicons name="search" size={22} color={COLORS.primary} />
+          <TouchableOpacity onPress={onManualSubmit} disabled={searching} hitSlop={8} activeOpacity={0.6}>
+            {searching ? (
+              <ActivityIndicator size="small" color={COLORS.primary} />
+            ) : (
+              <Ionicons name="search" size={22} color={COLORS.primary} />
+            )}
           </TouchableOpacity>
         </View>
       </View>
@@ -362,76 +371,28 @@ export function StaffCheckInPanel() {
           </View>
         </>
       ) : (
-        <>
-          <View style={{ marginTop: 14 }}>
-            <FormSelect
-              label="Mode of Transport"
-              value={transportMode}
-              options={TRANSPORT_MODES}
-              onChange={(v) => setTransportMode(v as TransportMode)}
-            />
-          </View>
-
-          {transportMode !== TransportMode.OnFoot ? (
-            <>
-              <Text
-                style={{
-                  fontSize: fontSize.sm,
-                  color: COLORS.textSecondary,
-                  marginBottom: 4,
-                  fontFamily: fontFamily.semiBold,
-                }}
-              >
-                {transportMode === TransportMode.MotorBike
-                  ? 'Motorbike Number Plate'
-                  : 'Number Plate'}
-              </Text>
-              <TextInput
-                value={numberPlate}
-                onChangeText={setNumberPlate}
-                placeholder="e.g. KAY 123A"
-                placeholderTextColor={COLORS.textMuted}
-                autoCapitalize="characters"
-                autoCorrect={false}
-                editable={!attendance.isPending}
-                style={{
-                  borderWidth: 1,
-                  borderColor: COLORS.border,
-                  borderRadius: borderRadius.md,
-                  paddingHorizontal: spacing.md,
-                  paddingVertical: 10,
-                  fontSize: fontSize.md,
-                  color: COLORS.text,
-                  backgroundColor: COLORS.surface,
-                  marginBottom: 4,
-                }}
-              />
-            </>
-          ) : null}
-
-          <TouchableOpacity
-            onPress={onCheckIn}
-            disabled={attendance.isPending}
-            activeOpacity={0.8}
-            accessibilityRole="button"
-            style={{
-              backgroundColor: COLORS.primary,
-              opacity: attendance.isPending ? 0.6 : 1,
-              borderRadius: borderRadius.md,
-              paddingVertical: spacing.lg,
-              minHeight: 52,
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexDirection: 'row',
-              marginTop: 14,
-            }}
-          >
-            <Ionicons name="log-in-outline" size={18} color={COLORS.textOnPrimary} />
-            <Text style={{ color: COLORS.textOnPrimary, fontFamily: fontFamily.semiBold, marginLeft: 6, letterSpacing: 0.5 }}>
-              CHECK IN
-            </Text>
-          </TouchableOpacity>
-        </>
+        <TouchableOpacity
+          onPress={onCheckIn}
+          disabled={attendance.isPending}
+          activeOpacity={0.8}
+          accessibilityRole="button"
+          style={{
+            backgroundColor: COLORS.primary,
+            opacity: attendance.isPending ? 0.6 : 1,
+            borderRadius: borderRadius.md,
+            paddingVertical: spacing.lg,
+            minHeight: 52,
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexDirection: 'row',
+            marginTop: 14,
+          }}
+        >
+          <Ionicons name="log-in-outline" size={18} color={COLORS.textOnPrimary} />
+          <Text style={{ color: COLORS.textOnPrimary, fontFamily: fontFamily.semiBold, marginLeft: 6, letterSpacing: 0.5 }}>
+            CHECK IN
+          </Text>
+        </TouchableOpacity>
       )}
 
       <TouchableOpacity

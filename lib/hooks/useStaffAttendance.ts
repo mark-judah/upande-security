@@ -1,18 +1,13 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { createStaffAttendance, submitAttendance } from '@/lib/api/attendance';
 import type { Employee } from '@/lib/api/types';
-import type { TransportMode } from '@/constants/transportModes';
 import { useFeedback } from './useFeedback';
 
 export function useStaffAttendance() {
   const qc = useQueryClient();
   const feedback = useFeedback();
   return useMutation({
-    mutationFn: async (input: {
-      employee: Employee;
-      transportMode?: TransportMode;
-      numberPlate?: string;
-    }) => {
+    mutationFn: async (input: { employee: Employee }) => {
       const created = await createStaffAttendance(input);
       try {
         await submitAttendance(created.name);

@@ -2,7 +2,6 @@
 import { api } from '@/lib/services/api';
 import client from '@/lib/api/client';
 import type { Attendance, Employee } from './types';
-import type { TransportMode } from '@/constants/transportModes';
 
 function toFrappeDate(d: Date = new Date()): string {
   const pad = (n: number) => String(n).padStart(2, '0');
@@ -11,14 +10,8 @@ function toFrappeDate(d: Date = new Date()): string {
 
 export async function createStaffAttendance(input: {
   employee: Employee;
-  transportMode?: TransportMode;
-  numberPlate?: string;
 }): Promise<Attendance> {
-  const result = await api.createStaffAttendance(
-    input.employee.name,
-    input.numberPlate?.trim() || undefined,
-    input.transportMode,
-  );
+  const result = await api.createStaffAttendance(input.employee.name);
   return result as unknown as Attendance;
 }
 
@@ -79,8 +72,6 @@ export async function fetchTodayStaffAttendance(): Promise<Attendance[]> {
       'department',
       'in_time',
       'out_time',
-      'custom_mode_of_transport',
-      'custom_vehicle_number_plate',
       'custom_temp_exit_time',
     ]),
   );

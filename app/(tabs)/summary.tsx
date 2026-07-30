@@ -135,6 +135,16 @@ export default function SummaryTab() {
             </View>
           ) : null}
 
+          {staffAttendance.error ? (
+            <View style={s.errorBox}>
+              <Text style={s.errorText}>
+                {staffAttendance.error instanceof Error
+                  ? staffAttendance.error.message
+                  : 'Failed to load staff attendance'}
+              </Text>
+            </View>
+          ) : null}
+
           {staffAttendance.data && staffAttendance.data.length > 0 ? (
             <View style={{ marginBottom: spacing.lg }}>
               <View style={s.sectionHeader}>
