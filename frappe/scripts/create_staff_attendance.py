@@ -79,6 +79,7 @@ try:
                 if vehicle_plate:
                     doc.custom_vehicle_number_plate = vehicle_plate
                 doc.custom_mode_of_transport = transport_mode or "On Foot"
+                doc.custom_gate_app_entry = 1
                 doc.insert(ignore_permissions=True)
                 frappe.db.commit()
                 frappe.response["message"] = {
