@@ -26,6 +26,8 @@ try:
                a.custom_check_in_time, a.custom_check_out_time,
                a.scheduled_time, a.custom_mode_of_transport,
                a.custom_vehicles_number_plate, a.custom_vehicles_colour,
+               a.custom_number_of_passengers, a.custom_visitor_type,
+               a.custom_contractor_ref, a.custom_temp_exit_time,
                a.customer_details
         FROM `tabAppointment` a
         LEFT JOIN `tabEmployee` e ON e.name = a.custom_meet_with
@@ -54,6 +56,10 @@ try:
                 "custom_mode_of_transport": r.custom_mode_of_transport or "",
                 "custom_vehicles_number_plate": r.custom_vehicles_number_plate or "",
                 "custom_vehicles_colour": r.custom_vehicles_colour or "",
+                "custom_number_of_passengers": r.custom_number_of_passengers or 0,
+                "custom_visitor_type": r.custom_visitor_type or "Visitor",
+                "custom_contractor_ref": r.custom_contractor_ref or "",
+                "custom_temp_exit_time": str(r.custom_temp_exit_time) if r.custom_temp_exit_time else "",
                 "customer_details": r.customer_details or "",
             }
         )

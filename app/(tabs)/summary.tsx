@@ -2,8 +2,10 @@ import { Alert, View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useDailySummary } from '@/lib/hooks/useDailySummary';
 import { useCheckOut } from '@/lib/hooks/useCheckOut';
+import { useStaffAttendanceSummary } from '@/lib/hooks/useStaffAttendanceSummary';
 import { InsideCard } from '@/components/gate/InsideCard';
 import { ActivityRow } from '@/components/gate/ActivityRow';
+import { StaffAttendanceRow } from '@/components/gate/StaffAttendanceRow';
 import { fmtLongDate } from '@/lib/utils/date';
 import { COLORS, fontFamily, fontSize, spacing, borderRadius, shadow } from '@/src/core/theme';
 import { Button } from '@/src/core/ui/Button';
@@ -32,6 +34,7 @@ function StatCard({
 export default function SummaryTab() {
   const today = new Date();
   const { data, isFetching, isLoading, refetch, error } = useDailySummary(today);
+  const staffAttendance = useStaffAttendanceSummary();
   const checkOut = useCheckOut();
 
   function confirmCheckOut(name: string) {
@@ -69,7 +72,7 @@ export default function SummaryTab() {
     <Screen
       title="Summary"
       onRefresh={async () => {
-        await refetch();
+        await Promise.all([refetch(), staffAttendance.refetch()]);
       }}
     >
       <Text style={s.pageTitle}>Gate Activity — {fmtLongDate(today)}</Text>
@@ -128,6 +131,30 @@ export default function SummaryTab() {
                   onCheckOut={confirmCheckOut}
                   busy={checkOut.isPending && checkOut.variables === a.name}
                 />
+              ))}
+            </View>
+          ) : null}
+
+          {staffAttendance.error ? (
+            <View style={s.errorBox}>
+              <Text style={s.errorText}>
+                {staffAttendance.error instanceof Error
+                  ? staffAttendance.error.message
+                  : 'Failed to load staff attendance'}
+              </Text>
+            </View>
+          ) : null}
+
+          {staffAttendance.data && staffAttendance.data.length > 0 ? (
+            <View style={{ marginBottom: spacing.lg }}>
+              <View style={s.sectionHeader}>
+                <Ionicons name="id-card-outline" size={18} color={COLORS.textOnPrimary} />
+                <Text style={s.sectionHeaderText}>
+                  Staff Attendance Today ({staffAttendance.data.length})
+                </Text>
+              </View>
+              {staffAttendance.data.map((a) => (
+                <StaffAttendanceRow key={a.name} attendance={a} />
               ))}
             </View>
           ) : null}

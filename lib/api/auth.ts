@@ -57,6 +57,27 @@ export async function login(email: string, password: string, urlInput: string) {
   return { fullUrl, sid, userId: userId ?? '', message };
 }
 
+/**
+ * Roles drive visibility of the role-gated Approvals tab (Secretary /
+ * Department Head). Best-effort — an empty list just hides the tab rather
+ * than blocking login.
+ */
+export async function fetchUserRoles(instanceUrl: string, email: string): Promise<string[]> {
+  try {
+    const cookie = await AsyncStorage.getItem('cookie');
+    const res = await fetch(
+      `${instanceUrl}/api/resource/User/${encodeURIComponent(email)}?fields=["roles"]`,
+      { headers: { Cookie: cookie ?? '' } },
+    );
+    if (!res.ok) return [];
+    const data = await res.json();
+    const roles: string[] = (data?.data?.roles ?? []).map((r: any) => r.role as string);
+    return roles;
+  } catch {
+    return [];
+  }
+}
+
 // Soft logout — intentional no-op at the API layer.
 //
 // Storage cleanup is owned by `authStore.forgetDevice` (the hard path). The

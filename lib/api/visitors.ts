@@ -1,7 +1,7 @@
 // Thin shim over the server-script verbs in lib/services/api.ts.
 // All visitor flows go through Frappe server scripts — never /api/resource directly.
 import { api } from '@/lib/services/api';
-import type { Appointment, VisitorAppointmentSearchResult } from './types';
+import type { Appointment, VisitorAppointmentSearchResult, VisitorHistoryResult } from './types';
 
 export async function fetchVisitorAppointment(
   query: string,
@@ -27,6 +27,22 @@ export async function fetchVisitorAppointment(
   };
 }
 
+/**
+ * For a walk-in visitor with no appointment scheduled today, look up their
+ * most recent PAST visit (matched by phone/name) so the form can be
+ * prefilled instead of re-entered from scratch. Never throws — a lookup
+ * failure just falls back to a blank walk-in form.
+ */
+export async function fetchVisitorHistory(query: string): Promise<VisitorHistoryResult> {
+  const q = query.trim();
+  if (!q) return { found: false };
+  try {
+    return await api.getVisitorHistory(q);
+  } catch {
+    return { found: false };
+  }
+}
+
 export async function fetchAppointmentDoc(name: string): Promise<Appointment> {
   const doc = await api.getAppointment(name);
   return doc as unknown as Appointment;
@@ -37,6 +53,7 @@ export type CreateAppointmentInput = {
   customer_phone_number?: string;
   customer_email?: string;
   custom_meet_with?: string;
+  custom_visitor_type?: 'Visitor' | 'Staff' | 'Contractor' | 'Customer';
   scheduled_time?: string;
   customer_details?: string;
   custom_mode_of_transport?: string;

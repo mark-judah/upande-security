@@ -153,6 +153,17 @@ Stored in `server_scripts.json` — names match the mobile client's
 | `submit_gate_timesheet`           | Compute hours, write completion note, submit (docstatus=1) |
 | `create_staff_attendance`         | Insert Attendance row (Present, in_time=now)           |
 | `submit_staff_attendance`         | Submit (docstatus=1) an Attendance row                 |
+| `staff_gate_checkout`             | Stamp out_time + working_hours on an open Attendance row |
+| `gate_temp_exit`                  | Step out / return for a currently-inside Appointment or Attendance, without a full check-out |
+| `get_visitor_history`             | Look up a walk-in visitor's most recent past visit to prefill the form |
 | `submit_patrol_points`            | Batch GPS-point ingest from the patrol foreground task |
 
-23 verbs total.
+26 verbs total.
+
+Also on the instance but outside the mobile app's API surface: `Mark Guard Shift Checkin`
+(`server_scripts/mark_guard_shift_checkin.py`, `script_type: "DocType Event"` on Employee
+Checkin → After Insert) — ticks a guard's Shift Assignment when their biometric
+check-in lands. Needs `custom_checked_in` / `custom_checkin_time` /
+`custom_checkin_reference` custom fields on Shift Assignment, not yet in
+`custom_fields.json`. Not wired into this config-as-code push yet since it's
+unrelated to anything the app calls.

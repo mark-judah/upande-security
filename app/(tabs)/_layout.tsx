@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, fontFamily, fontSize } from '@/src/core/theme';
 import { AnimatedTabIcon } from '@/src/core/ui/AnimatedTabIcon';
+import { useIsApprover } from '@/lib/hooks/usePendingApprovals';
 
 type TabIconPair = {
   outline: keyof typeof Ionicons.glyphMap;
@@ -23,6 +24,7 @@ const ICONS: Record<string, TabIconPair> = {
 
 export default function TabsLayout() {
   const insets = useSafeAreaInsets();
+  const isApprover = useIsApprover();
 
   return (
     <Tabs
@@ -68,6 +70,11 @@ export default function TabsLayout() {
       <Tabs.Screen name="summary" options={{ title: 'Summary', href: null }} />
       <Tabs.Screen name="reports" options={{ title: 'Reports', href: null }} />
       <Tabs.Screen name="settings" options={{ title: 'Settings', href: null }} />
+      {/* Role-gated — only Secretary / Department Head see this in the drawer. */}
+      <Tabs.Screen
+        name="approvals"
+        options={{ title: 'Approvals', href: isApprover ? undefined : null }}
+      />
     </Tabs>
   );
 }

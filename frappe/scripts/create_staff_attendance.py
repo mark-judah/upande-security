@@ -12,11 +12,6 @@ try:
         employee = str(data["employee"] or "").strip()
     except (KeyError, TypeError):
         employee = ""
-    vehicle_plate = ""
-    try:
-        vehicle_plate = str(data["vehicle_plate"] or "").strip()
-    except (KeyError, TypeError):
-        vehicle_plate = ""
 
     if not employee:
         frappe.response["message"] = {"error": "employee is required"}
@@ -30,8 +25,6 @@ try:
                 "company",
                 "department",
                 "default_shift",
-                "custom_farm",
-                "custom_employee_category",
                 "status",
             ],
             as_dict=True,
@@ -67,12 +60,7 @@ try:
                     doc.department = emp.department
                 if emp.default_shift:
                     doc.shift = emp.default_shift
-                if emp.custom_farm:
-                    doc.custom_farm = emp.custom_farm
-                if emp.custom_employee_category:
-                    doc.custom_employee_category = emp.custom_employee_category
-                if vehicle_plate:
-                    doc.custom_vehicle_number_plate = vehicle_plate
+                doc.custom_gate_app_entry = 1
                 doc.insert(ignore_permissions=True)
                 frappe.db.commit()
                 frappe.response["message"] = {

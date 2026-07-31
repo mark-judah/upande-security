@@ -52,6 +52,9 @@ MANIFEST = [
     ("Gate Activity", "gate_activity", "gate_activity.py"),
     ("Fetch Security Dashboard Data", "fetchSecurityDasboardData", "fetchSecurityDasboardData.py"),
     ("Fetch Patrol Data", "fetchPatrolData", "fetchPatrolData.py"),
+    ("Gate Temp Exit", "gate_temp_exit", "gate_temp_exit.py"),
+    ("Staff Gate Checkout", "staff_gate_checkout", "staff_gate_checkout.py"),
+    ("Get Visitor History", "get_visitor_history", "get_visitor_history.py"),
 ]
 
 

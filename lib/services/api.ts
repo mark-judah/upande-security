@@ -163,6 +163,10 @@ export type DailySummaryRow = {
   custom_mode_of_transport: string;
   custom_vehicles_number_plate: string;
   custom_vehicles_colour: string;
+  custom_number_of_passengers: number;
+  custom_visitor_type: 'Visitor' | 'Staff' | 'Contractor' | 'Customer';
+  custom_contractor_ref: string;
+  custom_temp_exit_time: string;
   customer_details: string;
 };
 
@@ -363,8 +367,36 @@ export type StaffAttendanceResult = {
   message?: string;
 };
 
+export type StaffCheckOutResult = {
+  success: boolean;
+  out_time: string;
+  working_hours?: number;
+};
+
+export type TempExitDoctype = 'Appointment' | 'Attendance';
+export type TempExitDirection = 'out' | 'in';
+export type TempExitResult = {
+  success: boolean;
+  direction: TempExitDirection;
+  temp_exit_time?: string;
+  out_time?: string;
+  duration_minutes?: number;
+};
+
+export type VisitorHistoryResult =
+  | {
+      found: true;
+      visitor_name?: string;
+      id_no?: string;
+      phone_number?: string;
+      organization?: string;
+      last_visit_date?: string;
+    }
+  | { found: false };
+
 export type CreateWalkInInput = {
   customer_name: string;
+  id_number?: string;
   phone: string;
   host: string;
   email?: string;
@@ -585,10 +617,21 @@ export const api = {
     }),
 
   // Staff attendance
-  createStaffAttendance: (employee: string, vehicle_plate?: string) =>
-    call<StaffAttendanceResult>('create_staff_attendance', { employee, vehicle_plate }),
+  createStaffAttendance: (employee: string) =>
+    call<StaffAttendanceResult>('create_staff_attendance', { employee }),
   submitStaffAttendance: (name: string) =>
     call<StaffAttendanceResult>('submit_staff_attendance', { name }),
+  checkOutStaffAttendance: (attendance_name: string) =>
+    call<StaffCheckOutResult>('staff_gate_checkout', { attendance_name }),
+
+  // Temp exit ("step out" / "return") — shared by the visitor/contractor
+  // Inside list and the staff gate panel.
+  setTempExit: (reference_doctype: TempExitDoctype, reference_name: string, direction: TempExitDirection) =>
+    call<TempExitResult>('gate_temp_exit', { reference_doctype, reference_name, direction }),
+
+  // Walk-in visitor history lookup (pre-fill from a past visit).
+  getVisitorHistory: (query: string) =>
+    call<VisitorHistoryResult>('get_visitor_history', { query }),
 
   // Pending approvals
   pendingApprovals: () => call<PendingApprovalRow[]>('pending_approvals'),

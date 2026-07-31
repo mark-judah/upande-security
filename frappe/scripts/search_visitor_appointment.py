@@ -16,7 +16,7 @@ try:
 
         rows = frappe.db.sql(
             """
-            SELECT a.name, a.customer_name, a.customer_phone_number,
+            SELECT a.name, a.customer_name, a.custom_id_number, a.customer_phone_number,
                    a.customer_email, a.custom_meet_with,
                    e.employee_name AS host_name,
                    a.scheduled_time, a.customer_details,
@@ -42,7 +42,7 @@ try:
                 "has_appointment": True,
                 "name": r.name,
                 "visitor_name": r.customer_name or "",
-                "id_no": "",
+                "id_no": r.custom_id_number or "",
                 "phone_number": r.customer_phone_number or "",
                 "organization": "",
                 "host_id": r.custom_meet_with or "",

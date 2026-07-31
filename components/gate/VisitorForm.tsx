@@ -1,10 +1,11 @@
-import { View } from 'react-native';
+import { View, Text, TouchableOpacity } from 'react-native';
 import { Controller, Control, FieldErrors } from 'react-hook-form';
+import { Ionicons } from '@expo/vector-icons';
 import { FormInput } from '@/components/forms/FormInput';
 import { FormSelect } from '@/components/forms/FormSelect';
 import { HostSearchField } from '@/components/forms/HostSearchField';
 import { TRANSPORT_MODES } from '@/constants/transportModes';
-import { spacing } from '@/src/core/theme';
+import { COLORS, spacing, borderRadius, fontFamily, fontSize } from '@/src/core/theme';
 import type { VisitorFormValues } from './visitorFormValues';
 
 type Props = {
@@ -14,6 +15,7 @@ type Props = {
   watchTransport: string;
   watchHostId: string;
   watchHostName: string;
+  onScanId?: () => void;
 };
 
 export function VisitorForm({
@@ -23,11 +25,34 @@ export function VisitorForm({
   watchTransport,
   watchHostId,
   watchHostName,
+  onScanId,
 }: Props) {
   const showVehicleFields = watchTransport && watchTransport !== 'On Foot';
 
   return (
     <View>
+      {onScanId ? (
+        <TouchableOpacity
+          onPress={onScanId}
+          activeOpacity={0.8}
+          accessibilityRole="button"
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: COLORS.primary,
+            borderRadius: borderRadius.md,
+            paddingVertical: spacing.md,
+            marginBottom: spacing.md,
+          }}
+        >
+          <Ionicons name="card-outline" size={18} color={COLORS.textOnPrimary} />
+          <Text style={{ color: COLORS.textOnPrimary, fontFamily: fontFamily.semiBold, marginLeft: spacing.sm, fontSize: fontSize.sm }}>
+            SCAN ID CARD
+          </Text>
+        </TouchableOpacity>
+      ) : null}
+
       <Controller
         control={control}
         name="customer_name"

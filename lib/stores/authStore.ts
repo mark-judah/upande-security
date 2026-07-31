@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { AppState, type AppStateStatus } from 'react-native';
-import { login as apiLogin, logout as apiLogout } from '@/lib/api/auth';
+import { login as apiLogin, logout as apiLogout, fetchUserRoles } from '@/lib/api/auth';
 import { storage, StorageKeys } from '@/src/core/storage';
 import * as Biometric from '@/src/core/biometric';
 
@@ -9,6 +9,8 @@ type AuthState = {
   user: { email: string; userId: string } | null;
   instanceUrl: string | null;
   isAuthenticated: boolean;
+  /** Frappe roles for the current user — drives the role-gated Approvals tab. */
+  roles: string[];
 
   // New canonical fields.
   hydrated: boolean;
@@ -37,6 +39,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   instanceUrl: null,
   isAuthenticated: false,
+  roles: [],
 
   hydrated: false,
   hasSession: false,
@@ -44,12 +47,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   biometricLocked: false,
 
   hydrate: async () => {
-    const [emailBackup, legacyEmail, url, cookie, bioFlag] = await Promise.all([
+    const [emailBackup, legacyEmail, url, cookie, bioFlag, rolesJson] = await Promise.all([
       storage.get(StorageKeys.emailBackup),
       storage.get('user_email'), // legacy key written by lib/api/auth.ts; one-time migration
       storage.get(StorageKeys.instanceUrl),
       storage.get(StorageKeys.cookie),
       storage.get(StorageKeys.biometricEnabled),
+      storage.get(StorageKeys.userRoles),
     ]);
     let email = emailBackup;
     if (!email && legacyEmail) {
@@ -61,6 +65,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const biometricEnabled = bioFlag === '1';
     const biometricLocked =
       hasSession && biometricEnabled && Biometric.isModuleAvailable();
+    let roles: string[] = [];
+    if (rolesJson) {
+      try {
+        roles = JSON.parse(rolesJson);
+      } catch {
+        roles = [];
+      }
+    }
 
     set({
       user: email ? { email, userId: '' } : null,
@@ -70,6 +82,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       hydrated: true,
       biometricEnabled,
       biometricLocked,
+      roles,
     });
 
     // Re-lock on foreground. Subscribe once.
@@ -88,6 +101,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const result = await apiLogin(email, password, url);
     // Persist the email so we can pre-fill it next time.
     await storage.set(StorageKeys.emailBackup, email);
+    // Fetch roles immediately after login so Approvals tab visibility is correct.
+    const roles = await fetchUserRoles(result.fullUrl, email);
+    await storage.set(StorageKeys.userRoles, JSON.stringify(roles));
     set({
       user: { email, userId: result.userId ?? '' },
       instanceUrl: result.fullUrl,
@@ -95,6 +111,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       hasSession: true,
       // A fresh password login never lands on the biometric lock screen.
       biometricLocked: false,
+      roles,
     });
   },
 
@@ -112,10 +129,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   forgetDevice: async () => {
     await apiLogout();
-    // Drop biometric flag plus any cached personal data.
+    // Drop biometric flag, cached personal data, and the session itself —
+    // hard logout must not leave a cookie/instanceUrl behind for the next
+    // hydrate() to silently pick back up.
     await Promise.all([
       storage.remove(StorageKeys.biometricEnabled),
       storage.remove(StorageKeys.emailBackup),
+      storage.remove(StorageKeys.cookie),
+      storage.remove(StorageKeys.instanceUrl),
+      storage.remove(StorageKeys.userRoles),
     ]);
     set({
       user: null,
@@ -124,6 +146,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       hasSession: false,
       biometricEnabled: false,
       biometricLocked: false,
+      roles: [],
     });
   },
 

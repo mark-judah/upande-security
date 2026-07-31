@@ -151,6 +151,10 @@ export default function ReportsTab() {
   const [preset, setPreset] = useState<RangePreset>('7d');
   const [farm, setFarm] = useState('');
   const [location, setLocation] = useState('');
+  // While a finger is down on the patrol map, yield vertical gestures to
+  // Leaflet's own pan handling instead of letting the outer Screen ScrollView
+  // claim them — otherwise only horizontal drags reach the map.
+  const [mapTouched, setMapTouched] = useState(false);
   const { from, to } = useMemo(() => computeRange(preset), [preset]);
 
   const isAppt = tab === 'visitors' || tab === 'contractors';
@@ -167,7 +171,11 @@ export default function ReportsTab() {
   }
 
   return (
-    <Screen title="Reports" onRefresh={async () => { await refetch(); }}>
+    <Screen
+      title="Reports"
+      onRefresh={async () => { await refetch(); }}
+      scrollEnabled={!mapTouched}
+    >
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -224,7 +232,15 @@ export default function ReportsTab() {
       ) : data ? (
         <View style={{ opacity: isFetching ? 0.6 : 1 }}>
           <KpiGrid kpis={data.kpis} />
-          {tab === 'patrols' && data.points ? <PatrolMap points={data.points} /> : null}
+          {tab === 'patrols' && data.points ? (
+            <View
+              onTouchStart={() => setMapTouched(true)}
+              onTouchEnd={() => setMapTouched(false)}
+              onTouchCancel={() => setMapTouched(false)}
+            >
+              <PatrolMap points={data.points} />
+            </View>
+          ) : null}
           {data.tables.map((t, i) => (
             <ReportTable key={i} table={t} />
           ))}

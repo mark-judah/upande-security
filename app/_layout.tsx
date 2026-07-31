@@ -23,6 +23,7 @@ import { ToastProvider } from '@/src/core/ui/Toast';
 import { DrawerItemsProvider, type DrawerItem } from '@/src/core/ui/drawer-items-context';
 import { initPatrolDb } from '@/lib/services/patrolDb';
 import { useSosWatcher } from '@/lib/hooks/useSosWatcher';
+import { useIsApprover } from '@/lib/hooks/usePendingApprovals';
 import '@/lib/services/patrolTracking';
 
 // Hold the native splash until fonts + auth hydrated.
@@ -46,6 +47,12 @@ const DRAWER_ITEMS: DrawerItem[] = [
   { label: 'Reports',   route: 'reports',    icon: 'bar-chart-outline' },
 ];
 
+const APPROVALS_DRAWER_ITEM: DrawerItem = {
+  label: 'Approvals',
+  route: 'approvals',
+  icon: 'checkmark-done-outline',
+};
+
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
     DMSans_400Regular,
@@ -61,9 +68,12 @@ export default function RootLayout() {
   const hasSession = useAuthStore((s) => s.hasSession);
   const biometricLocked = useAuthStore((s) => s.biometricLocked);
   const initNetwork = useNetworkStore((s) => s.init);
+  const isApprover = useIsApprover();
 
   const segments = useSegments();
   const router = useRouter();
+
+  const drawerItems = isApprover ? [...DRAWER_ITEMS, APPROVALS_DRAWER_ITEM] : DRAWER_ITEMS;
 
   useEffect(() => {
     hydrate();
@@ -125,7 +135,7 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <ToastProvider>
-          <DrawerItemsProvider items={DRAWER_ITEMS}>
+          <DrawerItemsProvider items={drawerItems}>
             <QueryClientProvider client={queryClient}>
               <StatusBar style="dark" />
               <Stack screenOptions={{ headerShown: false }}>
@@ -133,6 +143,7 @@ export default function RootLayout() {
                 <Stack.Screen name="biometric-lock" />
                 <Stack.Screen name="(tabs)" />
                 <Stack.Screen name="scan" options={{ presentation: 'modal' }} />
+                <Stack.Screen name="scan-id" options={{ presentation: 'modal' }} />
                 <Stack.Screen name="incident-new" />
                 <Stack.Screen name="patrol-active" />
               </Stack>

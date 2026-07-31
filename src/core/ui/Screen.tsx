@@ -25,6 +25,10 @@ type Props = {
   hideMenu?: boolean;
   /** When false, the body is rendered as a flex View (no scroll). Default true. */
   scroll?: boolean;
+  /** Toggle the scroll container's native scrollEnabled without unmounting it —
+   *  used to yield vertical gestures to a nested WebView/map while a finger is
+   *  down on it. Default true. Only applies when scroll is true. */
+  scrollEnabled?: boolean;
   contentPadded?: boolean;
   children: ReactNode;
   footer?: ReactNode;
@@ -38,6 +42,7 @@ export function Screen({
   onRefresh,
   hideMenu,
   scroll = true,
+  scrollEnabled = true,
   contentPadded = true,
   children,
   footer,
@@ -82,6 +87,7 @@ export function Screen({
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
         showsVerticalScrollIndicator={false}
+        scrollEnabled={scrollEnabled}
         refreshControl={
           handleRefresh ? (
             <RefreshControl

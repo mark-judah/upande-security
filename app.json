@@ -54,7 +54,7 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Allow Upande Security to scan vehicle work tickets."
+          "cameraPermission": "Allow Upande Security to scan vehicle work tickets and ID cards."
         }
       ],
       [
@@ -76,14 +76,12 @@
     "runtimeVersion": {
       "policy": "appVersion"
     },
-    "updates": {
-      "url": "https://u.expo.dev/b11b481a-da03-48fe-b12b-81ebff4136dc"
-    },
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "b11b481a-da03-48fe-b12b-81ebff4136dc"
+        "projectId": "375a13da-630b-4a49-96e2-0c89c3c9f3d1"
       }
-    }
+    },
+    "owner": "ngetich1"
   }
 }
