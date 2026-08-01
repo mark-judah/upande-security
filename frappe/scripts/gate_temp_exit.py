@@ -20,7 +20,7 @@ try:
             if current_temp_exit:
                 frappe.response["message"] = {"error": reference_name + " is already stepped out"}
             else:
-                now_str = frappe.utils.now_datetime().strftime("%Y-%m-%d %H:%M:%S")
+                now_str = frappe.utils.get_datetime_str(frappe.utils.now_datetime())
                 frappe.db.set_value(reference_doctype, reference_name, "custom_temp_exit_time", now_str, update_modified=True)
                 frappe.db.commit()
                 frappe.response["message"] = {
@@ -32,7 +32,7 @@ try:
             if not current_temp_exit:
                 frappe.response["message"] = {"error": reference_name + " is not currently stepped out"}
             else:
-                now_str = frappe.utils.now_datetime().strftime("%Y-%m-%d %H:%M:%S")
+                now_str = frappe.utils.get_datetime_str(frappe.utils.now_datetime())
                 duration_minutes = None
                 try:
                     duration_minutes = round(frappe.utils.time_diff_in_seconds(now_str, current_temp_exit) / 60, 1)

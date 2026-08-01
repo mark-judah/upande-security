@@ -7,6 +7,7 @@ export type VisitorAppointmentSearchResult = {
   id_no?: string;
   phone_number?: string;
   organization?: string;
+  host_id?: string;
   host_name?: string;
   scheduled_time?: string;
   purpose?: string;
@@ -44,6 +45,7 @@ export type VisitorHistoryResult = {
   found: boolean;
   visitor_name?: string;
   phone_number?: string;
+  id_no?: string;
   host_id?: string;
   host_name?: string;
   purpose?: string;

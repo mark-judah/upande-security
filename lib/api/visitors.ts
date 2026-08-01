@@ -16,6 +16,7 @@ export async function fetchVisitorAppointment(
     id_no: result.id_no,
     phone_number: result.phone_number,
     organization: result.organization,
+    host_id: result.host_id,
     host_name: result.host_name,
     scheduled_time: result.scheduled_time,
     purpose: result.purpose,

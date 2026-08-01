@@ -12,12 +12,15 @@ try:
         elif existing.out_time:
             frappe.response["message"] = {"error": attendance_name + " is already checked out"}
         else:
-            now_str = frappe.utils.now_datetime().strftime("%Y-%m-%d %H:%M:%S")
+            now_dt = frappe.utils.now_datetime()
+            now_str = frappe.utils.get_datetime_str(now_dt)
 
             working_hours = None
             if existing.in_time:
                 try:
-                    working_hours = round(frappe.utils.time_diff_in_hours(now_str, existing.in_time), 2)
+                    in_dt = frappe.utils.get_datetime(existing.in_time)
+                    delta = now_dt - in_dt
+                    working_hours = round(delta.total_seconds() / 3600, 2)
                 except Exception:
                     working_hours = None
 

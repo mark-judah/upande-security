@@ -200,7 +200,7 @@ export default function GateTab() {
       custom_vehicles_number_plate: result.vehicle_reg_no ?? '',
       custom_vehicles_colour: result.vehicle_color ?? '',
       custom_number_of_passengers: undefined,
-      custom_meet_with: '',
+      custom_meet_with: result.host_id ?? '',
       host_name: result.host_name ?? '',
       customer_details: result.purpose ?? '',
     });
@@ -214,7 +214,7 @@ export default function GateTab() {
       setRevisitInfo(history);
       reset({
         customer_name: history.visitor_name || searchQuery.trim(),
-        id_ref: '',
+        id_ref: history.id_no ?? '',
         customer_phone_number: history.phone_number ?? '',
         custom_mode_of_transport: history.transport_mode ?? 'On Foot',
         custom_vehicles_number_plate: history.vehicle_reg_no ?? '',

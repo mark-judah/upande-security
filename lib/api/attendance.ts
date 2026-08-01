@@ -93,3 +93,13 @@ export async function checkOutStaffAttendance(attendanceName: string): Promise<{
 }> {
   return api.checkOutStaffAttendance(attendanceName);
 }
+
+/**
+ * Staff currently checked in via THIS app (custom_gate_app_entry=1) and not
+ * yet checked out — deliberately not the general Attendance list, which
+ * would also include biometric/HR-imported rows the gate app never touched.
+ */
+export async function fetchCheckedInStaff() {
+  const result = await api.listCheckedInStaff();
+  return result.staff;
+}

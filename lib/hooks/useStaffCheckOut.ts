@@ -11,6 +11,7 @@ export function useStaffCheckOut(employeeId?: string) {
       qc.invalidateQueries({ queryKey: ['attendance'] });
       qc.invalidateQueries({ queryKey: ['staff-attendance-today', employeeId] });
       qc.invalidateQueries({ queryKey: ['staff-attendance-summary'] });
+      qc.invalidateQueries({ queryKey: ['checked-in-staff'] });
       feedback.success('Staff checked out ✓');
     },
     onError: (err: Error) => feedback.error(err.message || 'Check-out failed'),

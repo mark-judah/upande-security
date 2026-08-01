@@ -26,6 +26,7 @@ export function useStaffAttendance() {
       qc.invalidateQueries({ queryKey: ['attendance'] });
       qc.invalidateQueries({ queryKey: ['staff-attendance-today', created.employee] });
       qc.invalidateQueries({ queryKey: ['staff-attendance-summary'] });
+      qc.invalidateQueries({ queryKey: ['checked-in-staff'] });
       feedback.success(`Attendance ${created.name} recorded`);
     },
     onError: (err: Error) => feedback.error(err.message || 'Check-in failed'),

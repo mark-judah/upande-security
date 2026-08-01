@@ -157,8 +157,9 @@ Stored in `server_scripts.json` — names match the mobile client's
 | `gate_temp_exit`                  | Step out / return for a currently-inside Appointment or Attendance, without a full check-out |
 | `get_visitor_history`             | Look up a walk-in visitor's most recent past visit to prefill the form |
 | `submit_patrol_points`            | Batch GPS-point ingest from the patrol foreground task |
+| `list_checked_in_staff`           | Staff currently checked in via the app (not general Attendance) — feeds the checkout list |
 
-26 verbs total.
+27 verbs total.
 
 Also on the instance but outside the mobile app's API surface: `Mark Guard Shift Checkin`
 (`server_scripts/mark_guard_shift_checkin.py`, `script_type: "DocType Event"` on Employee

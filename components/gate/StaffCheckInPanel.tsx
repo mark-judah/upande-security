@@ -2,6 +2,7 @@ import { fetchEmployee } from '@/lib/api/employees';
 import { fetchStaffEmployee } from '@/lib/api/staff';
 import { fetchTodayAttendance } from '@/lib/api/attendance';
 import { useFeedback } from '@/lib/hooks/useFeedback';
+import { useCheckedInStaff } from '@/lib/hooks/useCheckedInStaff';
 import { useStaffAttendance } from '@/lib/hooks/useStaffAttendance';
 import { useStaffCheckOut } from '@/lib/hooks/useStaffCheckOut';
 import { useStaffTempExit } from '@/lib/hooks/useStaffTempExit';
@@ -47,6 +48,7 @@ export function StaffCheckInPanel() {
   const attendance = useStaffAttendance();
   const checkOut = useStaffCheckOut(employeeId ?? undefined);
   const tempExit = useStaffTempExit(employeeId ?? undefined);
+  const checkedInStaff = useCheckedInStaff();
 
   const todayAttendanceQuery = useQuery({
     queryKey: ['staff-attendance-today', employeeId],
@@ -115,8 +117,52 @@ export function StaffCheckInPanel() {
   }
 
   if (!employeeId) {
+    const checkedIn = checkedInStaff.data ?? [];
     return (
       <View style={{ marginTop: spacing.sm }}>
+        {checkedIn.length > 0 ? (
+          <View style={{ marginBottom: spacing.md }}>
+            <Text
+              style={{
+                fontFamily: fontFamily.semiBold,
+                fontSize: fontSize.sm,
+                color: COLORS.textSecondary,
+                marginBottom: spacing.xs,
+              }}
+            >
+              Currently checked in ({checkedIn.length})
+            </Text>
+            {checkedIn.map((row) => (
+              <TouchableOpacity
+                key={row.name}
+                onPress={() => setEmployeeId(row.employee)}
+                activeOpacity={0.7}
+                accessibilityRole="button"
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  backgroundColor: COLORS.surfaceAlt,
+                  borderRadius: borderRadius.md,
+                  paddingHorizontal: spacing.md,
+                  paddingVertical: 10,
+                  marginBottom: 6,
+                }}
+              >
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontFamily: fontFamily.semiBold, fontSize: fontSize.sm, color: COLORS.text }}>
+                    {row.employee_name || row.employee}
+                  </Text>
+                  <Text style={{ fontFamily: fontFamily.regular, fontSize: fontSize.xs, color: COLORS.textMuted }}>
+                    {row.employee} · In {fmtTime(row.in_time)} · {getDuration(row.in_time)}
+                    {row.custom_temp_exit_time ? ' · Stepped out' : ''}
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color={COLORS.textMuted} />
+              </TouchableOpacity>
+            ))}
+          </View>
+        ) : null}
+
         <TouchableOpacity
           onPress={() => router.push('/scan?intent=employee')}
           activeOpacity={0.8}
@@ -281,6 +327,30 @@ export function StaffCheckInPanel() {
           <ActivityIndicator color={COLORS.primary} />
           <Text style={{ color: COLORS.textMuted, marginTop: 8, fontSize: fontSize.xs, fontFamily: fontFamily.regular }}>
             Checking attendance status…
+          </Text>
+        </View>
+      ) : todayAttendanceQuery.isError ? (
+        <View
+          style={{
+            backgroundColor: '#FEF2F2',
+            borderRadius: borderRadius.md,
+            padding: 14,
+            marginTop: 14,
+          }}
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Ionicons name="alert-circle-outline" size={20} color={COLORS.danger} />
+            <Text style={{ color: COLORS.danger, fontFamily: fontFamily.semiBold, marginLeft: spacing.sm, flex: 1 }}>
+              Could not check today's attendance status
+            </Text>
+          </View>
+          <Text style={{ color: COLORS.textMuted, fontSize: fontSize.xs, fontFamily: fontFamily.regular, marginTop: 6 }}>
+            {todayAttendanceQuery.error instanceof Error
+              ? todayAttendanceQuery.error.message
+              : 'Unknown error'}
+          </Text>
+          <Text style={{ color: COLORS.textMuted, fontSize: fontSize.xs, fontFamily: fontFamily.regular, marginTop: 4 }}>
+            Check-out / step-out won't show up while this is failing — CHECK IN below may re-create a duplicate record if this employee is already checked in.
           </Text>
         </View>
       ) : isCheckedIn ? (

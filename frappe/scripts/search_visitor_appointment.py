@@ -28,11 +28,12 @@ try:
             WHERE DATE(a.scheduled_time) = %s
               AND (a.customer_name LIKE %s
                    OR a.customer_phone_number LIKE %s
-                   OR a.name LIKE %s)
+                   OR a.name LIKE %s
+                   OR a.custom_id_number = %s)
             ORDER BY a.scheduled_time DESC
             LIMIT 1
             """,
-            (today, like, like, like),
+            (today, like, like, like, query),
             as_dict=True,
         )
 

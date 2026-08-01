@@ -373,6 +373,16 @@ export type StaffCheckOutResult = {
   working_hours?: number;
 };
 
+export type CheckedInStaffRow = {
+  name: string;
+  employee: string;
+  employee_name?: string;
+  department?: string;
+  in_time?: string;
+  custom_temp_exit_time?: string;
+  docstatus: number;
+};
+
 export type TempExitDoctype = 'Appointment' | 'Attendance';
 export type TempExitDirection = 'out' | 'in';
 export type TempExitResult = {
@@ -623,6 +633,9 @@ export const api = {
     call<StaffAttendanceResult>('submit_staff_attendance', { name }),
   checkOutStaffAttendance: (attendance_name: string) =>
     call<StaffCheckOutResult>('staff_gate_checkout', { attendance_name }),
+  // Staff currently checked in via this app specifically (custom_gate_app_entry=1),
+  // not the general Attendance list — feeds the gate checkout picker.
+  listCheckedInStaff: () => call<{ staff: CheckedInStaffRow[] }>('list_checked_in_staff'),
 
   // Temp exit ("step out" / "return") — shared by the visitor/contractor
   // Inside list and the staff gate panel.
