@@ -1,0 +1,197 @@
+<style>
+:root{--blue:#185FA5;--blue-dk:#0C447C;--green:#3B6D11;--red:#B3261E;--border:#e2e2e0;--bg:#f8f8f6;--card:#fff;--text:#1a1a18;--muted:#6b6b67}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);font-size:16px;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:28px 24px;max-width:380px;width:100%;text-align:center;box-shadow:0 2px 10px rgba(0,0,0,.06)}
+.icon{width:56px;height:56px;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;font-size:26px}
+.icon-wait{background:#E6F1FB;color:var(--blue-dk)}
+.icon-ok{background:#EAF3DE;color:var(--green)}
+.icon-err{background:#FBE9E7;color:var(--red)}
+h1{font-size:19px;font-weight:600;margin-bottom:6px}
+p{color:var(--muted);font-size:14px;line-height:1.5;margin-bottom:18px}
+.visitor{font-weight:600;color:var(--text)}
+.host{font-weight:600;color:var(--text)}
+.details{text-align:left;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:18px}
+.details .row{display:flex;justify-content:space-between;gap:12px;padding:6px 0}
+.details .row + .row{border-top:1px solid var(--border)}
+.details .label{font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);flex:0 0 auto}
+.details .value{font-size:14px;font-weight:600;color:var(--text);text-align:right}
+input{width:100%;padding:14px;border-radius:10px;border:1px solid var(--border);font-size:20px;font-family:inherit;text-align:center;letter-spacing:.04em;margin-bottom:14px}
+input:focus{outline:none;border-color:var(--blue)}
+button,a.btn{display:block;width:100%;padding:14px;border-radius:10px;border:none;background:var(--blue);color:#fff;font-size:15px;font-weight:600;font-family:inherit;cursor:pointer;text-decoration:none;box-sizing:border-box}
+button:disabled{opacity:.6;cursor:not-allowed}
+button:hover:not(:disabled),a.btn:hover{background:var(--blue-dk)}
+.stamp{font-size:12px;color:var(--muted);margin-top:14px}
+.hidden{display:none}
+.hint{font-size:12px;color:var(--muted);margin-top:-8px;margin-bottom:16px}
+</style>
+
+<div class="card">
+  <div id="state-loading">
+    <div class="icon icon-wait">⏳</div>
+    <h1>Loading…</h1>
+  </div>
+
+  <div id="state-login" class="hidden">
+    <div class="icon icon-wait">🔒</div>
+    <h1>Please log in</h1>
+    <p>You need to be logged in to your Kaitet account to confirm a visitor.</p>
+    <a class="btn" id="login-link" href="/login">Log in</a>
+  </div>
+
+  <div id="state-entry" class="hidden">
+    <div class="icon icon-wait">🪪</div>
+    <h1>Confirm a visitor</h1>
+    <p>Enter the number printed on your visitor's badge.</p>
+    <input id="badge-input" type="text" inputmode="numeric" placeholder="Badge number, e.g. 9" autofocus>
+    <div class="hint" id="entry-company"></div>
+    <button id="lookup-btn">Look up</button>
+  </div>
+
+  <div id="state-error" class="hidden">
+    <div class="icon icon-err">✕</div>
+    <h1>Not found</h1>
+    <p id="error-message">Could not find that badge. Please check the number and try again.</p>
+    <button id="try-again-btn">Try again</button>
+  </div>
+
+  <div id="state-confirm" class="hidden">
+    <div class="icon icon-wait">👤</div>
+    <h1>Confirm visitor receipt</h1>
+    <div class="details">
+      <div class="row"><span class="label">Badge #</span><span class="value" id="confirm-badge"></span></div>
+      <div class="row"><span class="label">Visitor</span><span class="value" id="confirm-visitor"></span></div>
+      <div class="row"><span class="label">Purpose</span><span class="value" id="confirm-purpose"></span></div>
+      <div class="row"><span class="label">Host</span><span class="value" id="confirm-host"></span></div>
+    </div>
+    <p>Tap below once this visitor is with you.</p>
+    <button id="confirm-btn">Confirm — I've received this visitor</button>
+  </div>
+
+  <div id="state-done" class="hidden">
+    <div class="icon icon-ok">✓</div>
+    <h1>Visitor confirmed received</h1>
+    <p><span class="visitor" id="done-visitor-name"></span> has been marked as received by <span class="host" id="done-host-name"></span>. The gate can now check them out when they leave.</p>
+    <div class="stamp" id="done-stamp"></div>
+  </div>
+
+  <div id="state-already" class="hidden">
+    <div class="icon icon-ok">✓</div>
+    <h1>Already confirmed</h1>
+    <p><span class="visitor" id="already-visitor-name"></span>'s receipt was already confirmed.</p>
+    <div class="stamp" id="already-stamp"></div>
+  </div>
+</div>
+
+<script>
+const BASE = window.location.origin;
+
+async function callMethod(method, args) {
+  const r = await fetch(BASE + '/api/method/' + method, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(args || {}),
+  });
+  const j = await r.json();
+  return j.message || {};
+}
+
+const STATES = ['state-loading', 'state-login', 'state-entry', 'state-error', 'state-confirm', 'state-done', 'state-already'];
+function show(id) {
+  STATES.forEach(function (s) {
+    document.getElementById(s).classList.toggle('hidden', s !== id);
+  });
+}
+
+function fmtStamp(iso) {
+  if (!iso) return '';
+  try {
+    return 'Confirmed at ' + new Date(iso.replace(' ', 'T')).toLocaleString();
+  } catch (e) {
+    return 'Confirmed at ' + iso;
+  }
+}
+
+let lastInfo = null;
+let lastBadgeNumber = null;
+
+function lookupBadge() {
+  const badgeNumber = document.getElementById('badge-input').value.trim();
+  if (!badgeNumber) return;
+  const btn = document.getElementById('lookup-btn');
+  btn.disabled = true;
+  btn.textContent = 'Looking up…';
+  callMethod('get_visitor_badge_info_by_number', { badge_number: badgeNumber }).then(function (info) {
+    btn.disabled = false;
+    btn.textContent = 'Look up';
+    if (info.error) {
+      document.getElementById('error-message').textContent = info.error;
+      show('state-error');
+      return;
+    }
+    lastInfo = info;
+    lastBadgeNumber = badgeNumber;
+    if (info.already_confirmed) {
+      document.getElementById('already-visitor-name').textContent = info.visitor_name;
+      document.getElementById('already-stamp').textContent = fmtStamp(info.confirmed_at);
+      show('state-already');
+      return;
+    }
+    document.getElementById('confirm-badge').textContent = (info.company || '') + ' #' + (info.badge_number || badgeNumber);
+    document.getElementById('confirm-visitor').textContent = info.visitor_name || '—';
+    document.getElementById('confirm-purpose').textContent = info.purpose || '—';
+    document.getElementById('confirm-host').textContent = info.host_name || '—';
+    show('state-confirm');
+  }).catch(function () {
+    btn.disabled = false;
+    btn.textContent = 'Look up';
+    document.getElementById('error-message').textContent = 'Could not reach the server — check your connection and try again.';
+    show('state-error');
+  });
+}
+
+document.getElementById('lookup-btn').addEventListener('click', lookupBadge);
+document.getElementById('badge-input').addEventListener('keydown', function (e) {
+  if (e.key === 'Enter') lookupBadge();
+});
+document.getElementById('try-again-btn').addEventListener('click', function () {
+  show('state-entry');
+});
+
+document.getElementById('confirm-btn').addEventListener('click', function () {
+  const btn = this;
+  btn.disabled = true;
+  btn.textContent = 'Confirming…';
+  callMethod('confirm_host_received_by_number', { badge_number: lastBadgeNumber }).then(function (res) {
+    if (res.error) {
+      document.getElementById('error-message').textContent = res.error;
+      show('state-error');
+      return;
+    }
+    document.getElementById('done-visitor-name').textContent = lastInfo.visitor_name;
+    document.getElementById('done-host-name').textContent = lastInfo.host_name;
+    document.getElementById('done-stamp').textContent = fmtStamp(res.confirmed_at);
+    show('state-done');
+  }).catch(function () {
+    btn.disabled = false;
+    btn.textContent = 'Confirm — I\'ve received this visitor';
+    document.getElementById('error-message').textContent = 'Could not reach the server — check your connection and try again.';
+    show('state-error');
+  });
+});
+
+// Check login state up front via the existing get_session_info verb —
+// a Guest session_info.user is 'Guest', anyone else is genuinely logged in.
+callMethod('get_session_info', {}).then(function (info) {
+  if (!info || !info.user || info.user === 'Guest') {
+    document.getElementById('login-link').href = '/login?redirect-to=/confirm-visitor';
+    show('state-login');
+    return;
+  }
+  const company = info.employee && info.employee.company;
+  document.getElementById('entry-company').textContent = company ? 'Your company: ' + company : '';
+  show('state-entry');
+}).catch(function () {
+  show('state-login');
+});
+</script>
