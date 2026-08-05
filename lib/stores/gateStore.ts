@@ -7,10 +7,12 @@ type GateState = {
   pendingScannedTicket: string | null;
   pendingScannedEmployee: string | null;
   pendingScannedIdCard: ParsedIdCard | null;
+  pendingScannedBadge: string | null;
   setSelectedType: (t: CheckInType) => void;
   setPendingScannedTicket: (v: string | null) => void;
   setPendingScannedEmployee: (v: string | null) => void;
   setPendingScannedIdCard: (v: ParsedIdCard | null) => void;
+  setPendingScannedBadge: (v: string | null) => void;
 };
 
 export const useGateStore = create<GateState>((set) => ({
@@ -18,8 +20,10 @@ export const useGateStore = create<GateState>((set) => ({
   pendingScannedTicket: null,
   pendingScannedEmployee: null,
   pendingScannedIdCard: null,
+  pendingScannedBadge: null,
   setSelectedType: (t) => set({ selectedType: t }),
   setPendingScannedTicket: (v) => set({ pendingScannedTicket: v }),
   setPendingScannedEmployee: (v) => set({ pendingScannedEmployee: v }),
   setPendingScannedIdCard: (v) => set({ pendingScannedIdCard: v }),
+  setPendingScannedBadge: (v) => set({ pendingScannedBadge: v }),
 }));

@@ -34,9 +34,19 @@ try:
     elif severity not in ("Low", "Medium", "High", "Critical"):
         frappe.response["message"] = {"error": "severity must be Low/Medium/High/Critical"}
     else:
-        # Validate the category exists
-        cat = frappe.db.get_value("Incident Category", nature_of_incident, "name")
-        if not cat:
+        # Some sites model nature_of_incident as a Link to a real "Incident
+        # Category" master doctype; others use a plain Select with a fixed
+        # options list, where "Incident Category" exists as a doctype but is
+        # never actually populated. Only enforce Link-style validation when
+        # that master data actually exists — otherwise trust the Select
+        # field's own built-in option list (Frappe rejects an invalid Select
+        # value on insert regardless).
+        category_master_in_use = frappe.db.count("Incident Category") > 0
+        cat_ok = True
+        if category_master_in_use:
+            cat_ok = bool(frappe.db.get_value("Incident Category", nature_of_incident, "name"))
+
+        if not cat_ok:
             frappe.response["message"] = {
                 "error": "Incident Category '" + nature_of_incident + "' does not exist"
             }
@@ -64,6 +74,33 @@ try:
             if attachment_4:
                 doc.attachment_4 = attachment_4
 
+            doshs_deadline = ""
+            if nature_of_incident == "Workplace Injury":
+                is_fatal = s("is_fatal") in ("1", "true", "True")
+                doc.is_fatal = 1 if is_fatal else 0
+                doc.injury_case_status = "Reported"
+
+                activity_at_time_of_injury = s("activity_at_time_of_injury")
+                if activity_at_time_of_injury:
+                    doc.activity_at_time_of_injury = activity_at_time_of_injury
+                body_part_affected = s("body_part_affected")
+                if body_part_affected:
+                    doc.body_part_affected = body_part_affected
+                nature_of_injury = s("nature_of_injury")
+                if nature_of_injury:
+                    doc.nature_of_injury = nature_of_injury
+                injury_current_location = s("injury_current_location")
+                if injury_current_location:
+                    doc.injury_current_location = injury_current_location
+
+                try:
+                    incident_dt = frappe.utils.get_datetime(incident_datetime)
+                    days = 2 if is_fatal else 7
+                    doshs_deadline = str(frappe.utils.add_days(incident_dt, days).date())
+                    doc.doshs_deadline = doshs_deadline
+                except Exception:
+                    doshs_deadline = ""
+
             doc.insert(ignore_permissions=True)
             frappe.db.commit()
             frappe.response["message"] = {
@@ -76,6 +113,7 @@ try:
                 "reported_by": user,
                 "reporter_name": full_name,
                 "status": "Open",
+                "doshs_deadline": doshs_deadline,
             }
 except Exception as e:
     frappe.db.rollback()

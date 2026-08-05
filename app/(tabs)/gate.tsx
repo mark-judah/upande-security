@@ -13,6 +13,8 @@ import { NoAppointmentCard } from '@/components/gate/NoAppointmentCard';
 import { VisitorForm } from '@/components/gate/VisitorForm';
 import { WalkInSection } from '@/components/gate/WalkInSection';
 import { ActionButtons } from '@/components/gate/ActionButtons';
+import { IssueVisitorBadge } from '@/components/gate/IssueVisitorBadge';
+import { CHECK_IN_ALLOWED_FROM, type WorkflowState } from '@/constants/workflowStates';
 import { StaffCheckInPanel } from '@/components/gate/StaffCheckInPanel';
 import { ContractorForm } from '@/components/gate/ContractorForm';
 import { VehicleScanAction } from '@/components/gate/VehicleScanAction';
@@ -533,25 +535,61 @@ export default function GateTab() {
             </WalkInSection>
           ) : null}
 
-          {selectedType === CheckInType.Visitor && selectedAppointment && !isWalkIn ? (
-            <View style={s.appointmentSection}>
-              <VisitorForm
-                control={control}
-                errors={errors}
-                setValue={(f, v) => setValue(f, v as never)}
-                watchTransport={watchTransport}
-                watchHostId={watchHostId}
-                watchHostName={watchHostName}
-              />
-              <ActionButtons
-                appointment={workflowQuery.data}
-                loading={workflowQuery.isLoading}
-                onNotifyHost={onNotifyHost}
-                onCheckIn={onVisitorCheckIn}
-                busy={checkIn.isPending || vehicleBusy}
-              />
-            </View>
-          ) : null}
+          {selectedType === CheckInType.Visitor && selectedAppointment && !isWalkIn ? (() => {
+            const wf = workflowQuery.data;
+            const visitorState: WorkflowState | null = wf
+              ? wf.custom_check_out_time
+                ? 'Visitor Checked Out'
+                : wf.custom_check_in_time
+                  ? 'Visitor Checked In'
+                  : ((wf.workflow_state as WorkflowState) ?? 'Open')
+              : null;
+            // Badge issuance only makes sense once the visit is approved and
+            // ready to check in (or already past that point) — not while
+            // still waiting on the host to approve.
+            const showBadgePanel =
+              visitorState != null &&
+              (CHECK_IN_ALLOWED_FROM.includes(visitorState) ||
+                visitorState === 'Visitor Checked In' ||
+                visitorState === 'Visitor Checked Out');
+            const hasBadge = Boolean(wf?.custom_visitor_badge_number);
+            // New-app-only enforcement: a badge must be issued before the
+            // guard can check the visitor in. This is purely a client-side
+            // gate — check_in_visitor itself is unchanged, so guards still
+            // on an older build are completely unaffected.
+            const checkInBlockedReason =
+              visitorState && CHECK_IN_ALLOWED_FROM.includes(visitorState) && !hasBadge
+                ? 'Issue a visitor badge before checking them in.'
+                : undefined;
+
+            return (
+              <View style={s.appointmentSection}>
+                <VisitorForm
+                  control={control}
+                  errors={errors}
+                  setValue={(f, v) => setValue(f, v as never)}
+                  watchTransport={watchTransport}
+                  watchHostId={watchHostId}
+                  watchHostName={watchHostName}
+                />
+                {showBadgePanel && selectedAppointment.name ? (
+                  <IssueVisitorBadge
+                    appointmentName={selectedAppointment.name}
+                    currentBadge={wf?.custom_visitor_badge_number ?? undefined}
+                    hostReceivedAt={wf?.custom_host_received_time}
+                  />
+                ) : null}
+                <ActionButtons
+                  appointment={workflowQuery.data}
+                  loading={workflowQuery.isLoading}
+                  onNotifyHost={onNotifyHost}
+                  onCheckIn={onVisitorCheckIn}
+                  busy={checkIn.isPending || vehicleBusy}
+                  checkInBlockedReason={checkInBlockedReason}
+                />
+              </View>
+            );
+          })() : null}
 
           {selectedType === CheckInType.CompanyVehicle ? (
             <>

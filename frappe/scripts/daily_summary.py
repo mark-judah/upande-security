@@ -18,6 +18,80 @@ try:
     start = date_str + " 00:00:00"
     end = date_str + " 23:59:59"
 
+    # Access scoping — System Manager sees everything; a Security Head sees
+    # whatever their own User Permission grants (Company and/or Farm rows,
+    # which may be broader or narrower than a single farm); anyone else (a
+    # regular gate guard) is scoped to their own company/farm only, resolved
+    # the same way as get_security_head_contact.py — Employee first, then
+    # Security Guard matched by full name.
+    current_user = frappe.session.user
+    role_rows = frappe.db.sql(
+        "SELECT role FROM `tabHas Role` WHERE parent = %s", (current_user,)
+    )
+    roles = []
+    for row in role_rows:
+        if row and row[0]:
+            roles.append(row[0])
+
+    is_system_manager = "System Manager" in roles
+    is_security_head = "Security Head" in roles
+
+    scope_companies = []
+    scope_farms = []
+
+    if not is_system_manager:
+        if is_security_head:
+            perm_rows = frappe.db.sql(
+                "SELECT allow, for_value FROM `tabUser Permission` "
+                "WHERE user = %s AND allow IN ('Company', 'Farm')",
+                (current_user,),
+                as_dict=True,
+            )
+            for p in perm_rows:
+                if p.allow == "Company" and p.for_value:
+                    scope_companies.append(p.for_value)
+                elif p.allow == "Farm" and p.for_value:
+                    scope_farms.append(p.for_value)
+        else:
+            employee = frappe.db.get_value(
+                "Employee", {"user_id": current_user}, ["company", "custom_farm"], as_dict=True
+            )
+            if employee:
+                if employee.company:
+                    scope_companies.append(employee.company)
+                if employee.custom_farm:
+                    scope_farms.append(employee.custom_farm)
+            else:
+                user_full = frappe.db.get_value("User", current_user, "full_name") or ""
+                if user_full:
+                    guard = frappe.db.get_value(
+                        "Security Guard", {"full_name": user_full}, ["company", "farm"], as_dict=True
+                    )
+                    if guard:
+                        if guard.company:
+                            scope_companies.append(guard.company)
+                        if guard.farm:
+                            scope_farms.append(guard.farm)
+
+    scope_sql = ""
+    scope_params = []
+    if not is_system_manager:
+        conditions = []
+        if scope_companies:
+            placeholders = ", ".join(["%s"] * len(scope_companies))
+            conditions.append("a.custom_company IN (" + placeholders + ")")
+            scope_params = scope_params + scope_companies
+        if scope_farms:
+            placeholders = ", ".join(["%s"] * len(scope_farms))
+            conditions.append("a.custom_farmunit IN (" + placeholders + ")")
+            scope_params = scope_params + scope_farms
+        if conditions:
+            scope_sql = " AND (" + " OR ".join(conditions) + ")"
+        else:
+            # No resolvable company/farm for this user at all — show nothing
+            # rather than silently falling through to "everything".
+            scope_sql = " AND 1=0"
+
     rows = frappe.db.sql(
         """
         SELECT a.name, a.customer_name, a.customer_phone_number,
@@ -32,10 +106,13 @@ try:
         FROM `tabAppointment` a
         LEFT JOIN `tabEmployee` e ON e.name = a.custom_meet_with
         WHERE a.scheduled_time BETWEEN %s AND %s
+        """
+        + scope_sql
+        + """
         ORDER BY a.custom_check_in_time DESC, a.scheduled_time DESC
         LIMIT 200
         """,
-        (start, end),
+        [start, end] + scope_params,
         as_dict=True,
     )
 

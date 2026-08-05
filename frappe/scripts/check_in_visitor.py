@@ -56,6 +56,24 @@ try:
     except (KeyError, TypeError):
         passengers_raw = ""
 
+    sent_driver_name = False
+    driver_name = ""
+    try:
+        v = data["driver_name"]
+        sent_driver_name = True
+        driver_name = str(v).strip() if v is not None else ""
+    except (KeyError, TypeError):
+        sent_driver_name = False
+
+    sent_driver_phone = False
+    driver_phone = ""
+    try:
+        v = data["driver_phone"]
+        sent_driver_phone = True
+        driver_phone = str(v).strip() if v is not None else ""
+    except (KeyError, TypeError):
+        sent_driver_phone = False
+
     if not name:
         frappe.response["message"] = {"error": "name is required"}
     else:
@@ -88,11 +106,39 @@ try:
                     updates["custom_vehicles_number_plate"] = plate
                 if sent_colour:
                     updates["custom_vehicles_colour"] = colour
+                if sent_driver_name:
+                    updates["custom_taxi_driver_name"] = driver_name
+                if sent_driver_phone:
+                    updates["custom_taxi_driver_phone"] = driver_phone
                 if passengers_raw:
                     try:
                         updates["custom_number_of_passengers"] = int(passengers_raw)
                     except Exception:
                         pass
+
+                # Stamp which company/farm this visit belongs to, from the
+                # checking-in guard's own scope — this is what the access
+                # scoping in daily_summary.py / list_incidents.py filters on.
+                current_user = frappe.session.user
+                employee = frappe.db.get_value(
+                    "Employee", {"user_id": current_user}, ["company", "custom_farm"], as_dict=True
+                )
+                resolved_company = employee.company if employee else None
+                resolved_farm = employee.custom_farm if employee else None
+                if not resolved_company and not resolved_farm:
+                    user_full = frappe.db.get_value("User", current_user, "full_name") or ""
+                    if user_full:
+                        guard = frappe.db.get_value(
+                            "Security Guard", {"full_name": user_full}, ["company", "farm"], as_dict=True
+                        )
+                        if guard:
+                            resolved_company = guard.company
+                            resolved_farm = guard.farm
+                if resolved_company:
+                    updates["custom_company"] = resolved_company
+                if resolved_farm:
+                    updates["custom_farmunit"] = resolved_farm
+
                 frappe.db.set_value("Appointment", name, updates)
                 frappe.db.commit()
                 frappe.response["message"] = {

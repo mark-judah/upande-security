@@ -35,6 +35,10 @@ export type Appointment = {
   custom_reporting_status?: string;
   custom_check_in_time?: string;
   custom_check_out_time?: string;
+  custom_visitor_badge?: string;
+  custom_visitor_badge_number?: number | null;
+  custom_visitor_badge_company?: string;
+  custom_host_received_time?: string;
   custom_number_of_passengers?: number;
   custom_visitor_type?: 'Visitor' | 'Staff' | 'Contractor' | 'Customer';
   custom_contractor_ref?: string;

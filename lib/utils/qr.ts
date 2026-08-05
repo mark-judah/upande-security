@@ -10,6 +10,19 @@ export function extractTicketName(raw: string): string {
   return v;
 }
 
+export function extractBadgeNumber(raw: string): string {
+  const v = raw.trim();
+  if (!v) return '';
+  // Badge QR encodes .../visitor-received?badge=12 — a fixed, pre-printed
+  // link, since the physical badge is never reprinted per visit.
+  const match = v.match(/[?&]badge=([^&#]+)/);
+  if (match && match[1]) {
+    return decodeURIComponent(match[1]);
+  }
+  // Guard may also scan a plain number if the badge is ever printed bare.
+  return v;
+}
+
 export function extractEmployeeId(raw: string): string {
   const v = raw.trim();
   if (!v) return '';

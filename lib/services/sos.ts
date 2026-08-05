@@ -4,6 +4,7 @@ import { createIncidentReport } from '@/lib/api/incidents';
 import { getActivePatrol } from '@/lib/services/patrolDb';
 import { flushAllPatrolPending } from '@/lib/services/patrolGpsSync';
 import { toFrappeDateTime } from '@/lib/utils/date';
+import { callEmergencyNumber, type EmergencyCallResult } from '@/lib/utils/emergencyCall';
 
 // Resolved lazily so the app still boots in runtimes that don't include the
 // native module (Expo Go, a stale dev client). When unavailable, SOS becomes a
@@ -39,7 +40,7 @@ function getVolumeManager(): VolumeManagerLike | null {
  * We listen to VolumeManager's volume-change events. Holding a volume button
  * fires repeat events at ~100 ms on Android; pressing it many times quickly
  * does the same. A human is extremely unlikely to produce >= 5 volume events
- * within 5 seconds during normal use, so that threshold is the trigger.
+ * within 3 seconds during normal use, so that threshold is the trigger.
  *
  * Limitation: this only fires while the app is in the foreground (the OS
  * delivers volume events to the focused app). Even with an Android foreground
@@ -48,13 +49,19 @@ function getVolumeManager(): VolumeManagerLike | null {
  */
 
 const TRIGGER_THRESHOLD = 5;
-const WINDOW_MS = 5_000;
+const WINDOW_MS = 3_000;
 const COOLDOWN_MS = 30_000;
 
 type SosResult =
-  | { status: 'sent'; incidentName: string; location: string }
-  | { status: 'partial'; incidentName: string; location: string; error: string }
-  | { status: 'error'; error: string };
+  | { status: 'sent'; incidentName: string; location: string; call: EmergencyCallResult }
+  | {
+      status: 'partial';
+      incidentName: string;
+      location: string;
+      error: string;
+      call: EmergencyCallResult;
+    }
+  | { status: 'error'; error: string; call: EmergencyCallResult };
 
 let _subscription: { remove: () => void } | null = null;
 let _events: number[] = [];
@@ -113,6 +120,15 @@ async function triggerSos(): Promise<SosResult> {
   // Haptic first so the guard knows something happened.
   Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
 
+  // The call is the most time-critical part — fire it before anything that
+  // touches the network. Never let a call failure block incident reporting.
+  let call: EmergencyCallResult;
+  try {
+    call = await callEmergencyNumber();
+  } catch {
+    call = { placed: false, method: 'dialer', reason: 'launch_failed' };
+  }
+
   // Get the best location we can in a hurry — never block longer than 4s.
   let locationText = '';
   try {
@@ -152,7 +168,7 @@ async function triggerSos(): Promise<SosResult> {
     incidentName = created.name;
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'incident create failed';
-    return { status: 'error', error: msg };
+    return { status: 'error', error: msg, call };
   }
 
   // Also flush any queued patrol GPS points.
@@ -167,7 +183,7 @@ async function triggerSos(): Promise<SosResult> {
   }
 
   if (flushError) {
-    return { status: 'partial', incidentName, location: locationText, error: flushError };
+    return { status: 'partial', incidentName, location: locationText, error: flushError, call };
   }
-  return { status: 'sent', incidentName, location: locationText };
+  return { status: 'sent', incidentName, location: locationText, call };
 }

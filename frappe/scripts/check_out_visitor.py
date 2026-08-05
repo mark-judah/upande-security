@@ -16,9 +16,22 @@ try:
     if not name:
         frappe.response["message"] = {"error": "name is required"}
     else:
-        existing = frappe.db.get_value("Appointment", name, "name")
+        existing = frappe.db.get_value(
+            "Appointment",
+            name,
+            ["name", "custom_host_received_time", "custom_visitor_badge"],
+            as_dict=True,
+        )
         if not existing:
             frappe.response["message"] = {"error": "Appointment " + name + " not found"}
+        elif existing.custom_visitor_badge and not existing.custom_host_received_time:
+            # Only gated when a badge was actually issued for this visit —
+            # appointments that never went through the badge flow (or visitor
+            # types that don't use it) are unaffected.
+            frappe.response["message"] = {
+                "error": "Host has not yet confirmed receiving this visitor "
+                "— ask them to scan the visitor badge QR code first."
+            }
         else:
             now = frappe.utils.now_datetime()
 
@@ -34,6 +47,12 @@ try:
                     "status": "Closed",
                 },
             )
+            if existing.custom_visitor_badge:
+                frappe.db.set_value(
+                    "Visitor Badge",
+                    existing.custom_visitor_badge,
+                    {"status": "Available", "current_appointment": None},
+                )
             frappe.db.commit()
             frappe.response["message"] = {
                 "name": name,

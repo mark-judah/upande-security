@@ -1,6 +1,7 @@
 import { fetchEmployee } from '@/lib/api/employees';
-import { fetchStaffEmployee } from '@/lib/api/staff';
+import { searchStaffEmployees } from '@/lib/api/staff';
 import { fetchTodayAttendance } from '@/lib/api/attendance';
+import type { StaffSearchMatch } from '@/lib/services/api';
 import { useFeedback } from '@/lib/hooks/useFeedback';
 import { useCheckedInStaff } from '@/lib/hooks/useCheckedInStaff';
 import { useStaffAttendance } from '@/lib/hooks/useStaffAttendance';
@@ -20,6 +21,7 @@ export function StaffCheckInPanel() {
   const [employeeId, setEmployeeId] = useState<string | null>(null);
   const [manualInput, setManualInput] = useState('');
   const [searching, setSearching] = useState(false);
+  const [matches, setMatches] = useState<StaffSearchMatch[]>([]);
 
   const feedback = useFeedback();
   const pendingEmployee = useGateStore((s) => s.pendingScannedEmployee);
@@ -30,6 +32,7 @@ export function StaffCheckInPanel() {
       const id = extractEmployeeId(pendingEmployee);
       setPendingEmployee(null);
       if (id) {
+        setMatches([]);
         setEmployeeId(id);
       } else {
         feedback.error('Could not read employee ID from badge');
@@ -64,6 +67,12 @@ export function StaffCheckInPanel() {
   function reset() {
     setEmployeeId(null);
     setManualInput('');
+    setMatches([]);
+  }
+
+  function selectMatch(match: StaffSearchMatch) {
+    setMatches([]);
+    setEmployeeId(match.employee_id);
   }
 
   async function onManualSubmit() {
@@ -73,12 +82,15 @@ export function StaffCheckInPanel() {
       return;
     }
     setSearching(true);
+    setMatches([]);
     try {
-      const result = await fetchStaffEmployee(v);
-      if (result.employee_id) {
-        setEmployeeId(result.employee_id);
-      } else {
+      const results = await searchStaffEmployees(v);
+      if (results.length === 0) {
         feedback.error(`No active employee found matching "${v}"`);
+      } else if (results.length === 1) {
+        setEmployeeId(results[0].employee_id);
+      } else {
+        setMatches(results);
       }
     } catch (e) {
       feedback.error(e instanceof Error ? e.message : 'Staff search failed');
@@ -90,8 +102,11 @@ export function StaffCheckInPanel() {
   async function onCheckIn() {
     if (!employeeQuery.data) return;
     try {
+      // Stay on this employee after check-in (don't reset) — the
+      // today-attendance query below gets invalidated by the mutation and
+      // refetches, flipping straight to the STEP OUT / CHECK OUT view
+      // instead of bouncing back to search with no way to see it.
       await attendance.mutateAsync({ employee: employeeQuery.data });
-      reset();
     } catch {
       // feedback handled in the hook
     }
@@ -117,6 +132,60 @@ export function StaffCheckInPanel() {
   }
 
   if (!employeeId) {
+    if (matches.length > 0) {
+      return (
+        <View style={{ marginTop: spacing.sm }}>
+          <Text
+            style={{
+              fontFamily: fontFamily.semiBold,
+              fontSize: fontSize.sm,
+              color: COLORS.textSecondary,
+              marginBottom: spacing.xs,
+            }}
+          >
+            {matches.length} matches for &quot;{manualInput.trim()}&quot; — select one
+          </Text>
+          {matches.map((m) => (
+            <TouchableOpacity
+              key={m.employee_id}
+              onPress={() => selectMatch(m)}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                backgroundColor: COLORS.surfaceAlt,
+                borderRadius: borderRadius.md,
+                paddingHorizontal: spacing.md,
+                paddingVertical: 10,
+                marginBottom: 6,
+              }}
+            >
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontFamily: fontFamily.semiBold, fontSize: fontSize.sm, color: COLORS.text }}>
+                  {m.full_name}
+                </Text>
+                <Text style={{ fontFamily: fontFamily.regular, fontSize: fontSize.xs, color: COLORS.textMuted }}>
+                  {m.employee_id}
+                  {m.designation ? ' · ' + m.designation : ''}
+                  {m.custom_farm ? ' · ' + m.custom_farm : ''}
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={COLORS.textMuted} />
+            </TouchableOpacity>
+          ))}
+          <TouchableOpacity
+            onPress={() => setMatches([])}
+            activeOpacity={0.7}
+            style={{ alignItems: 'center', paddingVertical: 10, marginTop: 4 }}
+          >
+            <Text style={{ color: COLORS.textMuted, fontSize: fontSize.sm, fontFamily: fontFamily.regular }}>
+              Back to search
+            </Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
     const checkedIn = checkedInStaff.data ?? [];
     return (
       <View style={{ marginTop: spacing.sm }}>

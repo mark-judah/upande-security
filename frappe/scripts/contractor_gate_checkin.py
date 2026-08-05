@@ -26,6 +26,25 @@ if passengers_raw not in (None, '', 'null'):
 
 now_str = frappe.utils.now()
 
+# Stamp which company/farm this visit belongs to, from the checking-in
+# guard's own scope — this is what the access scoping in daily_summary.py /
+# list_incidents.py filters on.
+current_user = frappe.session.user
+employee = frappe.db.get_value(
+    'Employee', {'user_id': current_user}, ['company', 'custom_farm'], as_dict=True
+)
+resolved_company = employee.company if employee else None
+resolved_farm = employee.custom_farm if employee else None
+if not resolved_company and not resolved_farm:
+    user_full = frappe.db.get_value('User', current_user, 'full_name') or ''
+    if user_full:
+        guard = frappe.db.get_value(
+            'Security Guard', {'full_name': user_full}, ['company', 'farm'], as_dict=True
+        )
+        if guard:
+            resolved_company = guard.company
+            resolved_farm = guard.farm
+
 try:
     if not appt_name:
         detail_str = purpose
@@ -59,6 +78,8 @@ try:
         if number_plate:  updates['custom_vehicles_number_plate'] = number_plate
         if vehicle_color: updates['custom_vehicles_colour']       = vehicle_color
         if passengers is not None: updates['custom_number_of_passengers'] = passengers
+        if resolved_company: updates['custom_company']   = resolved_company
+        if resolved_farm:    updates['custom_farmunit']  = resolved_farm
 
         frappe.db.set_value('Appointment', appt_name, updates, update_modified=True)
 
@@ -82,6 +103,8 @@ try:
         if number_plate:  updates['custom_vehicles_number_plate'] = number_plate
         if vehicle_color: updates['custom_vehicles_colour']       = vehicle_color
         if passengers is not None: updates['custom_number_of_passengers'] = passengers
+        if resolved_company: updates['custom_company']   = resolved_company
+        if resolved_farm:    updates['custom_farmunit']  = resolved_farm
 
         frappe.db.set_value('Appointment', appt_name, updates, update_modified=True)
         if contractor_ref:

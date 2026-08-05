@@ -32,6 +32,13 @@ async function call<T>(method: string, body: object = {}): Promise<T> {
 
 // --- Types ---
 
+export type SecurityHeadContact = {
+  name: string;
+  phone: string;
+  company: string;
+  farm: string;
+};
+
 export type SessionInfo = {
   user: string;
   full_name: string;
@@ -70,8 +77,7 @@ export type VisitorSearchHit = {
 export type VisitorSearchMiss = { has_appointment: false; query: string };
 export type VisitorSearchResult = VisitorSearchHit | VisitorSearchMiss;
 
-export type StaffSearchHit = {
-  found: true;
+export type StaffSearchMatch = {
   employee_id: string;
   full_name: string;
   department: string;
@@ -81,8 +87,7 @@ export type StaffSearchHit = {
   custom_farm: string;
   custom_employee_category: string;
 };
-export type StaffSearchMiss = { found: false; query: string };
-export type StaffSearchResult = StaffSearchHit | StaffSearchMiss;
+export type StaffSearchResult = { matches: StaffSearchMatch[] };
 
 export type ContractorVehicle = {
   number_plate: string;
@@ -207,6 +212,11 @@ export type CheckOutResult = {
   name: string;
   custom_reporting_status: string;
   custom_check_out_time: string;
+};
+export type IssueVisitorBadgeResult = {
+  badge_number: number;
+  company: string;
+  confirm_url: string;
 };
 export type CreateWalkInResult = {
   name: string;
@@ -567,6 +577,7 @@ export type ReportTab =
 export const api = {
   // Session
   getSessionInfo: () => call<SessionInfo>('get_session_info'),
+  getSecurityHeadContact: () => call<SecurityHeadContact>('get_security_head_contact'),
 
   // Searches (visitor / staff / contractor)
   searchVisitorAppointment: (query: string) =>
@@ -606,6 +617,8 @@ export const api = {
     call<CreateContractorNotifyResult>('create_contractor_notify', input),
   checkInVisitor: (input: CheckInInput) => call<CheckInResult>('check_in_visitor', input),
   checkOutVisitor: (name: string) => call<CheckOutResult>('check_out_visitor', { name }),
+  issueVisitorBadge: (name: string, badge_number: string) =>
+    call<IssueVisitorBadgeResult>('issue_visitor_badge', { name, badge_number }),
   createWalkIn: (input: CreateWalkInInput) =>
     call<CreateWalkInResult>('create_walk_in', input),
 

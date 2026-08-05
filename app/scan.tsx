@@ -8,16 +8,18 @@ import { useGateStore } from '@/lib/stores/gateStore';
 import { audio } from '@/src/core/audio';
 import { COLORS, fontFamily, fontSize, spacing, borderRadius } from '@/src/core/theme';
 
-type Intent = 'ticket' | 'employee';
+type Intent = 'ticket' | 'employee' | 'badge';
 
 export default function ScanModal() {
   const params = useLocalSearchParams<{ intent?: string }>();
-  const intent: Intent = params.intent === 'employee' ? 'employee' : 'ticket';
+  const intent: Intent =
+    params.intent === 'employee' ? 'employee' : params.intent === 'badge' ? 'badge' : 'ticket';
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
   const handledRef = useRef(false);
   const setPendingScannedTicket = useGateStore((s) => s.setPendingScannedTicket);
   const setPendingScannedEmployee = useGateStore((s) => s.setPendingScannedEmployee);
+  const setPendingScannedBadge = useGateStore((s) => s.setPendingScannedBadge);
 
   if (!permission) {
     return <View style={s.cameraBg} />;
@@ -62,6 +64,8 @@ export default function ScanModal() {
     audio.beep();
     if (intent === 'employee') {
       setPendingScannedEmployee(data);
+    } else if (intent === 'badge') {
+      setPendingScannedBadge(data);
     } else {
       setPendingScannedTicket(data);
     }
@@ -82,7 +86,11 @@ export default function ScanModal() {
       <View pointerEvents="none" style={s.overlay}>
         <View style={s.frame} />
         <Text style={s.frameHint}>
-          {intent === 'employee' ? 'Scan employee badge' : 'Position QR code in the frame'}
+          {intent === 'employee'
+            ? 'Scan employee badge'
+            : intent === 'badge'
+              ? 'Scan visitor badge QR'
+              : 'Position QR code in the frame'}
         </Text>
       </View>
     </View>

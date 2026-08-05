@@ -13,6 +13,8 @@ try:
         frappe.response["message"] = {"error": "reference_name is required"}
     elif direction not in ("out", "in"):
         frappe.response["message"] = {"error": "direction must be 'out' or 'in'"}
+    elif not frappe.db.exists(reference_doctype, reference_name):
+        frappe.response["message"] = {"error": reference_doctype + " " + reference_name + " not found"}
     else:
         current_temp_exit = frappe.db.get_value(reference_doctype, reference_name, "custom_temp_exit_time")
 

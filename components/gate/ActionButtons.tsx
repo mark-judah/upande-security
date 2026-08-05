@@ -12,6 +12,8 @@ type Props = {
   onNotifyHost: () => void;
   onCheckIn: () => void;
   busy?: boolean;
+  /** When set, CHECK IN is disabled and this message is shown instead of the button being active. Visitor flow only — issuing a physical badge before letting someone in. */
+  checkInBlockedReason?: string;
 };
 
 function resolveState(a: Appointment): WorkflowState {
@@ -20,7 +22,14 @@ function resolveState(a: Appointment): WorkflowState {
   return (a.workflow_state as WorkflowState) ?? 'Open';
 }
 
-export function ActionButtons({ appointment, loading, onNotifyHost, onCheckIn, busy }: Props) {
+export function ActionButtons({
+  appointment,
+  loading,
+  onNotifyHost,
+  onCheckIn,
+  busy,
+  checkInBlockedReason,
+}: Props) {
   if (loading || !appointment) {
     return (
       <View style={{ padding: spacing.md, alignItems: 'center' }}>
@@ -42,33 +51,38 @@ export function ActionButtons({ appointment, loading, onNotifyHost, onCheckIn, b
 
   // ── Host approved → CHECK IN ────────────────────────────────────
   if (CHECK_IN_ALLOWED_FROM.includes(state)) {
+    const blocked = Boolean(checkInBlockedReason);
     return (
       <View style={{ marginVertical: spacing.sm }}>
         <View
           style={{
-            backgroundColor: COLORS.surfaceAlt,
+            backgroundColor: blocked ? '#FFFBEB' : COLORS.surfaceAlt,
             borderRadius: borderRadius.md,
             padding: 10,
             flexDirection: 'row',
             alignItems: 'center',
             marginBottom: 10,
             borderWidth: 1,
-            borderColor: COLORS.border,
+            borderColor: blocked ? COLORS.warn : COLORS.border,
           }}
         >
-          <Ionicons name="checkmark-circle" size={16} color={COLORS.primary} />
+          <Ionicons
+            name={blocked ? 'alert-circle' : 'checkmark-circle'}
+            size={16}
+            color={blocked ? COLORS.warn : COLORS.primary}
+          />
           <Text style={{ color: COLORS.text, fontSize: fontSize.sm, marginLeft: spacing.sm, flex: 1, fontWeight: '600' }}>
-            Visit approved — check the visitor in.
+            {blocked ? checkInBlockedReason : 'Visit approved — check the visitor in.'}
           </Text>
         </View>
         <TouchableOpacity
           onPress={onCheckIn}
-          disabled={busy}
+          disabled={busy || blocked}
           activeOpacity={0.8}
           accessibilityRole="button"
           style={{
             backgroundColor: COLORS.primary,
-            opacity: busy ? 0.6 : 1,
+            opacity: busy || blocked ? 0.4 : 1,
             borderRadius: borderRadius.md,
             paddingVertical: spacing.lg,
             minHeight: 52,

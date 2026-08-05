@@ -25,9 +25,12 @@ try:
                    a.custom_mode_of_transport,
                    a.custom_vehicles_number_plate, a.custom_vehicles_colour,
                    a.workflow_state, a.status, a.custom_reporting_status,
-                   a.custom_check_in_time, a.custom_check_out_time
+                   a.custom_check_in_time, a.custom_check_out_time,
+                   a.custom_visitor_badge, a.custom_host_received_time,
+                   b.badge_number, b.company AS badge_company
             FROM `tabAppointment` a
             LEFT JOIN `tabEmployee` e ON e.name = a.custom_meet_with
+            LEFT JOIN `tabVisitor Badge` b ON b.name = a.custom_visitor_badge
             WHERE a.name = %s
             LIMIT 1
             """,
@@ -55,6 +58,12 @@ try:
                 "custom_reporting_status": r.custom_reporting_status or "",
                 "custom_check_in_time": str(r.custom_check_in_time) if r.custom_check_in_time else "",
                 "custom_check_out_time": str(r.custom_check_out_time) if r.custom_check_out_time else "",
+                "custom_visitor_badge": r.custom_visitor_badge or "",
+                "custom_visitor_badge_number": r.badge_number if r.badge_number is not None else None,
+                "custom_visitor_badge_company": r.badge_company or "",
+                "custom_host_received_time": str(r.custom_host_received_time)
+                if r.custom_host_received_time
+                else "",
             }
 except Exception as e:
     frappe.log_error("get_appointment", str(e))
