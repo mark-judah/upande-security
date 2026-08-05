@@ -50,7 +50,13 @@ try:
                 appt = frappe.db.get_value(
                     "Appointment",
                     badge.current_appointment,
-                    ["name", "customer_name", "custom_meet_with", "custom_host_received_time"],
+                    [
+                        "name",
+                        "customer_name",
+                        "custom_meet_with",
+                        "custom_host_received_time",
+                        "customer_details",
+                    ],
                     as_dict=True,
                 )
                 if not appt:
@@ -66,8 +72,11 @@ try:
                         or ""
                     )
                     frappe.response["message"] = {
+                        "badge_number": badge_number,
+                        "company": company,
                         "visitor_name": appt.customer_name or "",
                         "host_name": host_name,
+                        "purpose": appt.customer_details or "",
                         "already_confirmed": bool(appt.custom_host_received_time),
                         "confirmed_at": str(appt.custom_host_received_time)
                         if appt.custom_host_received_time

@@ -11,6 +11,11 @@ h1{font-size:19px;font-weight:600;margin-bottom:6px}
 p{color:var(--muted);font-size:14px;line-height:1.5;margin-bottom:18px}
 .visitor{font-weight:600;color:var(--text)}
 .host{font-weight:600;color:var(--text)}
+.details{text-align:left;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:18px}
+.details .row{display:flex;justify-content:space-between;gap:12px;padding:6px 0}
+.details .row + .row{border-top:1px solid var(--border)}
+.details .label{font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);flex:0 0 auto}
+.details .value{font-size:14px;font-weight:600;color:var(--text);text-align:right}
 button{width:100%;padding:14px;border-radius:10px;border:none;background:var(--blue);color:#fff;font-size:15px;font-weight:600;font-family:inherit;cursor:pointer}
 button:disabled{opacity:.6;cursor:not-allowed}
 button:hover:not(:disabled){background:var(--blue-dk)}
@@ -33,7 +38,13 @@ button:hover:not(:disabled){background:var(--blue-dk)}
   <div id="state-confirm" class="hidden">
     <div class="icon icon-wait">👤</div>
     <h1>Confirm visitor receipt</h1>
-    <p><span class="visitor" id="visitor-name"></span> is visiting <span class="host" id="host-name"></span>.<br>Tap below once they're with you.</p>
+    <div class="details">
+      <div class="row"><span class="label">Badge #</span><span class="value" id="confirm-badge"></span></div>
+      <div class="row"><span class="label">Visitor</span><span class="value" id="confirm-visitor"></span></div>
+      <div class="row"><span class="label">Purpose</span><span class="value" id="confirm-purpose"></span></div>
+      <div class="row"><span class="label">Host</span><span class="value" id="confirm-host"></span></div>
+    </div>
+    <p>Tap below once this visitor is with you.</p>
     <button id="confirm-btn">Confirm — I've received this visitor</button>
   </div>
 
@@ -100,8 +111,10 @@ if (!badgeNumber || !company) {
       show('state-already');
       return;
     }
-    document.getElementById('visitor-name').textContent = info.visitor_name;
-    document.getElementById('host-name').textContent = info.host_name;
+    document.getElementById('confirm-badge').textContent = (info.company || company) + ' #' + (info.badge_number || badgeNumber);
+    document.getElementById('confirm-visitor').textContent = info.visitor_name || '—';
+    document.getElementById('confirm-purpose').textContent = info.purpose || '—';
+    document.getElementById('confirm-host').textContent = info.host_name || '—';
     show('state-confirm');
 
     document.getElementById('confirm-btn').addEventListener('click', function () {
