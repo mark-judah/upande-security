@@ -4,10 +4,24 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { api } from '@/lib/services/api';
 
 const CACHED_CONTACT_KEY = 'emergency_contact_number';
+const CACHED_COMPANY_KEY = 'emergency_contact_company';
 
-// Last-resort fallback — used only if this guard's company/farm has no
-// Security Head configured yet (see get_security_head_contact.py) AND
-// nothing was cached from a previous successful lookup.
+// Baked-in fallback per company — used only when this device has never once
+// successfully synced a live contact from get_security_head_contact.py (e.g.
+// a brand-new phone with no connectivity yet on its very first SOS). The
+// live lookup is always preferred and re-cached whenever it succeeds; this
+// table exists purely so an actual emergency never falls back to a fake
+// placeholder number. Update here AND confirm the matching User Permission /
+// Security Head role is still correct on the server when a contact changes.
+const COMPANY_EMERGENCY_CONTACTS: Record<string, string> = {
+  'Karen Roses': '0718253145', // Jomo Kamao
+  'Kaitet Group': '+254721320226', // Elvis Koskei
+  'Kaitet Ltd.': '+254721320226', // Elvis Koskei
+};
+
+// Absolute last resort — used only if there's no cached live contact AND no
+// cached company to look up in the table above (e.g. this device has never
+// once reached the server at all).
 export const EMERGENCY_CONTACT_NUMBER = '+254700000000';
 
 export type EmergencyCallResult =
@@ -28,6 +42,9 @@ export async function refreshEmergencyContact(): Promise<void> {
     if (contact?.phone) {
       await AsyncStorage.setItem(CACHED_CONTACT_KEY, contact.phone);
     }
+    if (contact?.company) {
+      await AsyncStorage.setItem(CACHED_COMPANY_KEY, contact.company);
+    }
   } catch {
     // No Security Head configured for this company/farm yet, or offline —
     // keep whatever was cached before.
@@ -38,6 +55,16 @@ async function resolveEmergencyNumber(): Promise<string> {
   try {
     const cached = await AsyncStorage.getItem(CACHED_CONTACT_KEY);
     if (cached) return cached;
+  } catch {
+    // fall through
+  }
+  // No live contact ever cached — try the baked-in per-company fallback
+  // before giving up to the generic placeholder.
+  try {
+    const company = await AsyncStorage.getItem(CACHED_COMPANY_KEY);
+    if (company && COMPANY_EMERGENCY_CONTACTS[company]) {
+      return COMPANY_EMERGENCY_CONTACTS[company];
+    }
   } catch {
     // fall through to the hardcoded default
   }
