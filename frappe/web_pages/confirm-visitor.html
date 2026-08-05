@@ -137,7 +137,7 @@ function lookupBadge() {
       show('state-already');
       return;
     }
-    document.getElementById('confirm-badge').textContent = (info.company || '') + ' #' + (info.badge_number || badgeNumber);
+    document.getElementById('confirm-badge').textContent = (info.company || '') + (info.farm ? ' · ' + info.farm : '') + ' #' + (info.badge_number || badgeNumber);
     document.getElementById('confirm-visitor').textContent = info.visitor_name || '—';
     document.getElementById('confirm-purpose').textContent = info.purpose || '—';
     document.getElementById('confirm-host').textContent = info.host_name || '—';
@@ -189,7 +189,10 @@ callMethod('get_session_info', {}).then(function (info) {
     return;
   }
   const company = info.employee && info.employee.company;
-  document.getElementById('entry-company').textContent = company ? 'Your company: ' + company : '';
+  const farm = info.employee && info.employee.custom_farm;
+  document.getElementById('entry-company').textContent = company
+    ? 'Your company: ' + company + (farm ? ' · ' + farm : '')
+    : '';
   show('state-entry');
 }).catch(function () {
   show('state-login');

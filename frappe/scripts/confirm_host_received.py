@@ -13,6 +13,12 @@ try:
     except (KeyError, TypeError):
         company = ""
 
+    farm = ""
+    try:
+        farm = str(data["farm"] or "").strip()
+    except (KeyError, TypeError):
+        farm = ""
+
     badge_number_raw = ""
     try:
         badge_number_raw = str(data["badge_number"]) if data["badge_number"] is not None else ""
@@ -21,6 +27,8 @@ try:
 
     if not company:
         frappe.response["message"] = {"error": "company is required"}
+    elif not farm:
+        frappe.response["message"] = {"error": "farm is required"}
     elif not badge_number_raw:
         frappe.response["message"] = {"error": "badge_number is required"}
     else:
@@ -33,7 +41,9 @@ try:
             frappe.response["message"] = {"error": "badge_number must be a number"}
         else:
             current_appointment = frappe.db.get_value(
-                "Visitor Badge", {"company": company, "badge_number": badge_number}, "current_appointment"
+                "Visitor Badge",
+                {"company": company, "farm": farm, "badge_number": badge_number},
+                "current_appointment",
             )
             if not current_appointment:
                 frappe.response["message"] = {
@@ -41,6 +51,8 @@ try:
                     + str(badge_number)
                     + " ("
                     + company
+                    + " / "
+                    + farm
                     + ") is not currently assigned to any visitor."
                 }
             else:

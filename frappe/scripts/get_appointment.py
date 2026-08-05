@@ -27,7 +27,7 @@ try:
                    a.workflow_state, a.status, a.custom_reporting_status,
                    a.custom_check_in_time, a.custom_check_out_time,
                    a.custom_visitor_badge, a.custom_host_received_time,
-                   b.badge_number, b.company AS badge_company
+                   b.badge_number, b.company AS badge_company, b.farm AS badge_farm
             FROM `tabAppointment` a
             LEFT JOIN `tabEmployee` e ON e.name = a.custom_meet_with
             LEFT JOIN `tabVisitor Badge` b ON b.name = a.custom_visitor_badge
@@ -61,6 +61,7 @@ try:
                 "custom_visitor_badge": r.custom_visitor_badge or "",
                 "custom_visitor_badge_number": r.badge_number if r.badge_number is not None else None,
                 "custom_visitor_badge_company": r.badge_company or "",
+                "custom_visitor_badge_farm": r.badge_farm or "",
                 "custom_host_received_time": str(r.custom_host_received_time)
                 if r.custom_host_received_time
                 else "",

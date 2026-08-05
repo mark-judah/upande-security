@@ -31,25 +31,49 @@ try:
             frappe.response["message"] = {"error": "badge_number must be a number"}
         else:
             current_user = frappe.session.user
-            company = frappe.db.get_value("Employee", {"user_id": current_user}, "company") or ""
+            employee = frappe.db.get_value(
+                "Employee", {"user_id": current_user}, ["company", "custom_farm"], as_dict=True
+            )
+            company = employee.company if employee else ""
+            farm = employee.custom_farm if employee else ""
 
             if not company:
                 frappe.response["message"] = {
                     "error": "No Employee record linked to this login — cannot determine your company."
                 }
             else:
-                badge = frappe.db.get_value(
-                    "Visitor Badge",
-                    {"company": company, "badge_number": badge_number},
-                    ["current_appointment", "status"],
-                    as_dict=True,
-                )
+                badge = None
+                if farm:
+                    # Normal case: this host's own farm narrows it to exactly
+                    # one physical badge pool.
+                    badge = frappe.db.get_value(
+                        "Visitor Badge",
+                        {"company": company, "farm": farm, "badge_number": badge_number},
+                        ["current_appointment", "status", "farm"],
+                        as_dict=True,
+                    )
+                else:
+                    # Host has a company but no specific farm on file (e.g. a
+                    # group-level role) — can't narrow by farm, so look across
+                    # every farm under their company for whichever matching
+                    # badge number is actually assigned to someone right now.
+                    candidates = frappe.db.get_all(
+                        "Visitor Badge",
+                        filters={"company": company, "badge_number": badge_number},
+                        fields=["current_appointment", "status", "farm"],
+                    )
+                    for c in candidates:
+                        if c.current_appointment:
+                            badge = c
+                            break
+
                 if not badge or not badge.current_appointment:
                     frappe.response["message"] = {
                         "error": "Badge "
                         + str(badge_number)
                         + " ("
                         + company
+                        + (" / " + farm if farm else "")
                         + ") is not currently assigned to any visitor."
                     }
                 else:
@@ -80,6 +104,7 @@ try:
                         frappe.response["message"] = {
                             "badge_number": badge_number,
                             "company": company,
+                            "farm": badge.farm or farm,
                             "visitor_name": appt.customer_name or "",
                             "host_name": host_name,
                             "purpose": appt.customer_details or "",

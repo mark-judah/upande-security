@@ -29,24 +29,42 @@ try:
             frappe.response["message"] = {"error": "badge_number must be a number"}
         else:
             current_user = frappe.session.user
-            company = frappe.db.get_value("Employee", {"user_id": current_user}, "company") or ""
+            employee = frappe.db.get_value(
+                "Employee", {"user_id": current_user}, ["company", "custom_farm"], as_dict=True
+            )
+            company = employee.company if employee else ""
+            farm = employee.custom_farm if employee else ""
 
             if not company:
                 frappe.response["message"] = {
                     "error": "No Employee record linked to this login — cannot determine your company."
                 }
             else:
-                current_appointment = frappe.db.get_value(
-                    "Visitor Badge",
-                    {"company": company, "badge_number": badge_number},
-                    "current_appointment",
-                )
+                current_appointment = None
+                if farm:
+                    current_appointment = frappe.db.get_value(
+                        "Visitor Badge",
+                        {"company": company, "farm": farm, "badge_number": badge_number},
+                        "current_appointment",
+                    )
+                else:
+                    candidates = frappe.db.get_all(
+                        "Visitor Badge",
+                        filters={"company": company, "badge_number": badge_number},
+                        fields=["current_appointment"],
+                    )
+                    for c in candidates:
+                        if c.current_appointment:
+                            current_appointment = c.current_appointment
+                            break
+
                 if not current_appointment:
                     frappe.response["message"] = {
                         "error": "Badge "
                         + str(badge_number)
                         + " ("
                         + company
+                        + (" / " + farm if farm else "")
                         + ") is not currently assigned to any visitor."
                     }
                 else:

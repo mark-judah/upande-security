@@ -13,6 +13,12 @@ try:
     except (KeyError, TypeError):
         company = ""
 
+    farm = ""
+    try:
+        farm = str(data["farm"] or "").strip()
+    except (KeyError, TypeError):
+        farm = ""
+
     badge_number_raw = ""
     try:
         badge_number_raw = str(data["badge_number"]) if data["badge_number"] is not None else ""
@@ -21,6 +27,8 @@ try:
 
     if not company:
         frappe.response["message"] = {"error": "company is required"}
+    elif not farm:
+        frappe.response["message"] = {"error": "farm is required"}
     elif not badge_number_raw:
         frappe.response["message"] = {"error": "badge_number is required"}
     else:
@@ -34,7 +42,7 @@ try:
         else:
             badge = frappe.db.get_value(
                 "Visitor Badge",
-                {"company": company, "badge_number": badge_number},
+                {"company": company, "farm": farm, "badge_number": badge_number},
                 ["current_appointment", "status"],
                 as_dict=True,
             )
@@ -44,19 +52,15 @@ try:
                     + str(badge_number)
                     + " ("
                     + company
+                    + " / "
+                    + farm
                     + ") is not currently assigned to any visitor."
                 }
             else:
                 appt = frappe.db.get_value(
                     "Appointment",
                     badge.current_appointment,
-                    [
-                        "name",
-                        "customer_name",
-                        "custom_meet_with",
-                        "custom_host_received_time",
-                        "customer_details",
-                    ],
+                    ["name", "customer_name", "custom_meet_with", "custom_host_received_time", "customer_details"],
                     as_dict=True,
                 )
                 if not appt:
@@ -74,6 +78,7 @@ try:
                     frappe.response["message"] = {
                         "badge_number": badge_number,
                         "company": company,
+                        "farm": farm,
                         "visitor_name": appt.customer_name or "",
                         "host_name": host_name,
                         "purpose": appt.customer_details or "",

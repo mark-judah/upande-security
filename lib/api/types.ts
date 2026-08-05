@@ -38,6 +38,7 @@ export type Appointment = {
   custom_visitor_badge?: string;
   custom_visitor_badge_number?: number | null;
   custom_visitor_badge_company?: string;
+  custom_visitor_badge_farm?: string;
   custom_host_received_time?: string;
   custom_number_of_passengers?: number;
   custom_visitor_type?: 'Visitor' | 'Staff' | 'Contractor' | 'Customer';

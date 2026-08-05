@@ -94,12 +94,13 @@ function fmtStamp(iso) {
 const params = new URLSearchParams(window.location.search);
 const badgeNumber = params.get('badge');
 const company = params.get('company');
+const farm = params.get('farm');
 
-if (!badgeNumber || !company) {
-  document.getElementById('error-message').textContent = 'No badge number found in this link.';
+if (!badgeNumber || !company || !farm) {
+  document.getElementById('error-message').textContent = 'This badge link is missing information — please check with the gate guard.';
   show('state-error');
 } else {
-  callMethod('get_visitor_badge_info', { company: company, badge_number: badgeNumber }).then(function (info) {
+  callMethod('get_visitor_badge_info', { company: company, farm: farm, badge_number: badgeNumber }).then(function (info) {
     if (info.error) {
       document.getElementById('error-message').textContent = info.error;
       show('state-error');
@@ -111,7 +112,7 @@ if (!badgeNumber || !company) {
       show('state-already');
       return;
     }
-    document.getElementById('confirm-badge').textContent = (info.company || company) + ' #' + (info.badge_number || badgeNumber);
+    document.getElementById('confirm-badge').textContent = (info.company || company) + ' · ' + (info.farm || farm) + ' #' + (info.badge_number || badgeNumber);
     document.getElementById('confirm-visitor').textContent = info.visitor_name || '—';
     document.getElementById('confirm-purpose').textContent = info.purpose || '—';
     document.getElementById('confirm-host').textContent = info.host_name || '—';
@@ -121,7 +122,7 @@ if (!badgeNumber || !company) {
       const btn = this;
       btn.disabled = true;
       btn.textContent = 'Confirming…';
-      callMethod('confirm_host_received', { company: company, badge_number: badgeNumber }).then(function (res) {
+      callMethod('confirm_host_received', { company: company, farm: farm, badge_number: badgeNumber }).then(function (res) {
         if (res.error) {
           document.getElementById('error-message').textContent = res.error;
           show('state-error');
