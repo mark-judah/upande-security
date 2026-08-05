@@ -7,9 +7,12 @@ try:
                a.custom_check_in_time, a.custom_mode_of_transport,
                a.custom_vehicles_number_plate, a.custom_vehicles_colour,
                a.custom_number_of_passengers,
+               a.custom_host_received_time,
+               b.badge_number,
                e.employee_name AS host_name
         FROM `tabAppointment` a
         LEFT JOIN `tabEmployee` e ON e.name = a.custom_meet_with
+        LEFT JOIN `tabVisitor Badge` b ON b.name = a.custom_visitor_badge
         WHERE a.workflow_state IN ('Approved by Host', 'Visitor Checked In')
         ORDER BY
           CASE a.workflow_state
@@ -79,6 +82,16 @@ try:
                 passengers = int(pv)
         except (KeyError, TypeError, ValueError):
             passengers = 0
+        try:
+            badge_number = r["badge_number"] if r["badge_number"] is not None else None
+        except (KeyError, TypeError):
+            badge_number = None
+        try:
+            host_received_time = (
+                str(r["custom_host_received_time"]) if r["custom_host_received_time"] else ""
+            )
+        except (KeyError, TypeError):
+            host_received_time = ""
         result.append({
             "name": rname,
             "customer_name": cname,
@@ -93,6 +106,8 @@ try:
             "plate": plate,
             "colour": colour,
             "passengers": passengers,
+            "custom_visitor_badge_number": badge_number,
+            "custom_host_received_time": host_received_time,
         })
     frappe.response["message"] = result
 except Exception as e:

@@ -9,6 +9,7 @@ import { fmtDateTime } from '@/lib/utils/date';
 import type { ApprovedAppointmentRow } from '@/lib/services/api';
 import { COLORS, fontFamily, fontSize, spacing, borderRadius } from '@/src/core/theme';
 import { Button } from '@/src/core/ui/Button';
+import { IssueVisitorBadge } from '@/components/gate/IssueVisitorBadge';
 
 type Status = 'Approved by Host' | 'Visitor Checked In' | string;
 
@@ -43,6 +44,11 @@ function ApprovedCard({
   const actionLabel = isCheckedIn ? 'CHECK OUT' : 'CHECK IN';
   const actionIcon: keyof typeof Ionicons.glyphMap = isCheckedIn ? 'log-out-outline' : 'log-in-outline';
   const actionColor = isCheckedIn ? COLORS.danger : COLORS.success;
+  // Same client-side gate as the Gate tab: a visitor badge must be issued
+  // before check-in — this screen has its own independent CHECK IN button,
+  // so it needs the same enforcement or it's a bypass of the Gate tab's gate.
+  const hasBadge = Boolean(item.custom_visitor_badge_number);
+  const checkInBlocked = !isCheckedIn && !hasBadge;
 
   return (
     <View style={s.card}>
@@ -109,14 +115,22 @@ function ApprovedCard({
           ) : null}
         </View>
 
+        {!isCheckedIn ? (
+          <IssueVisitorBadge
+            appointmentName={item.name}
+            currentBadge={item.custom_visitor_badge_number ?? undefined}
+            hostReceivedAt={item.custom_host_received_time}
+          />
+        ) : null}
+
         <Button
-          label={actionLabel}
+          label={checkInBlocked ? 'ISSUE BADGE TO CHECK IN' : actionLabel}
           onPress={() => onAction(item)}
-          disabled={busy}
+          disabled={busy || checkInBlocked}
           loading={busy}
           variant={isCheckedIn ? 'outline' : 'primary'}
-          color={actionColor}
-          iconLeft={actionIcon}
+          color={checkInBlocked ? COLORS.textMuted : actionColor}
+          iconLeft={checkInBlocked ? 'qr-code-outline' : actionIcon}
           style={s.actionBtn}
         />
       </View>

@@ -10,6 +10,7 @@ export function useIssueVisitorBadge() {
       api.issueVisitorBadge(name, badgeNumber),
     onSuccess: (result, vars) => {
       qc.invalidateQueries({ queryKey: ['appointment', vars.name] });
+      qc.invalidateQueries({ queryKey: ['approved-appointments'] });
       feedback.success(`Badge #${result.badge_number} issued ✓`);
     },
     onError: (err: Error) => feedback.error(err.message || 'Could not issue badge'),

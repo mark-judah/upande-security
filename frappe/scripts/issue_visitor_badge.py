@@ -36,10 +36,15 @@ try:
             if badge_number is None:
                 frappe.response["message"] = {"error": "badge_number must be a number"}
             else:
-                # Which company's badge pool this guard is issuing from — same
+                # Which company's badge pool this is issuing from — same
                 # resolution order as get_security_head_contact.py: Employee
                 # linked to this login first, then Security Guard matched by
-                # full name (Security Guard has no user_id field).
+                # full name (Security Guard has no user_id field). Falls back
+                # to the visit's own host's company when neither resolves
+                # (System Manager / admin accounts testing the flow, or any
+                # caller not tied to a specific company) — the host's company
+                # is always a reliable stand-in since every visitor
+                # appointment requires one.
                 current_user = frappe.session.user
                 company = ""
                 employee = frappe.db.get_value(
@@ -58,9 +63,15 @@ try:
                         )
 
                 if not company:
+                    host = frappe.db.get_value("Appointment", name, "custom_meet_with")
+                    if host:
+                        company = frappe.db.get_value("Employee", host, "company") or ""
+
+                if not company:
                     frappe.response["message"] = {
                         "error": "Could not determine which company's badge pool to use "
-                        "— no Employee or Security Guard record linked to this user"
+                        "— no Employee or Security Guard record linked to this user, "
+                        "and this visit has no host to fall back on"
                     }
                 else:
                     badge = frappe.db.get_value(
