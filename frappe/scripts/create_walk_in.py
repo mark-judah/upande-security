@@ -42,7 +42,14 @@ try:
         frappe.response["message"] = {"error": "host is required"}
     else:
         if not scheduled_time:
-            scheduled_time = str(frappe.utils.now_datetime())
+            # A bare now() default fails Appointment's own "not in the past"
+            # check the instant it's re-evaluated a moment later inside
+            # doc.insert() — the request has non-zero latency, so by the time
+            # that check runs, the just-computed now() is already earlier
+            # than the check's own now(). A small forward buffer absorbs
+            # that gap; the visitor is still being checked in immediately in
+            # every practical sense.
+            scheduled_time = str(frappe.utils.add_to_date(frappe.utils.now_datetime(), minutes=15))
 
         host_ok = frappe.db.get_value("Employee", host, "name")
         if not host_ok:
