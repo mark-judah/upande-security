@@ -500,6 +500,33 @@ export type PatrolPointResult = {
   message?: string;
 };
 
+export type PatrolReportType = 'Routine' | 'Incident';
+
+export type FilePatrolReportInput = {
+  patrol: string;
+  report_type: PatrolReportType;
+  observations: string;
+  farm?: string;
+  started_at?: string;
+  ended_at?: string;
+  severity?: IncidentSeverity;
+  nature_of_incident?: string;
+  incident_report?: string;
+  attachment_1?: string;
+  attachment_2?: string;
+  attachment_3?: string;
+  attachment_4?: string;
+};
+export type FilePatrolReportResult = {
+  name: string;
+  patrol: string;
+  report_type: string;
+  status: string;
+  filed_at: string;
+  points_logged: number;
+  updated: boolean;
+};
+
 export type ReportKpi = { label: string; value: number | string; sub?: string };
 export type ReportColumn = { key: string; label: string; align?: 'left' | 'right' };
 export type ReportTable = {
@@ -600,6 +627,8 @@ export const api = {
   // top-level shape passes through.
   submitPatrolPoints: (points: PatrolPointInput[]) =>
     call<PatrolPointResult[]>('submit_patrol_points', points as unknown as object),
+  filePatrolReport: (input: FilePatrolReportInput) =>
+    call<FilePatrolReportResult>('file_patrol_report', input),
 
   // Employees (host search + lookup)
   searchEmployees: (query: string) =>

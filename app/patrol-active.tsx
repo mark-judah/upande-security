@@ -200,6 +200,14 @@ export default function ActivePatrol() {
       ) : null}
 
       <Button
+        label="FILE PATROL REPORT"
+        iconLeft="document-text-outline"
+        variant="outline"
+        onPress={() => router.push('/patrol-report')}
+        style={s.fileReportBtn}
+      />
+
+      <Button
         label="STOP PATROL"
         iconLeft="stop"
         variant="outline"
@@ -298,5 +306,8 @@ const s = StyleSheet.create({
   },
   stopBtn: {
     marginTop: spacing.xl,
+  },
+  fileReportBtn: {
+    marginTop: spacing.md,
   },
 });

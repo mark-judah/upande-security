@@ -171,6 +171,14 @@ export default function PatrolHome() {
           style={s.startBtn}
         />
       </Card>
+
+      <Button
+        label="FILE PATROL REPORT"
+        iconLeft="document-text-outline"
+        variant="outline"
+        onPress={() => router.push('/patrol-report')}
+        style={s.fileReportBtn}
+      />
     </Screen>
   );
 }
@@ -234,5 +242,8 @@ const s = StyleSheet.create({
   startBtn: {
     minWidth: 220,
     alignSelf: 'stretch',
+  },
+  fileReportBtn: {
+    marginTop: spacing.lg,
   },
 });

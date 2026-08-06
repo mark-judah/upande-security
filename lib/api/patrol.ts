@@ -1,5 +1,17 @@
 // Thin shim over the server-script verbs in lib/services/api.ts.
 import { api } from '@/lib/services/api';
+import { uploadIncidentPhoto } from '@/lib/api/incidents';
+import type { FilePatrolReportInput, FilePatrolReportResult } from '@/lib/services/api';
+
+export async function filePatrolReport(
+  input: FilePatrolReportInput,
+): Promise<FilePatrolReportResult> {
+  return api.filePatrolReport(input);
+}
+
+// Same stock upload_file endpoint as incident photos — aliased here for
+// naming clarity at patrol callsites.
+export const uploadPatrolPhoto = uploadIncidentPhoto;
 
 export type PatrolGpsPayload = {
   client_id: string;
