@@ -8,18 +8,25 @@ import { useGateStore } from '@/lib/stores/gateStore';
 import { audio } from '@/src/core/audio';
 import { COLORS, fontFamily, fontSize, spacing, borderRadius } from '@/src/core/theme';
 
-type Intent = 'ticket' | 'employee' | 'badge';
+type Intent = 'ticket' | 'employee' | 'badge' | 'asset';
 
 export default function ScanModal() {
   const params = useLocalSearchParams<{ intent?: string }>();
   const intent: Intent =
-    params.intent === 'employee' ? 'employee' : params.intent === 'badge' ? 'badge' : 'ticket';
+    params.intent === 'employee'
+      ? 'employee'
+      : params.intent === 'badge'
+        ? 'badge'
+        : params.intent === 'asset'
+          ? 'asset'
+          : 'ticket';
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
   const handledRef = useRef(false);
   const setPendingScannedTicket = useGateStore((s) => s.setPendingScannedTicket);
   const setPendingScannedEmployee = useGateStore((s) => s.setPendingScannedEmployee);
   const setPendingScannedBadge = useGateStore((s) => s.setPendingScannedBadge);
+  const setPendingScannedAsset = useGateStore((s) => s.setPendingScannedAsset);
 
   if (!permission) {
     return <View style={s.cameraBg} />;
@@ -66,6 +73,8 @@ export default function ScanModal() {
       setPendingScannedEmployee(data);
     } else if (intent === 'badge') {
       setPendingScannedBadge(data);
+    } else if (intent === 'asset') {
+      setPendingScannedAsset(data);
     } else {
       setPendingScannedTicket(data);
     }
@@ -90,7 +99,9 @@ export default function ScanModal() {
             ? 'Scan employee badge'
             : intent === 'badge'
               ? 'Scan visitor badge QR'
-              : 'Position QR code in the frame'}
+              : intent === 'asset'
+                ? 'Scan the asset QR sticker'
+                : 'Position QR code in the frame'}
         </Text>
       </View>
     </View>

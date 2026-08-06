@@ -220,6 +220,14 @@ export default function PatrolHome() {
         onPress={() => router.push('/patrol-report')}
         style={s.fileReportBtn}
       />
+
+      <Button
+        label="SCAN ASSETS"
+        iconLeft="qr-code-outline"
+        variant="outline"
+        onPress={() => router.push('/asset-scan')}
+        style={s.fileReportBtn}
+      />
     </Screen>
   );
 }

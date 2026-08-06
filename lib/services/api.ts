@@ -540,6 +540,41 @@ export type CurrentShift = {
 export type MyCurrentShiftResult = { shift: CurrentShift | null; guard_type?: 'Internal' | 'External' | null };
 export type CheckInShiftResult = { name: string; checked_in: 1 };
 
+export type ScanAssetInput = {
+  asset_code: string;
+  latitude: number | string;
+  longitude: number | string;
+  accuracy?: number | string | null;
+};
+export type ScanAssetResult = {
+  asset_code: string;
+  asset_name: string | null;
+  farm: string | null;
+  is_new: boolean;
+  latitude: string | null;
+  longitude: string | null;
+  location_sample_count: number;
+};
+
+export type ReportAssetMissingInput = {
+  asset_code: string;
+  latitude?: number | string;
+  longitude?: number | string;
+  accuracy?: number | string | null;
+  remarks?: string;
+};
+export type ReportAssetMissingResult = { asset_code: string; status: 'Missing'; reported_at: string };
+
+export type KnownAsset = {
+  asset_code: string;
+  asset_name: string | null;
+  category: string | null;
+  last_status: 'Found' | 'Missing' | null;
+  last_seen_at: string | null;
+  last_missing_reported_at: string | null;
+};
+export type MyAssetsAtFarmResult = { assets: KnownAsset[] };
+
 export type ReportKpi = { label: string; value: number | string; sub?: string };
 export type ReportColumn = { key: string; label: string; align?: 'left' | 'right' };
 export type ReportTable = {
@@ -644,6 +679,15 @@ export const api = {
     call<FilePatrolReportResult>('file_patrol_report', input),
   myCurrentShift: () => call<MyCurrentShiftResult>('my_current_shift'),
   checkInShift: () => call<CheckInShiftResult>('check_in_shift'),
+
+  // Asset protection — QR-scanned physical assets (water pumps, generators,
+  // etc.). Scanning confirms presence and slowly refines the asset's
+  // location as more guards scan the same sticker over time; missing-asset
+  // reports go through a separate verb since there's no QR left to scan.
+  scanAsset: (input: ScanAssetInput) => call<ScanAssetResult>('scan_asset', input),
+  reportAssetMissing: (input: ReportAssetMissingInput) =>
+    call<ReportAssetMissingResult>('report_asset_missing', input),
+  myAssetsAtFarm: () => call<MyAssetsAtFarmResult>('my_assets_at_farm'),
 
   // Employees (host search + lookup)
   searchEmployees: (query: string) =>
