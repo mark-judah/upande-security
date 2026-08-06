@@ -527,6 +527,16 @@ export type FilePatrolReportResult = {
   updated: boolean;
 };
 
+export type CurrentShift = {
+  name: string;
+  farm: string;
+  shift_type: 'Day' | 'Night';
+  start_date: string;
+  end_date: string;
+  status: 'Scheduled' | 'Active' | 'Ended' | 'Cancelled';
+};
+export type MyCurrentShiftResult = { shift: CurrentShift | null };
+
 export type ReportKpi = { label: string; value: number | string; sub?: string };
 export type ReportColumn = { key: string; label: string; align?: 'left' | 'right' };
 export type ReportTable = {
@@ -629,6 +639,7 @@ export const api = {
     call<PatrolPointResult[]>('submit_patrol_points', points as unknown as object),
   filePatrolReport: (input: FilePatrolReportInput) =>
     call<FilePatrolReportResult>('file_patrol_report', input),
+  myCurrentShift: () => call<MyCurrentShiftResult>('my_current_shift'),
 
   // Employees (host search + lookup)
   searchEmployees: (query: string) =>

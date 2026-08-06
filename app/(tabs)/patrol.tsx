@@ -25,8 +25,9 @@ import {
 } from '@/lib/services/patrolTracking';
 import { startPatrolSync } from '@/lib/services/patrolGpsSync';
 import { generatePatrolTag, sanitizeGuardCode } from '@/lib/services/patrolHelpers';
-import { toFrappeDateTime } from '@/lib/utils/date';
+import { toFrappeDateTime, fmtDateTime } from '@/lib/utils/date';
 import { useFeedback } from '@/lib/hooks/useFeedback';
+import { useMyShift } from '@/lib/hooks/useMyShift';
 import { Screen } from '@/src/core/ui/Screen';
 import { Button } from '@/src/core/ui/Button';
 import { Card } from '@/src/core/ui/Card';
@@ -40,6 +41,7 @@ export default function PatrolHome() {
   const [ready, setReady] = useState(false);
   const [starting, setStarting] = useState(false);
   const [perms, setPerms] = useState<{ foreground: boolean; background: boolean } | null>(null);
+  const shiftQuery = useMyShift();
 
   useEffect(() => {
     (async () => {
@@ -139,6 +141,27 @@ export default function PatrolHome() {
     <Screen title="Patrol" loading={!ready}>
       <Text style={s.subtitle}>Start a patrol to begin recording your route.</Text>
 
+      {shiftQuery.data ? (
+        <Card style={s.shiftCard}>
+          <View style={s.shiftHeader}>
+            <Ionicons
+              name={shiftQuery.data.status === 'Active' ? 'time' : 'time-outline'}
+              size={18}
+              color={shiftQuery.data.status === 'Active' ? COLORS.success : COLORS.textMuted}
+            />
+            <Text style={s.shiftTitle}>
+              {shiftQuery.data.status === 'Active' ? 'On shift now' : 'Upcoming shift'}
+            </Text>
+          </View>
+          <Text style={s.shiftBody}>
+            {shiftQuery.data.shift_type} shift · {shiftQuery.data.farm}
+          </Text>
+          <Text style={s.shiftTime}>
+            {fmtDateTime(shiftQuery.data.start_date)} → {fmtDateTime(shiftQuery.data.end_date)}
+          </Text>
+        </Card>
+      ) : null}
+
       {needsPerms ? (
         <Card style={s.permCard}>
           <View style={s.permHeader}>
@@ -189,6 +212,31 @@ const s = StyleSheet.create({
     fontSize: fontSize.sm,
     color: COLORS.textMuted,
     marginBottom: spacing.xl,
+  },
+  shiftCard: {
+    marginBottom: spacing.lg,
+  },
+  shiftHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.xs,
+  },
+  shiftTitle: {
+    fontFamily: fontFamily.semiBold,
+    fontSize: fontSize.sm,
+    color: COLORS.text,
+    marginLeft: spacing.sm,
+  },
+  shiftBody: {
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.sm,
+    color: COLORS.text,
+  },
+  shiftTime: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.xs,
+    color: COLORS.textMuted,
+    marginTop: 2,
   },
   permCard: {
     marginBottom: spacing.lg,

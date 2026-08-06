@@ -109,6 +109,23 @@ try:
                     personel = "External Guard"
                     external_guard = guard_name
 
+            # Auto-link this report to the guard's current Active shift, if
+            # any — no guard input needed. Same identity used to resolve
+            # personel/internal_guard/external_guard above.
+            resolved_shift = None
+            if internal_guard:
+                resolved_shift = frappe.db.get_value(
+                    "Security Guard Shift Assignment",
+                    {"internal_guard": internal_guard, "status": "Active"},
+                    "name",
+                )
+            elif external_guard:
+                resolved_shift = frappe.db.get_value(
+                    "Security Guard Shift Assignment",
+                    {"external_guard": external_guard, "status": "Active"},
+                    "name",
+                )
+
             points_logged = frappe.db.count("Patrol GPS Log", {"patrol": patrol})
 
             # `patrol` is a UNIQUE field on this doctype — one report per patrol
@@ -127,6 +144,7 @@ try:
             report.personel = personel
             report.internal_guard = internal_guard
             report.external_guard = external_guard
+            report.shift_assignment = resolved_shift
             report.started_at = started_at
             report.ended_at = ended_at
             report.points_logged = points_logged
