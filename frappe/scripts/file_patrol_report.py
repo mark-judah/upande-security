@@ -111,20 +111,27 @@ try:
 
             # Auto-link this report to the guard's current Active shift, if
             # any — no guard input needed. Same identity used to resolve
-            # personel/internal_guard/external_guard above.
+            # personel/internal_guard/external_guard above. Wrapped in its
+            # own try/except: this is a nice-to-have, not a requirement, and
+            # different sites can have a differently-shaped Security Guard
+            # Shift Assignment doctype (or none at all) — a schema mismatch
+            # here must never abort the whole filing.
             resolved_shift = None
-            if internal_guard:
-                resolved_shift = frappe.db.get_value(
-                    "Security Guard Shift Assignment",
-                    {"internal_guard": internal_guard, "status": "Active"},
-                    "name",
-                )
-            elif external_guard:
-                resolved_shift = frappe.db.get_value(
-                    "Security Guard Shift Assignment",
-                    {"external_guard": external_guard, "status": "Active"},
-                    "name",
-                )
+            try:
+                if internal_guard:
+                    resolved_shift = frappe.db.get_value(
+                        "Security Guard Shift Assignment",
+                        {"internal_guard": internal_guard, "status": "Active"},
+                        "name",
+                    )
+                elif external_guard:
+                    resolved_shift = frappe.db.get_value(
+                        "Security Guard Shift Assignment",
+                        {"external_guard": external_guard, "status": "Active"},
+                        "name",
+                    )
+            except Exception:
+                resolved_shift = None
 
             points_logged = frappe.db.count("Patrol GPS Log", {"patrol": patrol})
 
