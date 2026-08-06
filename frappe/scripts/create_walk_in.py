@@ -27,7 +27,6 @@ try:
     colour = s("colour")
     driver_name = s("driver_name")
     driver_phone = s("driver_phone")
-    scheduled_time = s("scheduled_time")
     passengers_raw = ""
     try:
         passengers_raw = str(data["passengers"]) if data["passengers"] is not None else ""
@@ -41,15 +40,16 @@ try:
     elif not host:
         frappe.response["message"] = {"error": "host is required"}
     else:
-        if not scheduled_time:
-            # A bare now() default fails Appointment's own "not in the past"
-            # check the instant it's re-evaluated a moment later inside
-            # doc.insert() — the request has non-zero latency, so by the time
-            # that check runs, the just-computed now() is already earlier
-            # than the check's own now(). A small forward buffer absorbs
-            # that gap; the visitor is still being checked in immediately in
-            # every practical sense.
-            scheduled_time = str(frappe.utils.add_to_date(frappe.utils.now_datetime(), minutes=15))
+        # A walk-in is inherently "right now" — the client's own idea of
+        # "now" (device clock, timezone handling, whatever a specific app
+        # build computes) is never trusted here. The server always derives
+        # its own scheduled_time from its own clock, with a forward buffer,
+        # because Appointment's own "not in the past" check re-evaluates
+        # against a fresh now() a moment after this value is set — by the
+        # time that runs, an unbuffered now() has already become "the past"
+        # relative to it. Whatever the client sent for scheduled_time, if
+        # anything, is ignored for this reason.
+        scheduled_time = str(frappe.utils.add_to_date(frappe.utils.now_datetime(), minutes=15))
 
         host_ok = frappe.db.get_value("Employee", host, "name")
         if not host_ok:
