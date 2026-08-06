@@ -28,6 +28,7 @@ import { generatePatrolTag, sanitizeGuardCode } from '@/lib/services/patrolHelpe
 import { toFrappeDateTime, fmtDateTime } from '@/lib/utils/date';
 import { useFeedback } from '@/lib/hooks/useFeedback';
 import { useMyShift } from '@/lib/hooks/useMyShift';
+import { useCheckInShift } from '@/lib/hooks/useCheckInShift';
 import { Screen } from '@/src/core/ui/Screen';
 import { Button } from '@/src/core/ui/Button';
 import { Card } from '@/src/core/ui/Card';
@@ -42,6 +43,7 @@ export default function PatrolHome() {
   const [starting, setStarting] = useState(false);
   const [perms, setPerms] = useState<{ foreground: boolean; background: boolean } | null>(null);
   const shiftQuery = useMyShift();
+  const checkInShift = useCheckInShift();
 
   useEffect(() => {
     (async () => {
@@ -159,6 +161,22 @@ export default function PatrolHome() {
           <Text style={s.shiftTime}>
             {fmtDateTime(shiftQuery.data.start_date)} → {fmtDateTime(shiftQuery.data.end_date)}
           </Text>
+          {shiftQuery.data.guard_type === 'External' && !shiftQuery.data.checked_in ? (
+            <Button
+              label="CHECK IN TO SHIFT"
+              iconLeft="checkmark-circle-outline"
+              onPress={() => checkInShift.mutate()}
+              loading={checkInShift.isPending}
+              disabled={checkInShift.isPending}
+              style={s.shiftCheckInBtn}
+            />
+          ) : null}
+          {shiftQuery.data.guard_type === 'External' && shiftQuery.data.checked_in ? (
+            <View style={s.shiftCheckedInRow}>
+              <Ionicons name="checkmark-circle" size={16} color={COLORS.success} />
+              <Text style={s.shiftCheckedInText}>Checked in</Text>
+            </View>
+          ) : null}
         </Card>
       ) : null}
 
@@ -237,6 +255,20 @@ const s = StyleSheet.create({
     fontSize: fontSize.xs,
     color: COLORS.textMuted,
     marginTop: 2,
+  },
+  shiftCheckInBtn: {
+    marginTop: spacing.md,
+  },
+  shiftCheckedInRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: spacing.md,
+  },
+  shiftCheckedInText: {
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.xs,
+    color: COLORS.success,
+    marginLeft: spacing.xs,
   },
   permCard: {
     marginBottom: spacing.lg,

@@ -534,8 +534,11 @@ export type CurrentShift = {
   start_date: string;
   end_date: string;
   status: 'Scheduled' | 'Active' | 'Ended' | 'Cancelled';
+  guard_type: 'Internal' | 'External' | null;
+  checked_in: 0 | 1;
 };
-export type MyCurrentShiftResult = { shift: CurrentShift | null };
+export type MyCurrentShiftResult = { shift: CurrentShift | null; guard_type?: 'Internal' | 'External' | null };
+export type CheckInShiftResult = { name: string; checked_in: 1 };
 
 export type ReportKpi = { label: string; value: number | string; sub?: string };
 export type ReportColumn = { key: string; label: string; align?: 'left' | 'right' };
@@ -640,6 +643,7 @@ export const api = {
   filePatrolReport: (input: FilePatrolReportInput) =>
     call<FilePatrolReportResult>('file_patrol_report', input),
   myCurrentShift: () => call<MyCurrentShiftResult>('my_current_shift'),
+  checkInShift: () => call<CheckInShiftResult>('check_in_shift'),
 
   // Employees (host search + lookup)
   searchEmployees: (query: string) =>
