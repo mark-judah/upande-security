@@ -7,6 +7,12 @@ import {
   type EmergencyCallResult,
 } from '@/lib/utils/emergencyCall';
 
+function nearbyGuardSummary(alertedGuards?: number): string {
+  if (alertedGuards == null) return '';
+  if (alertedGuards === 0) return ' No other guards were in range to alert.';
+  return ` ${alertedGuards} nearby guard${alertedGuards === 1 ? '' : 's'} alerted.`;
+}
+
 function callSummary(call: EmergencyCallResult): string {
   if (call.placed) return 'Supervisor called automatically.';
   if (call.reason === 'ios') return 'Dialer opened — tap Call to reach your supervisor.';
@@ -42,13 +48,13 @@ export function useSosWatcher(): void {
       if (result.status === 'partial') {
         Alert.alert(
           'SOS sent',
-          `${callSummary(result.call)} Incident ${result.incidentName} filed at ${result.location}. Patrol sync could not complete: ${result.error}.`,
+          `${callSummary(result.call)} Incident ${result.incidentName} filed at ${result.location}. Patrol sync could not complete: ${result.error}.${nearbyGuardSummary(result.alertedGuards)}`,
         );
         return;
       }
       Alert.alert(
         'SOS sent',
-        `${callSummary(result.call)} Incident ${result.incidentName} filed at ${result.location}. Patrol data flushed.`,
+        `${callSummary(result.call)} Incident ${result.incidentName} filed at ${result.location}. Patrol data flushed.${nearbyGuardSummary(result.alertedGuards)}`,
       );
     });
     return () => stopSosListener();

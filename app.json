@@ -34,7 +34,8 @@
         "android.permission.CAMERA",
         "android.permission.RECORD_AUDIO",
         "android.permission.MODIFY_AUDIO_SETTINGS",
-        "android.permission.CALL_PHONE"
+        "android.permission.CALL_PHONE",
+        "android.permission.POST_NOTIFICATIONS"
       ]
     },
     "web": {
@@ -72,6 +73,12 @@
       ],
       "expo-audio",
       "expo-asset",
+      [
+        "expo-notifications",
+        {
+          "color": "#EF4444"
+        }
+      ],
       "@react-native-community/datetimepicker",
       [
         "expo-build-properties",

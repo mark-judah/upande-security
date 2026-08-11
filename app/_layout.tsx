@@ -23,6 +23,7 @@ import { ToastProvider } from '@/src/core/ui/Toast';
 import { DrawerItemsProvider, type DrawerItem } from '@/src/core/ui/drawer-items-context';
 import { initPatrolDb } from '@/lib/services/patrolDb';
 import { useSosWatcher } from '@/lib/hooks/useSosWatcher';
+import { useNearbyGuardAlerts } from '@/lib/hooks/useNearbyGuardAlerts';
 import { useIsApprover } from '@/lib/hooks/usePendingApprovals';
 import '@/lib/services/patrolTracking';
 
@@ -85,6 +86,7 @@ export default function RootLayout() {
   }, []);
 
   useSosWatcher();
+  useNearbyGuardAlerts();
 
   useEffect(() => {
     if (fontsLoaded && hydrated) {
@@ -146,6 +148,7 @@ export default function RootLayout() {
                 <Stack.Screen name="scan-id" options={{ presentation: 'modal' }} />
                 <Stack.Screen name="incident-new" />
                 <Stack.Screen name="patrol-active" />
+                <Stack.Screen name="sos-alert" />
               </Stack>
             </QueryClientProvider>
           </DrawerItemsProvider>
