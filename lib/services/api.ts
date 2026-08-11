@@ -241,6 +241,11 @@ export type CreateWalkInNotifyResult = {
   notified: number;
 };
 
+export type ContractorPersonnelInput = {
+  full_name: string;
+  id_number?: string;
+  is_team_leader?: boolean;
+};
 export type CreateContractorNotifyInput = {
   contractor_ref?: string;
   contractor_name?: string;
@@ -249,6 +254,12 @@ export type CreateContractorNotifyInput = {
   purpose?: string;
   plate?: string;
   passengers?: number;
+  transport_mode?: string;
+  scope_of_work?: string;
+  /** "YYYY-MM-DD HH:MM:SS" (Frappe datetime format) — see toFrappeDateTime in lib/utils/date.ts. */
+  expected_exit?: string;
+  /** Structured input — this method JSON-stringifies it into the `personnel` string param the server script expects. */
+  personnel?: ContractorPersonnelInput[];
 };
 export type CreateContractorNotifyResult = {
   name: string;
@@ -703,8 +714,20 @@ export const api = {
   notifyHost: (name: string) => call<NotifyHostResult>('notify_host', { name }),
   createWalkInAndNotify: (input: CreateWalkInInput) =>
     call<CreateWalkInNotifyResult>('create_walk_in_notify', input),
-  createContractorNotify: (input: CreateContractorNotifyInput) =>
-    call<CreateContractorNotifyResult>('create_contractor_notify', input),
+  createContractorNotify: (input: CreateContractorNotifyInput) => {
+    const { personnel, ...rest } = input;
+    const body: Record<string, unknown> = { ...rest };
+    if (personnel && personnel.length > 0) {
+      body.personnel = JSON.stringify(
+        personnel.map((p) => ({
+          full_name: p.full_name,
+          id_number: p.id_number ?? '',
+          is_team_leader: Boolean(p.is_team_leader),
+        })),
+      );
+    }
+    return call<CreateContractorNotifyResult>('create_contractor_notify', body);
+  },
   checkInVisitor: (input: CheckInInput) => call<CheckInResult>('check_in_visitor', input),
   checkOutVisitor: (name: string) => call<CheckOutResult>('check_out_visitor', { name }),
   issueVisitorBadge: (name: string, badge_number: string) =>

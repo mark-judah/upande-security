@@ -33,6 +33,7 @@ import { useContractorSearch } from '@/lib/hooks/useContractorSearch';
 import { useAppointmentWorkflowState } from '@/lib/hooks/useAppointmentWorkflowState';
 import { useCheckIn } from '@/lib/hooks/useCheckIn';
 import { api } from '@/lib/services/api';
+import type { ContractorPersonnelInput } from '@/lib/services/api';
 import { createGateTimesheet, submitGateTimesheet } from '@/lib/api/timesheets';
 import type { ActiveVehicleEntry } from '@/lib/stores/vehicleStore';
 import { useFeedback } from '@/lib/hooks/useFeedback';
@@ -309,6 +310,10 @@ export default function GateTab() {
     host: string;
     plate?: string;
     passengers?: number;
+    transportMode: string;
+    scopeOfWork?: string;
+    expectedExit?: string;
+    personnel?: ContractorPersonnelInput[];
   }) {
     if (!contractorResult) return;
     setVehicleBusy(true);
@@ -319,6 +324,10 @@ export default function GateTab() {
         host: input.host,
         plate: input.plate,
         passengers: input.passengers,
+        transport_mode: input.transportMode,
+        scope_of_work: input.scopeOfWork,
+        expected_exit: input.expectedExit,
+        personnel: input.personnel,
       });
       // Collapse the contractor form and hand off to the shared ActionButtons,
       // which polls the workflow and surfaces CHECK IN once the host approves.

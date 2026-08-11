@@ -22,11 +22,45 @@ try:
     host = s("host")
     purpose = s("purpose") or "Contractor site access"
     plate = s("plate")
+    scope_of_work = s("scope_of_work")
+    expected_exit_raw = s("expected_exit")
+    transport_mode_in = s("transport_mode")
+    personnel_raw = s("personnel")
     passengers_raw = ""
     try:
         passengers_raw = str(data["passengers"]) if data["passengers"] is not None else ""
     except (KeyError, TypeError):
         passengers_raw = ""
+
+    # personnel is a JSON array of {full_name, id_number, is_team_leader} —
+    # everyone this contractor company actually sent, not just the one
+    # contact name. Malformed/missing input just means no personnel rows
+    # get added; it must never block registering the contractor at the gate.
+    personnel_rows = []
+    if personnel_raw:
+        try:
+            parsed = frappe.utils.parse_json(personnel_raw)
+            if parsed:
+                for row in parsed:
+                    try:
+                        full_name = str(row["full_name"] or "").strip()
+                    except (KeyError, TypeError):
+                        full_name = ""
+                    if not full_name:
+                        continue
+                    try:
+                        id_number = str(row["id_number"] or "").strip()
+                    except (KeyError, TypeError):
+                        id_number = ""
+                    try:
+                        is_team_leader = 1 if row["is_team_leader"] else 0
+                    except (KeyError, TypeError):
+                        is_team_leader = 0
+                    personnel_rows.append(
+                        {"full_name": full_name, "id_number": id_number, "is_team_leader": is_team_leader}
+                    )
+        except Exception:
+            personnel_rows = []
 
     if not contractor_name and contractor_ref:
         contractor_name = frappe.db.get_value("Supplier", contractor_ref, "supplier_name") or contractor_ref
@@ -46,7 +80,14 @@ try:
                 message="Payload: " + str(data) + "\nHost: " + host + "\nHost email (user_id): " + host_email_dbg,
             )
 
-            transport = "Vehicle" if plate else "On Foot"
+            # Explicit transport_mode from the client wins — older callers
+            # that don't send it yet fall back to the old plate-implies-
+            # Vehicle guess so nothing breaks mid-rollout.
+            valid_transport_modes = ["On Foot", "Vehicle", "Motorcycle", "Motor Bike"]
+            if transport_mode_in in valid_transport_modes:
+                transport = transport_mode_in
+            else:
+                transport = "Vehicle" if plate else "On Foot"
             now_str = str(frappe.utils.now_datetime())
 
             doc = frappe.new_doc("Appointment")
@@ -59,6 +100,8 @@ try:
             doc.custom_vehicles_number_plate = plate
             doc.status = "Open"
             doc.custom_reporting_status = "Scheduled"
+            for row in personnel_rows:
+                doc.append("custom_contractor_personnel", row)
             doc.flags.ignore_validate = True
             doc.flags.ignore_links = True
             doc.flags.ignore_mandatory = True
@@ -75,6 +118,15 @@ try:
             if passengers_raw:
                 try:
                     updates["custom_number_of_passengers"] = int(passengers_raw)
+                except Exception:
+                    pass
+            if scope_of_work:
+                updates["custom_scope_of_work"] = scope_of_work
+            # Best-effort — a bad/unparseable expected_exit must never block
+            # registering the contractor at the gate, it's just not recorded.
+            if expected_exit_raw:
+                try:
+                    updates["custom_expected_exit"] = frappe.utils.get_datetime(expected_exit_raw)
                 except Exception:
                     pass
             frappe.db.set_value("Appointment", appt_name, updates, update_modified=False)
