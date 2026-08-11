@@ -10,6 +10,8 @@ transport       = (args.get('transport_mode')   or 'On Foot').strip()
 number_plate    = (args.get('number_plate')     or '').strip() or None
 vehicle_color   = (args.get('vehicle_color')    or '').strip() or None
 passengers_raw  = args.get('passengers')
+scope_of_work   = (args.get('scope_of_work')    or '').strip() or None
+expected_exit_raw = (args.get('expected_exit')  or '').strip() or None
 
 if not contractor_name and contractor_ref:
     contractor_name = frappe.db.get_value('Supplier', contractor_ref, 'supplier_name') or contractor_ref
@@ -23,6 +25,15 @@ if passengers_raw not in (None, '', 'null'):
         passengers = int(passengers_raw)
     except (TypeError, ValueError):
         passengers = None
+
+# Expected exit is best-effort — a bad/unparseable value from the client
+# must never block the actual gate check-in, it just doesn't get recorded.
+expected_exit = None
+if expected_exit_raw:
+    try:
+        expected_exit = frappe.utils.get_datetime(expected_exit_raw)
+    except Exception:
+        expected_exit = None
 
 now_str = frappe.utils.now()
 
@@ -80,6 +91,8 @@ try:
         if passengers is not None: updates['custom_number_of_passengers'] = passengers
         if resolved_company: updates['custom_company']   = resolved_company
         if resolved_farm:    updates['custom_farmunit']  = resolved_farm
+        if scope_of_work: updates['custom_scope_of_work'] = scope_of_work
+        if expected_exit: updates['custom_expected_exit'] = expected_exit
 
         frappe.db.set_value('Appointment', appt_name, updates, update_modified=True)
 
@@ -105,6 +118,8 @@ try:
         if passengers is not None: updates['custom_number_of_passengers'] = passengers
         if resolved_company: updates['custom_company']   = resolved_company
         if resolved_farm:    updates['custom_farmunit']  = resolved_farm
+        if scope_of_work: updates['custom_scope_of_work'] = scope_of_work
+        if expected_exit: updates['custom_expected_exit'] = expected_exit
 
         frappe.db.set_value('Appointment', appt_name, updates, update_modified=True)
         if contractor_ref:
