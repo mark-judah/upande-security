@@ -38,10 +38,11 @@ try:
         any_success = False
         current_user = frappe.session.user
 
-        # Resolve who is patrolling, so guards (not just Employees) can submit.
-        # Order: Employee linked to this login -> Security Guard matched by the
-        # user's full name -> fall back to the raw user identity. guard_type
-        # makes `guard` a Dynamic Link (Employee / Security Guard).
+        # Resolve who is patrolling. Guards live in one of two doctypes: internal
+        # guards are Employees, external guards are Security Guard records.
+        # Order: Employee by user_id -> Security Guard by user -> Security Guard
+        # by full name (legacy, for guards not yet given a User link) -> raw
+        # user identity.
         user_full = ""
         try:
             user_full = frappe.db.get_value("User", current_user, "full_name") or ""
@@ -54,8 +55,13 @@ try:
         if emp:
             resolved_type = "Employee"
             resolved_guard = emp
-        elif user_full:
-            sg = frappe.db.get_value("Security Guard", {"full_name": user_full}, "name")
+        else:
+            sg = frappe.db.get_value("Security Guard", {"user": current_user}, "name")
+            if not sg and user_full:
+                # Name matching is fragile — duplicates collide and a renamed
+                # user silently detaches. Kept only until every Security Guard
+                # has its User link populated.
+                sg = frappe.db.get_value("Security Guard", {"full_name": user_full}, "name")
             if sg:
                 resolved_type = "Security Guard"
                 resolved_guard = sg
@@ -143,8 +149,12 @@ try:
 
                 log = frappe.new_doc("Patrol GPS Log")
                 log.patrol = patrol_tag
-                log.guard = guard
-                log.guard_type = resolved_type
+                if resolved_type == "Employee":
+                    log.personel = "Internal Guard"
+                    log.internal_guard = guard
+                elif resolved_type == "Security Guard":
+                    log.personel = "External Guard"
+                    log.external_guard = guard
                 log.captured_at = captured_at
                 log.latitude = str(latitude)
                 log.longitude = str(longitude)
