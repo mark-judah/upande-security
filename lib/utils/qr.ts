@@ -23,6 +23,19 @@ export function extractBadgeNumber(raw: string): string {
   return v;
 }
 
+export function extractDispatchReference(raw: string): string {
+  const v = raw.trim();
+  if (!v) return '';
+  // Gate Dispatch Verification is config-driven against whichever dispatch
+  // doctype is configured server-side, so there's no single fixed URL
+  // segment to match — just strip a Frappe doc URL down to its last path
+  // segment (the document name) the same way the ticket scanner does.
+  if (v.includes('/')) {
+    return decodeURIComponent(v.split('/').pop()!);
+  }
+  return v;
+}
+
 export function extractEmployeeId(raw: string): string {
   const v = raw.trim();
   if (!v) return '';

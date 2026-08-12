@@ -16,6 +16,7 @@ import { ActionButtons } from '@/components/gate/ActionButtons';
 import { IssueVisitorBadge } from '@/components/gate/IssueVisitorBadge';
 import { CHECK_IN_ALLOWED_FROM, type WorkflowState } from '@/constants/workflowStates';
 import { StaffCheckInPanel } from '@/components/gate/StaffCheckInPanel';
+import { DispatchGatePanel } from '@/components/gate/DispatchGatePanel';
 import { ContractorForm } from '@/components/gate/ContractorForm';
 import { VehicleScanAction } from '@/components/gate/VehicleScanAction';
 import { VehicleEntryDialog } from '@/components/gate/VehicleEntryDialog';
@@ -492,6 +493,8 @@ export default function GateTab() {
           ) : null}
 
           {selectedType === CheckInType.Staff ? <StaffCheckInPanel /> : null}
+
+          {selectedType === CheckInType.Dispatch ? <DispatchGatePanel /> : null}
 
           {selectedType === CheckInType.Contractor && contractorResult ? (
             <ContractorForm

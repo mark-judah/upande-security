@@ -660,6 +660,44 @@ export type ReportTab =
   | 'incidents'
   | 'patrols';
 
+// --- Gate Dispatch Verification (config-driven gate check against a
+// Dispatch Form or similar dispatch doctype — see
+// upande_security.api.gate_dispatch on the server) ---
+
+export type DispatchSearchHit = {
+  found: true;
+  reference_doctype: string;
+  reference_name: string;
+  vehicle_no: string;
+  driver_name: string;
+  dispatch_datetime: string;
+  farm: string;
+  items_summary: string;
+  source_status: string;
+  is_authorized: boolean;
+};
+export type DispatchSearchMiss = { found: false; error: string };
+export type DispatchSearchResult = DispatchSearchHit | DispatchSearchMiss;
+
+export type GateVerificationStatus = 'Verified' | 'Rejected';
+
+export type VerifyDispatchInput = {
+  reference: string;
+  gate_verification_status: GateVerificationStatus;
+  remarks?: string;
+};
+export type VerifyDispatchResult = {
+  name: string;
+  reference_name: string;
+  gate_verification_status: GateVerificationStatus;
+  is_authorized: boolean;
+};
+
+export type ConfirmDispatchReturnResult = {
+  name: string;
+  gate_return_time: string;
+};
+
 // --- API surface ---
 
 export const api = {
@@ -799,4 +837,14 @@ export const api = {
   myIncidents: () => call<IncidentSummary[]>('my_incidents'),
   listIncidents: (input: ListIncidentsInput = {}) =>
     call<IncidentSummary[]>('list_incidents', input),
+
+  // Gate Dispatch Verification — config-driven gate check of trucks
+  // against a Dispatch Form (or any future dispatch doctype). Read-only
+  // against the source document; the server owns authorization checks.
+  searchDispatchForGate: (reference: string) =>
+    call<DispatchSearchResult>('search_dispatch_for_gate', { reference }),
+  verifyDispatchAtGate: (input: VerifyDispatchInput) =>
+    call<VerifyDispatchResult>('verify_dispatch_at_gate', input),
+  confirmDispatchReturn: (name: string) =>
+    call<ConfirmDispatchReturnResult>('confirm_dispatch_return', { name }),
 };
