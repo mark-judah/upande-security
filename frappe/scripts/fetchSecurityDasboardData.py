@@ -241,12 +241,9 @@ try:
 
         # ─── RIGHT NOW: open incidents ─────────────────────────────────
         inc_rows = frappe.db.sql("""
-            SELECT name, incident_datetime, severity, workflow_state
+            SELECT name, incident_datetime, severity, status
             FROM `tabIncident Report`
-            WHERE workflow_state IN (
-                'Draft', 'Pending Supervisor Review', 'Under Investigation',
-                'Assigned', 'Pending Closure Review'
-            )
+            WHERE status IN ('Open', 'In Progress')
             ORDER BY incident_datetime DESC
             LIMIT 500
         """, as_dict=True)
@@ -446,10 +443,7 @@ try:
             SELECT name, severity, nature_of_incident, location, incident_datetime,
                    TIMESTAMPDIFF(HOUR, incident_datetime, NOW()) AS age_hours
             FROM `tabIncident Report`
-            WHERE workflow_state IN (
-                'Draft', 'Pending Supervisor Review', 'Under Investigation',
-                'Assigned', 'Pending Closure Review'
-            )
+            WHERE status IN ('Open', 'In Progress')
               AND severity IN ('Critical', 'High')
               AND TIMESTAMPDIFF(HOUR, incident_datetime, NOW()) >= 2
             ORDER BY incident_datetime ASC
@@ -590,8 +584,9 @@ try:
     elif tab == "incidents":
         inc_rows = frappe.db.sql("""
             SELECT name, incident_datetime, reported_datetime, reported_by,
-                   reporter_name, nature_of_incident, severity, workflow_state,
-                   location, assigned_to, resolution_datetime
+                   reporter_name, nature_of_incident, severity, status,
+                   location, assigned_to, resolution_datetime,
+                   attachment_1, attachment_2, attachment_3, attachment_4
             FROM `tabIncident Report`
             WHERE incident_datetime BETWEEN %(from_dt)s AND %(to_dt)s
             ORDER BY incident_datetime DESC
@@ -601,20 +596,22 @@ try:
         inc_total = 0
         inc_open = 0
         inc_under_inv = 0
-        inc_pending_closure = 0
         inc_resolved = 0
         inc_closed = 0
-        inc_rejected = 0
         inc_critical_open = 0
         inc_high_open = 0
 
         sev_counts = {"Critical": 0, "High": 0, "Medium": 0, "Low": 0}
         cat_counts = {}
-        state_counts = {}
+        status_counts = {}
+        reporter_counts = {}
+        loc_counts = {}
+        day_counts = {}
 
         resolution_secs_sum = 0
         resolution_n = 0
         recent_list = []
+        gallery_list = []
 
         ii = 0
         while ii < len(inc_rows):
@@ -627,29 +624,34 @@ try:
             cat = r.nature_of_incident or "Other"
             cat_counts[cat] = cat_counts.get(cat, 0) + 1
 
-            ws = r.workflow_state or "Draft"
-            state_counts[ws] = state_counts.get(ws, 0) + 1
+            st = r.status or "Open"
+            status_counts[st] = status_counts.get(st, 0) + 1
 
-            if ws in INCIDENT_STATES_OPEN:
+            rep = r.reporter_name or r.reported_by or "Unknown"
+            reporter_counts[rep] = reporter_counts.get(rep, 0) + 1
+
+            loc = r.location or "Unspecified"
+            loc_counts[loc] = loc_counts.get(loc, 0) + 1
+
+            id_ = r.incident_datetime
+            day = str(id_)[:10] if id_ else "Unknown"
+            day_counts[day] = day_counts.get(day, 0) + 1
+
+            if st == "Open" or st == "In Progress":
                 inc_open = inc_open + 1
                 if sev == "Critical":
                     inc_critical_open = inc_critical_open + 1
                 elif sev == "High":
                     inc_high_open = inc_high_open + 1
-            if ws == "Under Investigation" or ws == "Assigned":
+            if st == "In Progress":
                 inc_under_inv = inc_under_inv + 1
-            if ws == "Pending Closure Review":
-                inc_pending_closure = inc_pending_closure + 1
-            if ws == "Resolved":
+            if st == "Resolved":
                 inc_resolved = inc_resolved + 1
-            if ws == "Closed":
+            if st == "Closed":
                 inc_closed = inc_closed + 1
-            if ws == "Rejected":
-                inc_rejected = inc_rejected + 1
 
             rd = r.resolution_datetime
-            id_ = r.incident_datetime
-            if rd and id_ and (ws == "Resolved" or ws == "Closed"):
+            if rd and id_ and (st == "Resolved" or st == "Closed"):
                 try:
                     secs = frappe.utils.time_diff_in_seconds(rd, id_)
                     if secs > 0:
@@ -658,16 +660,37 @@ try:
                 except:
                     pass
 
+            atts = []
+            if r.attachment_1 and r.attachment_1 != "None":
+                atts = atts + [r.attachment_1]
+            if r.attachment_2 and r.attachment_2 != "None":
+                atts = atts + [r.attachment_2]
+            if r.attachment_3 and r.attachment_3 != "None":
+                atts = atts + [r.attachment_3]
+            if r.attachment_4 and r.attachment_4 != "None":
+                atts = atts + [r.attachment_4]
+
             recent_list = recent_list + [{
                 "name": r.name,
                 "incident_datetime": str(id_) if id_ else "",
                 "nature_of_incident": cat,
                 "severity": sev,
-                "workflow_state": ws,
+                "status": st,
+                "workflow_state": st,
                 "location": r.location or "",
-                "reporter_name": r.reporter_name or r.reported_by or "",
+                "reporter_name": rep,
                 "assigned_to": r.assigned_to or "",
+                "attachments": atts,
             }]
+
+            if atts and len(gallery_list) < 12:
+                gallery_list = gallery_list + [{
+                    "name": r.name,
+                    "severity": sev,
+                    "nature_of_incident": cat,
+                    "location": r.location or "",
+                    "url": atts[0],
+                }]
 
             ii = ii + 1
 
@@ -675,8 +698,8 @@ try:
         sev_order = ["Critical", "High", "Medium", "Low"]
         so = 0
         while so < len(sev_order):
-            key = sev_order[so]
-            sev_list = sev_list + [{"severity": key, "count": sev_counts.get(key, 0)}]
+            skey = sev_order[so]
+            sev_list = sev_list + [{"severity": skey, "count": sev_counts.get(skey, 0)}]
             so = so + 1
 
         cat_list = []
@@ -694,9 +717,54 @@ try:
                 c_j = c_j + 1
             c_i = c_i + 1
 
-        state_list = []
-        for sk in state_counts:
-            state_list = state_list + [{"state": sk, "count": state_counts[sk]}]
+        rep_list = []
+        for rk in reporter_counts:
+            rep_list = rep_list + [{"reporter": rk, "count": reporter_counts[rk]}]
+        n_rep = len(rep_list)
+        r_i = 0
+        while r_i < n_rep:
+            r_j = 0
+            while r_j < n_rep - 1:
+                if rep_list[r_j]["count"] < rep_list[r_j + 1]["count"]:
+                    tmp = rep_list[r_j]
+                    rep_list[r_j] = rep_list[r_j + 1]
+                    rep_list[r_j + 1] = tmp
+                r_j = r_j + 1
+            r_i = r_i + 1
+
+        loc_list = []
+        for lk in loc_counts:
+            loc_list = loc_list + [{"location": lk, "count": loc_counts[lk]}]
+        n_loc = len(loc_list)
+        l_i = 0
+        while l_i < n_loc:
+            l_j = 0
+            while l_j < n_loc - 1:
+                if loc_list[l_j]["count"] < loc_list[l_j + 1]["count"]:
+                    tmp = loc_list[l_j]
+                    loc_list[l_j] = loc_list[l_j + 1]
+                    loc_list[l_j + 1] = tmp
+                l_j = l_j + 1
+            l_i = l_i + 1
+
+        day_list = []
+        for dk in day_counts:
+            day_list = day_list + [{"day": dk, "count": day_counts[dk]}]
+        n_day = len(day_list)
+        d_i = 0
+        while d_i < n_day:
+            d_j = 0
+            while d_j < n_day - 1:
+                if day_list[d_j]["day"] > day_list[d_j + 1]["day"]:
+                    tmp = day_list[d_j]
+                    day_list[d_j] = day_list[d_j + 1]
+                    day_list[d_j + 1] = tmp
+                d_j = d_j + 1
+            d_i = d_i + 1
+
+        status_list = []
+        for stk in status_counts:
+            status_list = status_list + [{"state": stk, "count": status_counts[stk]}]
 
         avg_res_min = 0
         if resolution_n > 0:
@@ -705,17 +773,21 @@ try:
         resp["incidents_total"] = inc_total
         resp["incidents_open"] = inc_open
         resp["incidents_under_investigation"] = inc_under_inv
-        resp["incidents_pending_closure"] = inc_pending_closure
+        resp["incidents_pending_closure"] = 0
         resp["incidents_resolved"] = inc_resolved
         resp["incidents_closed"] = inc_closed
-        resp["incidents_rejected"] = inc_rejected
+        resp["incidents_rejected"] = 0
         resp["incidents_critical_open"] = inc_critical_open
         resp["incidents_high_open"] = inc_high_open
         resp["incidents_avg_resolution_minutes"] = avg_res_min
         resp["incidents_by_severity"] = sev_list
         resp["incidents_by_category"] = cat_list[:10]
-        resp["incidents_by_state"] = state_list
+        resp["incidents_by_state"] = status_list
+        resp["incidents_by_reporter"] = rep_list[:10]
+        resp["incidents_by_location"] = loc_list[:10]
+        resp["incidents_over_time"] = day_list
         resp["incidents_recent"] = recent_list[:20]
+        resp["incidents_gallery"] = gallery_list
 
     # ═══════════════════════════════════════════════════════════════════
     # TAB: PATROLS (text/stats view)

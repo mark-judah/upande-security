@@ -29,7 +29,7 @@ try:
     FARM_SQL = ""
     FARM_P = []
     if farm:
-        FARM_SQL = " AND a.custom_meet_with_farm = %s"
+        FARM_SQL = " AND a.custom_farmunit = %s"
         FARM_P = [farm]
     LOC_SQL = ""
     LOC_P = []
@@ -62,7 +62,7 @@ try:
 
     def farm_options():
         fl = []
-        fr = frappe.db.sql("SELECT DISTINCT custom_meet_with_farm FROM `tabAppointment` WHERE custom_meet_with_farm IS NOT NULL AND custom_meet_with_farm != '' ORDER BY custom_meet_with_farm LIMIT 100", ())
+        fr = frappe.db.sql("SELECT DISTINCT custom_farmunit FROM `tabAppointment` WHERE custom_farmunit IS NOT NULL AND custom_farmunit != '' ORDER BY custom_farmunit LIMIT 100", ())
         for row in fr:
             fl.append(row[0])
         return fl
