@@ -19,8 +19,8 @@ try:
         like = "%" + query + "%"
         rows = frappe.db.sql(
             """
-            SELECT name, motor_vehicle, farm, operator, custom_employee,
-                   company, date, erp_task, timesheet, workflow_state
+            SELECT name, motor_vehicle, farm, operator,
+                   company, date, erp_task, timesheet
             FROM `tabTractor Daily Task`
             WHERE name LIKE %s OR motor_vehicle LIKE %s
             ORDER BY modified DESC
@@ -37,12 +37,12 @@ try:
                     "motor_vehicle": r.motor_vehicle or "",
                     "farm": r.farm or "",
                     "operator": r.operator or "",
-                    "custom_employee": r.custom_employee or "",
+                    "custom_employee": r.operator or "",
                     "company": r.company or "",
                     "date": str(r.date) if r.date else "",
                     "erp_task": r.erp_task or "",
                     "timesheet": r.timesheet or "",
-                    "workflow_state": r.workflow_state or "",
+                    "workflow_state": "",
                 }
             )
         frappe.response["message"] = out

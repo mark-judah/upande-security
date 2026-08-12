@@ -24,14 +24,12 @@ try:
                 "motor_vehicle",
                 "farm",
                 "operator",
-                "custom_employee",
+                "operator",
                 "company",
                 "date",
                 "erp_task",
                 "timesheet",
-                "workflow_state",
                 "location",
-                "custom_qr_code",
             ],
             as_dict=True,
         )
@@ -61,9 +59,13 @@ try:
                     frappe.db.get_value("Driver", row.operator, "full_name") or ""
                 )
             employee_name = ""
-            if row.custom_employee:
+            if row.operator:
                 employee_name = (
-                    frappe.db.get_value("Employee", row.custom_employee, "employee_name") or ""
+                    frappe.db.get_value(
+                        "Employee",
+                        frappe.db.get_value("Driver", row.operator, "employee"),
+                        "employee_name",
+                    ) or ""
                 )
 
             task_rows = []
@@ -88,15 +90,15 @@ try:
                 "farm": row.farm or "",
                 "operator": row.operator or "",
                 "operator_name": operator_name,
-                "custom_employee": row.custom_employee or "",
+                "custom_employee": row.operator or "",
                 "employee_name": employee_name,
                 "company": row.company or "",
                 "date": str(row.date) if row.date else "",
                 "erp_task": row.erp_task or "",
                 "timesheet": row.timesheet or "",
-                "workflow_state": row.workflow_state or "",
+                "workflow_state": "",
                 "location": row.location or "",
-                "custom_qr_code": row.custom_qr_code or "",
+                "custom_qr_code": "",
                 "task": task_rows,
             }
 except Exception as e:

@@ -19,7 +19,7 @@ try:
             "company",
             "default_shift",
             "custom_farm",
-            "custom_employee_category",
+            "employee_category",
         ]
 
         exact = frappe.db.get_value(
@@ -33,7 +33,7 @@ try:
             rows = frappe.db.sql(
                 """
                 SELECT name, employee_name, department, designation, company,
-                       default_shift, custom_farm, custom_employee_category
+                       default_shift, custom_farm, employee_category
                 FROM `tabEmployee`
                 WHERE status = 'Active'
                   AND (name LIKE %s OR employee_name LIKE %s)
@@ -55,7 +55,7 @@ try:
                     "company": r.company or "",
                     "default_shift": r.default_shift or "",
                     "custom_farm": r.custom_farm or "",
-                    "custom_employee_category": r.custom_employee_category or "",
+                    "custom_employee_category": r.employee_category or "",
                 }
             )
 

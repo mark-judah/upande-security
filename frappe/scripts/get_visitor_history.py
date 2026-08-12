@@ -21,7 +21,6 @@ try:
                 "customer_phone_number",
                 "custom_id_number",
                 "custom_meet_with",
-                "custom_meet_with_name",
                 "customer_details",
                 "custom_mode_of_transport",
                 "custom_vehicles_number_plate",
@@ -43,7 +42,9 @@ try:
                 "phone_number": m.customer_phone_number,
                 "id_no": m.custom_id_number,
                 "host_id": m.custom_meet_with,
-                "host_name": m.custom_meet_with_name,
+                "host_name": frappe.db.get_value(
+                    "Employee", m.custom_meet_with, "employee_name"
+                ) if m.custom_meet_with else "",
                 "purpose": m.customer_details,
                 "transport_mode": m.custom_mode_of_transport,
                 "vehicle_reg_no": m.custom_vehicles_number_plate,

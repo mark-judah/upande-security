@@ -27,7 +27,7 @@ try:
                 "company",
                 "default_shift",
                 "custom_farm",
-                "custom_employee_category",
+                "employee_category",
                 "status",
             ],
             as_dict=True,
@@ -43,7 +43,7 @@ try:
                 "company": emp.company or "",
                 "default_shift": emp.default_shift or "",
                 "custom_farm": emp.custom_farm or "",
-                "custom_employee_category": emp.custom_employee_category or "",
+                "custom_employee_category": emp.employee_category or "",
                 "status": emp.status or "",
             }
 except Exception as e:

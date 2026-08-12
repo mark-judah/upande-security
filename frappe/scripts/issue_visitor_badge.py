@@ -120,25 +120,51 @@ try:
                         # THIS visit is purely a server-side pointer
                         # (current_appointment); nothing about the physical
                         # card changes between visitors.
-                        frappe.db.set_value(
-                            "Visitor Badge",
-                            badge.name,
-                            {"status": "Issued", "current_appointment": name},
-                        )
-                        frappe.db.set_value("Appointment", name, "custom_visitor_badge", badge.name)
-                        frappe.db.commit()
-                        frappe.response["message"] = {
-                            "badge_number": badge_number,
-                            "company": company,
-                            "farm": farm,
-                            "confirm_url": frappe.utils.get_url()
-                            + "/visitor-received?company="
-                            + company.replace(" ", "%20")
-                            + "&farm="
-                            + farm.replace(" ", "%20")
-                            + "&badge="
-                            + str(badge_number),
-                        }
+                        #
+                        # The check above and this write are NOT atomic on
+                        # their own — two guards (or one guard double-tapping)
+                        # issuing the same badge_number within the same
+                        # instant can both read "Available" before either
+                        # write lands, and both then hand the same physical
+                        # card to two different visitors. Loading the full
+                        # document and saving it (instead of a direct
+                        # frappe.db.set_value) makes Frappe check the row's
+                        # own modified timestamp before writing — if a
+                        # second request's read is now stale because the
+                        # first request's save already landed, this raises
+                        # instead of silently overwriting, and that second
+                        # guard sees a clear "just issued" error rather than
+                        # believing they succeeded.
+                        badge_doc = frappe.get_doc("Visitor Badge", badge.name)
+                        badge_doc.status = "Issued"
+                        badge_doc.current_appointment = name
+                        try:
+                            badge_doc.save(ignore_permissions=True)
+                        except frappe.TimestampMismatchError:
+                            frappe.response["message"] = {
+                                "error": "Badge "
+                                + str(badge_number)
+                                + " ("
+                                + company
+                                + " / "
+                                + farm
+                                + ") was just issued to another visit — rescan or pick a different badge."
+                            }
+                        else:
+                            frappe.db.set_value("Appointment", name, "custom_visitor_badge", badge.name)
+                            frappe.db.commit()
+                            frappe.response["message"] = {
+                                "badge_number": badge_number,
+                                "company": company,
+                                "farm": farm,
+                                "confirm_url": frappe.utils.get_url()
+                                + "/visitor-received?company="
+                                + company.replace(" ", "%20")
+                                + "&farm="
+                                + farm.replace(" ", "%20")
+                                + "&badge="
+                                + str(badge_number),
+                            }
 except Exception as e:
     frappe.db.rollback()
     frappe.log_error("issue_visitor_badge", str(e))
