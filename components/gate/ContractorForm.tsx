@@ -14,13 +14,12 @@ export type ContractorPersonnelInput = {
   is_team_leader: boolean;
 };
 
-const CONTRACTOR_TRANSPORT_MODES = ['On Foot', 'Vehicle', 'Motorcycle', 'Motor Bike'] as const;
+const CONTRACTOR_TRANSPORT_MODES = ['On Foot', 'Vehicle', 'Motor Bike'] as const;
 type ContractorTransportMode = (typeof CONTRACTOR_TRANSPORT_MODES)[number];
 
 const CONTRACTOR_TRANSPORT_ICONS: Record<ContractorTransportMode, keyof typeof Ionicons.glyphMap> = {
   'On Foot': 'walk-outline',
   Vehicle: 'car-outline',
-  Motorcycle: 'bicycle-outline',
   'Motor Bike': 'bicycle-outline',
 };
 

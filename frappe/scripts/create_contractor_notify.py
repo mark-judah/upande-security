@@ -83,7 +83,7 @@ try:
             # Explicit transport_mode from the client wins — older callers
             # that don't send it yet fall back to the old plate-implies-
             # Vehicle guess so nothing breaks mid-rollout.
-            valid_transport_modes = ["On Foot", "Vehicle", "Motorcycle", "Motor Bike"]
+            valid_transport_modes = ["On Foot", "Vehicle", "Motor Bike"]
             if transport_mode_in in valid_transport_modes:
                 transport = transport_mode_in
             else:
