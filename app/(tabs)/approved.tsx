@@ -44,11 +44,18 @@ function ApprovedCard({
   const actionLabel = isCheckedIn ? 'CHECK OUT' : 'CHECK IN';
   const actionIcon: keyof typeof Ionicons.glyphMap = isCheckedIn ? 'log-out-outline' : 'log-in-outline';
   const actionColor = isCheckedIn ? COLORS.danger : COLORS.success;
+  // Physical numbered badges are a Visitor concept — contractors get
+  // scope-of-work + personnel-list compliance tracking instead (see
+  // Contractor Personnel), not a badge. This screen's query has no
+  // visitor-type filter, so without this check a Contractor appointment
+  // that reached Approved by Host would land on the same badge gate as a
+  // Visitor.
+  const requiresBadge = item.custom_visitor_type !== 'Contractor';
   // Same client-side gate as the Gate tab: a visitor badge must be issued
   // before check-in — this screen has its own independent CHECK IN button,
   // so it needs the same enforcement or it's a bypass of the Gate tab's gate.
   const hasBadge = Boolean(item.custom_visitor_badge_number);
-  const checkInBlocked = !isCheckedIn && !hasBadge;
+  const checkInBlocked = !isCheckedIn && requiresBadge && !hasBadge;
 
   return (
     <View style={s.card}>
@@ -115,7 +122,7 @@ function ApprovedCard({
           ) : null}
         </View>
 
-        {!isCheckedIn ? (
+        {!isCheckedIn && requiresBadge ? (
           <IssueVisitorBadge
             appointmentName={item.name}
             currentBadge={item.custom_visitor_badge_number ?? undefined}

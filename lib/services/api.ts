@@ -492,6 +492,7 @@ export type ApprovedAppointmentRow = {
   passengers: number;
   custom_visitor_badge_number?: number | null;
   custom_host_received_time?: string;
+  custom_visitor_type?: 'Visitor' | 'Staff' | 'Contractor' | 'Customer' | string;
 };
 
 export type PatrolPointInput = {
