@@ -56,9 +56,14 @@ export function ContractorForm({ result, onNotify, busy }: Props) {
   const [showExitPicker, setShowExitPicker] = useState(false);
   const [exitPickerMode, setExitPickerMode] = useState<'date' | 'time'>('date');
   const [personnel, setPersonnel] = useState<PersonnelRow[]>([]);
-  const found = Boolean(result.contract_name || result.contractor_name);
+  // has_active_contract is the real check (a Contract row with
+  // status=Active) — a contractor whose contract lapsed still matches by
+  // name (is_contractor=true) but shouldn't be let through, so this must
+  // gate the form, not just "did we find any contractor at all".
+  const found = Boolean(result.is_contractor && result.has_active_contract);
 
   if (!found) {
+    const known = Boolean(result.is_contractor);
     return (
       <View
         style={{
@@ -74,6 +79,13 @@ export function ContractorForm({ result, onNotify, busy }: Props) {
             NO ACTIVE CONTRACT
           </Text>
         </View>
+        {known ? (
+          <Text style={{ color: COLORS.textSecondary, fontSize: fontSize.sm, marginTop: 6 }}>
+            {result.contractor_name} is a known contractor, but their contract is{' '}
+            {result.contract_status ? result.contract_status.toLowerCase() : 'not active'} — not
+            cleared for site access.
+          </Text>
+        ) : null}
       </View>
     );
   }
@@ -140,7 +152,19 @@ export function ContractorForm({ result, onNotify, busy }: Props) {
             {result.contractor_name ?? '—'}
           </Text>
           {result.contract_name ? (
-            <Text style={{ color: COLORS.textSecondary, fontSize: fontSize.sm }}>Contract: {result.contract_name}</Text>
+            <Text style={{ color: COLORS.textSecondary, fontSize: fontSize.sm }}>
+              Contract: {result.contract_name}
+              {result.contract_status ? ` · ${result.contract_status}` : ''}
+            </Text>
+          ) : null}
+          {result.project ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
+              <Ionicons name="briefcase-outline" size={13} color={COLORS.textSecondary} />
+              <Text style={{ color: COLORS.textSecondary, fontSize: fontSize.sm, marginLeft: 4 }}>
+                {result.project.project_name ?? result.project.name}
+                {result.project.status ? ` (${result.project.status})` : ''}
+              </Text>
+            </View>
           ) : null}
         </View>
       </View>

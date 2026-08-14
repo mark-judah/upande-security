@@ -124,20 +124,38 @@ export type ContractorVehicle = {
   vehicle_type?: string;
 };
 
+export type ContractorProject = {
+  name: string;
+  project_name?: string;
+  status?: string;
+  is_active?: 'Yes' | 'No' | string;
+  expected_end_date?: string;
+};
+
 export type ContractorSearchResult = {
+  // Real Contract docname (party_type=Supplier), not the Supplier's own
+  // name — may point at a lapsed/unsigned contract when has_active_contract
+  // is false, so the gate can say *why*, not just "not found".
   contract_name?: string;
   contractor_name?: string;
-  // is_contractor = true means custom_is_contractor is checked on the Supplier record
-  // This is the single source of truth — no workflow state check needed
+  // is_contractor = true means a Supplier matched (custom_is_contractor=1) —
+  // their standing identity as a contractor org, independent of whether
+  // they currently have an active contract.
   is_contractor?: boolean;
-  is_approved?: boolean; // kept for compatibility, always true when result is returned
+  // Real check: is there a Contract for this supplier with status=Active
+  // (ERPNext-computed from is_signed + start_date/end_date), not just "a
+  // supplier record exists". This is the actual gate-access decision.
+  has_active_contract?: boolean;
+  contract_status?: 'Unsigned' | 'Active' | 'Inactive' | 'Cancelled' | string;
+  fulfilment_status?: string;
+  contract_start?: string;
+  contract_end?: string;
+  // The contract's linked ongoing project (Contract.document_type=Project),
+  // if any — null when the contract isn't tied to one.
+  project?: ContractorProject | null;
   supplier_id?: string;
   supplier_group?: string;
-  approved_by?: string;
-  approval_date?: string;
   vehicles?: ContractorVehicle[];
-  access_start?: string;
-  access_end?: string;
   contact_phone?: string;
 };
 

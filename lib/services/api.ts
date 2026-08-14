@@ -95,17 +95,34 @@ export type ContractorVehicle = {
   vehicle_type: string;
 };
 
+export type ContractorProject = {
+  name: string;
+  project_name?: string;
+  status?: string;
+  is_active?: 'Yes' | 'No' | string;
+  expected_end_date?: string;
+};
+
 export type ContractorContractResult = {
+  // Real Contract docname (party_type=Supplier) — not the Supplier's own
+  // name — may point at a lapsed/unsigned contract when has_active_contract
+  // is false.
   contract_name: string | null;
   contractor_name: string | null;
   supplier_id: string | null;
   supplier_group?: string | null;
+  // is_contractor = a Supplier matched (custom_is_contractor=1); their
+  // standing identity, independent of contract status.
   is_contractor: boolean;
-  is_approved?: boolean;
-  approved_by?: string | null;
-  approval_date?: string | null;
-  access_start?: string | null;
-  access_end?: string | null;
+  // has_active_contract = the real gate-access decision: a Contract row
+  // for this supplier with status=Active (ERPNext-computed from is_signed
+  // + start_date/end_date).
+  has_active_contract?: boolean;
+  contract_status?: 'Unsigned' | 'Active' | 'Inactive' | 'Cancelled' | string;
+  fulfilment_status?: string;
+  contract_start?: string | null;
+  contract_end?: string | null;
+  project?: ContractorProject | null;
   contact_phone?: string;
   vehicles: ContractorVehicle[];
   error?: string;

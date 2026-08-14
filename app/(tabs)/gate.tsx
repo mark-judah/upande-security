@@ -320,7 +320,10 @@ export default function GateTab() {
     setVehicleBusy(true);
     try {
       const result = await api.createContractorNotify({
-        contractor_ref: contractorResult.contract_name ?? undefined,
+        // custom_contractor_ref is a Link to Supplier — contract_name is now
+        // the real Contract docname (see ContractorSearchResult), not the
+        // Supplier's own name, so this must use supplier_id instead.
+        contractor_ref: contractorResult.supplier_id ?? undefined,
         contractor_name: contractorResult.contractor_name ?? undefined,
         host: input.host,
         plate: input.plate,
