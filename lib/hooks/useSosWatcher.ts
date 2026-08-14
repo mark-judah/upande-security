@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { Alert } from 'react-native';
+import { useAuthStore } from '@/lib/stores/authStore';
 import { startSosListener, stopSosListener } from '@/lib/services/sos';
 import {
   refreshEmergencyContact,
@@ -27,15 +28,27 @@ function callSummary(call: EmergencyCallResult): string {
  * listener and surfaces an alert to the guard when an SOS is fired + uploaded.
  */
 export function useSosWatcher(): void {
+  const hasSession = useAuthStore((s) => s.hasSession);
+
+  // Resolve + cache this guard's actual Security Head number so an SOS never
+  // waits on the network — callEmergencyNumber() only reads the cache. This
+  // MUST re-fire on every fresh login, not just once at cold start: the root
+  // layout that mounts this hook lives for the whole app process lifetime,
+  // so a plain mount-once effect would only ever fetch this on the very
+  // first launch — before the guard is even logged in, or still pointed at
+  // whatever site was configured then. A later logout/login (even to a
+  // different site) would never re-trigger it, silently leaving the cache
+  // empty (or stale from a previous site) for the rest of the app's life.
+  // Keying off hasSession, same pattern as useNearbyGuardAlerts, fixes that.
+  useEffect(() => {
+    if (!hasSession) return;
+    refreshEmergencyContact().catch(() => {});
+  }, [hasSession]);
+
   useEffect(() => {
     // Ask for CALL_PHONE up front so an actual SOS doesn't stall on a
     // permission prompt. No-op on iOS.
     requestCallPermission().catch(() => {});
-
-    // Resolve + cache this guard's actual Security Head number so an SOS
-    // never waits on the network — callEmergencyNumber() only reads the
-    // cache. Refreshed on every mount to pick up staffing/config changes.
-    refreshEmergencyContact().catch(() => {});
 
     startSosListener((result) => {
       if (result.status === 'error') {
