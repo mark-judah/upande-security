@@ -59,3 +59,19 @@ export async function triggerNearbyGuardAlert(
   );
   return unwrap<TriggerNearbyGuardAlertResult>(res.data.message);
 }
+
+// Lightweight periodic location keep-alive for any logged-in user who isn't
+// actively being tracked by the full patrol-GPS pipeline (see
+// lib/services/locationPing.ts). Just two numbers, no batching, no offline
+// queue -- this only needs to be "fresh enough" for nearby-guard SOS lookup,
+// not survey-grade.
+export type PingLocationInput = { lat: number; lng: number };
+export type PingLocationResult = { ok: true };
+
+export async function pingLocation(input: PingLocationInput): Promise<PingLocationResult> {
+  const res = await client.post<{ message: PingLocationResult | { error: string } }>(
+    '/api/method/upande_security.api.sos_alert.ping_location',
+    input,
+  );
+  return unwrap<PingLocationResult>(res.data.message);
+}
