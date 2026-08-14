@@ -14,10 +14,16 @@ type Props = {
 
 /**
  * Shows the matched Purchase Order and lets the guard record their
- * Verify / Reject decision. Unlike Dispatch (which snapshots vehicle/driver
- * from the source document), a PO carries no vehicle info of its own, so
- * those are captured fresh here. `is_authorized` is informational only —
- * the server doesn't block on it, so it's a warning banner, not a disable.
+ * Verify / Reject decision. This is an identity/paperwork check only — the
+ * guard confirms a PO exists for an active supplier and logs vehicle +
+ * driver, nothing more. Cargo contents are never inspected or judged here;
+ * that's the stock team's job at receiving (Purchase Receipt), separate
+ * from this gate record entirely.
+ *
+ * Unlike Dispatch (which snapshots vehicle/driver from the source
+ * document), a PO carries no vehicle info of its own, so those are
+ * captured fresh here. `is_authorized` is informational only — the server
+ * doesn't block on it, so it's a warning banner, not a disable.
  */
 export function DeliveryResultCard({ result, onDecide, busy, onReset }: Props) {
   const [action, setAction] = useState<GateVerificationStatus | null>(null);
@@ -103,8 +109,8 @@ export function DeliveryResultCard({ result, onDecide, busy, onReset }: Props) {
           }}
         >
           {result.is_authorized
-            ? 'Purchase Order is authorized for a delivery to arrive'
-            : 'Purchase Order status is NOT in the authorized list — use judgement'}
+            ? 'PO matched and supplier is active — cleared to log this arrival'
+            : 'PO/supplier check did not pass — confirm identity before allowing entry'}
         </Text>
       </View>
 
@@ -258,7 +264,7 @@ export function DeliveryResultCard({ result, onDecide, busy, onReset }: Props) {
           <TextInput
             value={remarks}
             onChangeText={setRemarks}
-            placeholder="Why doesn't this match?"
+            placeholder="Why was entry refused? (no PO, wrong vehicle/driver, supplier not active)"
             placeholderTextColor={COLORS.textMuted}
             multiline
             numberOfLines={2}
