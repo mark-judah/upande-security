@@ -4,6 +4,7 @@ export const CheckInType = {
   Contractor: 'contractor',
   CompanyVehicle: 'companyVehicle',
   Dispatch: 'dispatch',
+  Delivery: 'delivery',
 } as const;
 
 export type CheckInType = (typeof CheckInType)[keyof typeof CheckInType];
@@ -14,4 +15,5 @@ export const CHECK_IN_TYPE_LABELS: Record<CheckInType, string> = {
   contractor: 'CONTRACTOR',
   companyVehicle: 'COMPANYVEHICLE',
   dispatch: 'DISPATCH',
+  delivery: 'DELIVERY',
 };

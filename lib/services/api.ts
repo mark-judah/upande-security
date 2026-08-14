@@ -716,6 +716,45 @@ export type ConfirmDispatchReturnResult = {
   gate_return_time: string;
 };
 
+// --- Gate Delivery Verification (inbound supplier deliveries checked
+// against Purchase Order — see upande_security.api.gate_delivery on the
+// server). Single-doctype, not config-driven like dispatch, since there's
+// exactly one clear inbound-authorization document in this system. ---
+
+export type DeliverySearchHit = {
+  found: true;
+  purchase_order: string;
+  supplier: string;
+  supplier_name: string;
+  po_status: string;
+  supplier_active: boolean;
+  transaction_date: string | null;
+  schedule_date: string | null;
+  items_summary: string;
+  is_authorized: boolean;
+};
+export type DeliverySearchMiss = { found: false; error: string };
+export type DeliverySearchResult = DeliverySearchHit | DeliverySearchMiss;
+
+export type VerifyDeliveryInput = {
+  reference: string;
+  gate_verification_status: GateVerificationStatus;
+  vehicle_no?: string;
+  driver_name?: string;
+  remarks?: string;
+};
+export type VerifyDeliveryResult = {
+  name: string;
+  purchase_order: string;
+  gate_verification_status: GateVerificationStatus;
+  is_authorized: boolean;
+};
+
+export type ConfirmDeliveryDepartureResult = {
+  name: string;
+  gate_departure_time: string;
+};
+
 // --- API surface ---
 
 export const api = {
@@ -859,10 +898,41 @@ export const api = {
   // Gate Dispatch Verification — config-driven gate check of trucks
   // against a Dispatch Form (or any future dispatch doctype). Read-only
   // against the source document; the server owns authorization checks.
+  //
+  // Full dotted path required, NOT the bare method name: these are plain
+  // @frappe.whitelist() functions in api/gate_dispatch.py, not Server
+  // Script api_methods. Frappe's /api/method/<cmd> resolver only resolves
+  // bare names via the Server Script map (get_server_script_map()["_api"])
+  // or a frappe.handler globals() lookup for legacy shorthand — neither
+  // covers a plain app module function, so the bare name 404s with
+  // "Failed to get method for command ...". Verified directly against
+  // execute_cmd(): the bare name fails to resolve at all; the dotted path
+  // resolves and calls the function correctly.
   searchDispatchForGate: (reference: string) =>
-    call<DispatchSearchResult>('search_dispatch_for_gate', { reference }),
+    call<DispatchSearchResult>('upande_security.api.gate_dispatch.search_dispatch_for_gate', {
+      reference,
+    }),
   verifyDispatchAtGate: (input: VerifyDispatchInput) =>
-    call<VerifyDispatchResult>('verify_dispatch_at_gate', input),
+    call<VerifyDispatchResult>('upande_security.api.gate_dispatch.verify_dispatch_at_gate', input),
   confirmDispatchReturn: (name: string) =>
-    call<ConfirmDispatchReturnResult>('confirm_dispatch_return', { name }),
+    call<ConfirmDispatchReturnResult>('upande_security.api.gate_dispatch.confirm_dispatch_return', {
+      name,
+    }),
+
+  // Gate Delivery Verification — inbound supplier deliveries checked
+  // against Purchase Order. Read-only against the source document; the
+  // server owns the active-supplier / authorized-status checks. Same
+  // full-dotted-path requirement as Gate Dispatch Verification above —
+  // api/gate_delivery.py is a plain module, not a Server Script.
+  searchDeliveryForGate: (reference: string) =>
+    call<DeliverySearchResult>('upande_security.api.gate_delivery.search_delivery_for_gate', {
+      reference,
+    }),
+  verifyDeliveryAtGate: (input: VerifyDeliveryInput) =>
+    call<VerifyDeliveryResult>('upande_security.api.gate_delivery.verify_delivery_at_gate', input),
+  confirmDeliveryDeparture: (name: string) =>
+    call<ConfirmDeliveryDepartureResult>(
+      'upande_security.api.gate_delivery.confirm_delivery_departure',
+      { name },
+    ),
 };

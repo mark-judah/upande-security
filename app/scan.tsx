@@ -8,7 +8,7 @@ import { useGateStore } from '@/lib/stores/gateStore';
 import { audio } from '@/src/core/audio';
 import { COLORS, fontFamily, fontSize, spacing, borderRadius } from '@/src/core/theme';
 
-type Intent = 'ticket' | 'employee' | 'badge' | 'asset' | 'dispatch';
+type Intent = 'ticket' | 'employee' | 'badge' | 'asset' | 'dispatch' | 'delivery';
 
 export default function ScanModal() {
   const params = useLocalSearchParams<{ intent?: string }>();
@@ -21,7 +21,9 @@ export default function ScanModal() {
           ? 'asset'
           : params.intent === 'dispatch'
             ? 'dispatch'
-            : 'ticket';
+            : params.intent === 'delivery'
+              ? 'delivery'
+              : 'ticket';
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
   const handledRef = useRef(false);
@@ -30,6 +32,7 @@ export default function ScanModal() {
   const setPendingScannedBadge = useGateStore((s) => s.setPendingScannedBadge);
   const setPendingScannedAsset = useGateStore((s) => s.setPendingScannedAsset);
   const setPendingScannedDispatch = useGateStore((s) => s.setPendingScannedDispatch);
+  const setPendingScannedDelivery = useGateStore((s) => s.setPendingScannedDelivery);
 
   if (!permission) {
     return <View style={s.cameraBg} />;
@@ -80,6 +83,8 @@ export default function ScanModal() {
       setPendingScannedAsset(data);
     } else if (intent === 'dispatch') {
       setPendingScannedDispatch(data);
+    } else if (intent === 'delivery') {
+      setPendingScannedDelivery(data);
     } else {
       setPendingScannedTicket(data);
     }
@@ -108,7 +113,9 @@ export default function ScanModal() {
                 ? 'Scan the asset QR sticker'
                 : intent === 'dispatch'
                   ? 'Scan the dispatch document QR / barcode'
-                  : 'Position QR code in the frame'}
+                  : intent === 'delivery'
+                    ? 'Scan the delivery/PO document QR / barcode'
+                    : 'Position QR code in the frame'}
         </Text>
       </View>
     </View>

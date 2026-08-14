@@ -36,6 +36,18 @@ export function extractDispatchReference(raw: string): string {
   return v;
 }
 
+export function extractDeliveryReference(raw: string): string {
+  const v = raw.trim();
+  if (!v) return '';
+  // A PO number or supplier name — same generic Frappe doc URL stripping
+  // as extractDispatchReference, since there's no single fixed URL segment
+  // to match against.
+  if (v.includes('/')) {
+    return decodeURIComponent(v.split('/').pop()!);
+  }
+  return v;
+}
+
 export function extractEmployeeId(raw: string): string {
   const v = raw.trim();
   if (!v) return '';
