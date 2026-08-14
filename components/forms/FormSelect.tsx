@@ -3,6 +3,7 @@ import { View, Text, Pressable, Modal, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS, borderRadius, fontSize, spacing } from '@/src/core/theme';
+import { TRANSPORT_MODE_ICONS } from '@/constants/transportModes';
 
 type Props = {
   label?: string;
@@ -16,11 +17,11 @@ type Props = {
   iconFor?: (option: string) => keyof typeof Ionicons.glyphMap;
 };
 
-// Default icon hints for the common option vocabularies the gate uses.
+// Default icon hints for the common option vocabularies the gate uses —
+// sourced from the shared transport-mode constants so this can't drift
+// out of sync with VisitorForm / ContractorForm again.
 const DEFAULT_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
-  'On Foot': 'walk-outline',
-  Vehicle: 'car-outline',
-  'Motor Bike': 'bicycle-outline',
+  ...TRANSPORT_MODE_ICONS,
 };
 
 export function FormSelect({

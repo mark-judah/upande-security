@@ -27,7 +27,11 @@ export function VisitorForm({
   watchHostName,
   onScanId,
 }: Props) {
-  const showVehicleFields = watchTransport && watchTransport !== 'On Foot';
+  // Vehicle and Motorcycle keep the full plate + colour + passengers group.
+  // Taxi only ever needs the number plate.
+  const showFullVehicleFields = watchTransport === 'Vehicle' || watchTransport === 'Motorcycle';
+  const showPlateOnly = watchTransport === 'Taxi';
+  const showPlateField = showFullVehicleFields || showPlateOnly;
 
   return (
     <View>
@@ -116,22 +120,25 @@ export function VisitorForm({
         )}
       />
 
-      {showVehicleFields ? (
+      {showPlateField ? (
+        <Controller
+          control={control}
+          name="custom_vehicles_number_plate"
+          render={({ field: { onChange, value, onBlur } }) => (
+            <FormInput
+              label="Number Plate"
+              value={value ?? ''}
+              onChangeText={onChange}
+              onBlur={onBlur}
+              autoCapitalize="characters"
+              error={errors.custom_vehicles_number_plate?.message}
+            />
+          )}
+        />
+      ) : null}
+
+      {showFullVehicleFields ? (
         <>
-          <Controller
-            control={control}
-            name="custom_vehicles_number_plate"
-            render={({ field: { onChange, value, onBlur } }) => (
-              <FormInput
-                label="Number Plate"
-                value={value ?? ''}
-                onChangeText={onChange}
-                onBlur={onBlur}
-                autoCapitalize="characters"
-                error={errors.custom_vehicles_number_plate?.message}
-              />
-            )}
-          />
           <Controller
             control={control}
             name="custom_vehicles_colour"

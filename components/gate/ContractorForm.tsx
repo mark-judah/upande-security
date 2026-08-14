@@ -7,6 +7,7 @@ import { FormSelect } from '@/components/forms/FormSelect';
 import type { ContractorSearchResult } from '@/lib/api/types';
 import { toFrappeDateTime } from '@/lib/utils/date';
 import { COLORS, spacing, borderRadius, fontSize } from '@/src/core/theme';
+import { TRANSPORT_MODES, TRANSPORT_MODE_ICONS, type TransportMode } from '@/constants/transportModes';
 
 export type ContractorPersonnelInput = {
   full_name: string;
@@ -14,14 +15,7 @@ export type ContractorPersonnelInput = {
   is_team_leader: boolean;
 };
 
-const CONTRACTOR_TRANSPORT_MODES = ['On Foot', 'Vehicle', 'Motor Bike'] as const;
-type ContractorTransportMode = (typeof CONTRACTOR_TRANSPORT_MODES)[number];
-
-const CONTRACTOR_TRANSPORT_ICONS: Record<ContractorTransportMode, keyof typeof Ionicons.glyphMap> = {
-  'On Foot': 'walk-outline',
-  Vehicle: 'car-outline',
-  'Motor Bike': 'bicycle-outline',
-};
+type ContractorTransportMode = TransportMode;
 
 type PersonnelRow = ContractorPersonnelInput & { key: string };
 
@@ -90,7 +84,11 @@ export function ContractorForm({ result, onNotify, busy }: Props) {
     );
   }
 
-  const showPlateField = transportMode !== 'On Foot';
+  // Vehicle and Motorcycle keep plate + passenger count; Taxi only needs the
+  // plate (mirrors VisitorForm's treatment).
+  const showFullVehicleFields = transportMode === 'Vehicle' || transportMode === 'Motorcycle';
+  const showPlateOnlyField = transportMode === 'Taxi';
+  const showPlateField = showFullVehicleFields || showPlateOnlyField;
 
   const addPersonRow = () => {
     setPersonnel((rows) => [...rows, { key: newRowKey(), full_name: '', id_number: '', is_team_leader: false }]);
@@ -128,7 +126,7 @@ export function ContractorForm({ result, onNotify, busy }: Props) {
     onNotify({
       host: hostId,
       plate: showPlateField ? plate.trim() || undefined : undefined,
-      passengers: raw && Number.isFinite(num) && num >= 0 ? num : undefined,
+      passengers: !showPlateOnlyField && raw && Number.isFinite(num) && num >= 0 ? num : undefined,
       transportMode,
       scopeOfWork: scopeOfWork.trim() || undefined,
       expectedExit: expectedExit ? toFrappeDateTime(expectedExit) : undefined,
@@ -188,9 +186,9 @@ export function ContractorForm({ result, onNotify, busy }: Props) {
         <FormSelect
           label="Mode of Transport"
           value={transportMode}
-          options={CONTRACTOR_TRANSPORT_MODES}
+          options={TRANSPORT_MODES}
           onChange={(v) => setTransportMode(v as ContractorTransportMode)}
-          iconFor={(opt) => CONTRACTOR_TRANSPORT_ICONS[opt as ContractorTransportMode] ?? 'radio-button-off-outline'}
+          iconFor={(opt) => TRANSPORT_MODE_ICONS[opt as ContractorTransportMode] ?? 'radio-button-off-outline'}
         />
       </View>
 
@@ -232,44 +230,46 @@ export function ContractorForm({ result, onNotify, busy }: Props) {
         </View>
       ) : null}
 
-      <View style={{ marginTop: 14 }}>
-        <Text style={{ fontSize: fontSize.xs, fontWeight: '600', color: COLORS.textSecondary, marginBottom: 6 }}>
-          Number Of People In The Vehicle
-        </Text>
-        <View
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            borderWidth: 1,
-            borderColor: COLORS.border,
-            borderRadius: borderRadius.md,
-            backgroundColor: COLORS.surface,
-            paddingHorizontal: spacing.md,
-          }}
-        >
-          <Ionicons name="people" size={18} color={COLORS.textMuted} />
-          <TextInput
-            value={passengers}
-            onChangeText={(v) => setPassengers(v.replace(/[^0-9]/g, ''))}
-            keyboardType="number-pad"
-            inputMode="numeric"
-            placeholder="0"
-            placeholderTextColor={COLORS.textMuted}
-            maxLength={3}
-            editable={!busy}
+      {!showPlateOnlyField ? (
+        <View style={{ marginTop: 14 }}>
+          <Text style={{ fontSize: fontSize.xs, fontWeight: '600', color: COLORS.textSecondary, marginBottom: 6 }}>
+            Number Of People In The Vehicle
+          </Text>
+          <View
             style={{
-              flex: 1,
-              paddingVertical: 10,
-              paddingHorizontal: spacing.sm,
-              fontSize: 14,
-              color: COLORS.text,
+              flexDirection: 'row',
+              alignItems: 'center',
+              borderWidth: 1,
+              borderColor: COLORS.border,
+              borderRadius: borderRadius.md,
+              backgroundColor: COLORS.surface,
+              paddingHorizontal: spacing.md,
             }}
-          />
+          >
+            <Ionicons name="people" size={18} color={COLORS.textMuted} />
+            <TextInput
+              value={passengers}
+              onChangeText={(v) => setPassengers(v.replace(/[^0-9]/g, ''))}
+              keyboardType="number-pad"
+              inputMode="numeric"
+              placeholder="0"
+              placeholderTextColor={COLORS.textMuted}
+              maxLength={3}
+              editable={!busy}
+              style={{
+                flex: 1,
+                paddingVertical: 10,
+                paddingHorizontal: spacing.sm,
+                fontSize: 14,
+                color: COLORS.text,
+              }}
+            />
+          </View>
+          <Text style={{ fontSize: fontSize.xs, color: COLORS.textMuted, marginTop: spacing.xs }}>
+            Leave blank if not applicable
+          </Text>
         </View>
-        <Text style={{ fontSize: fontSize.xs, color: COLORS.textMuted, marginTop: spacing.xs }}>
-          Leave blank if not applicable
-        </Text>
-      </View>
+      ) : null}
 
       <View style={{ marginTop: 14 }}>
         <Text style={{ fontSize: fontSize.xs, fontWeight: '600', color: COLORS.textSecondary, marginBottom: 6 }}>
