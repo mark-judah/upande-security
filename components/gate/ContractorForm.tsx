@@ -126,7 +126,7 @@ export function ContractorForm({ result, onNotify, busy }: Props) {
     onNotify({
       host: hostId,
       plate: showPlateField ? plate.trim() || undefined : undefined,
-      passengers: !showPlateOnlyField && raw && Number.isFinite(num) && num >= 0 ? num : undefined,
+      passengers: showFullVehicleFields && raw && Number.isFinite(num) && num >= 0 ? num : undefined,
       transportMode,
       scopeOfWork: scopeOfWork.trim() || undefined,
       expectedExit: expectedExit ? toFrappeDateTime(expectedExit) : undefined,
@@ -230,7 +230,7 @@ export function ContractorForm({ result, onNotify, busy }: Props) {
         </View>
       ) : null}
 
-      {!showPlateOnlyField ? (
+      {showFullVehicleFields ? (
         <View style={{ marginTop: 14 }}>
           <Text style={{ fontSize: fontSize.xs, fontWeight: '600', color: COLORS.textSecondary, marginBottom: 6 }}>
             Number Of People In The Vehicle
