@@ -755,6 +755,36 @@ export type ConfirmDeliveryDepartureResult = {
   gate_departure_time: string;
 };
 
+// --- Customer appointment booking (book a future visit ahead of time for
+// a known Customer — see search_customers / book_customer_appointment on
+// the server). Phone/email are never typed client-side; the server stamps
+// whatever's on the linked Customer record. ---
+
+export type CustomerSearchHit = {
+  name: string;
+  customer_name: string;
+  mobile_no: string;
+  email_id: string;
+};
+
+export type BookCustomerAppointmentInput = {
+  customer: string;
+  person_name: string;
+  id_number: string;
+  host: string;
+  scheduled_time: string;
+  purpose: string;
+};
+
+export type BookCustomerAppointmentResult = {
+  name: string;
+  customer_name: string;
+  custom_customer: string;
+  host_id: string;
+  scheduled_time: string;
+  workflow_state: string;
+};
+
 // --- API surface ---
 
 export const api = {
@@ -935,4 +965,12 @@ export const api = {
       'upande_security.api.gate_delivery.confirm_delivery_departure',
       { name },
     ),
+
+  // Customer appointment booking — book a future visit ahead of time
+  // (Gate tab's "Book Visit" chip). Bare Server Script api_method names,
+  // same convention as searchContractor/createWalkIn above.
+  searchCustomers: (query: string) =>
+    call<CustomerSearchHit[]>('search_customers', { query }),
+  bookCustomerAppointment: (input: BookCustomerAppointmentInput) =>
+    call<BookCustomerAppointmentResult>('book_customer_appointment', input),
 };

@@ -23,6 +23,7 @@ const TILES: TileMeta[] = [
   { type: CheckInType.CompanyVehicle, label: 'Vehicle',    hint: 'Scan a Tractor Daily Task ticket',   icon: 'car-outline' },
   { type: CheckInType.Dispatch,       label: 'Dispatch',   hint: 'Verify a truck against its dispatch',icon: 'clipboard-outline' },
   { type: CheckInType.Delivery,       label: 'Delivery',   hint: 'Verify a delivery against its PO',   icon: 'cube-outline' },
+  { type: CheckInType.Customer,       label: 'Book Visit', hint: 'Book a visit for a customer',        icon: 'calendar-outline' },
 ];
 
 export function HeaderSelectors({ selected, onSelect }: Props) {
