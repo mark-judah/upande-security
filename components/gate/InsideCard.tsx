@@ -52,7 +52,11 @@ export function InsideCard({ appointment: a, onCheckOut, busy }: Props) {
   const steppedOut = Boolean(a.custom_temp_exit_time);
 
   async function handleTempExit() {
-    await tempExit.mutateAsync({ name: a.name, direction: steppedOut ? 'in' : 'out' });
+    try {
+      await tempExit.mutateAsync({ name: a.name, direction: steppedOut ? 'in' : 'out' });
+    } catch {
+      // feedback handled in the hook
+    }
   }
 
   return (
