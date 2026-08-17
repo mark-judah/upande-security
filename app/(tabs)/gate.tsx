@@ -46,6 +46,7 @@ import { fetchTractorDailyTask, markTractorTaskRowCompleted } from '@/lib/api/ve
 import { extractTicketName } from '@/lib/utils/qr';
 import { toFrappeDateTime, fmtDateTime } from '@/lib/utils/date';
 import { CheckInType } from '@/constants/checkInTypes';
+import { VISITOR_BADGE_ENABLED } from '@/constants/featureFlags';
 import type {
   VisitorAppointmentSearchResult,
   VisitorHistoryResult,
@@ -569,6 +570,7 @@ export default function GateTab() {
             // ready to check in (or already past that point) — not while
             // still waiting on the host to approve.
             const showBadgePanel =
+              VISITOR_BADGE_ENABLED &&
               visitorState != null &&
               (CHECK_IN_ALLOWED_FROM.includes(visitorState) ||
                 visitorState === 'Visitor Checked In' ||
@@ -577,9 +579,10 @@ export default function GateTab() {
             // New-app-only enforcement: a badge must be issued before the
             // guard can check the visitor in. This is purely a client-side
             // gate — check_in_visitor itself is unchanged, so guards still
-            // on an older build are completely unaffected.
+            // on an older build are completely unaffected. Gated behind
+            // VISITOR_BADGE_ENABLED — see constants/featureFlags.ts.
             const checkInBlockedReason =
-              visitorState && CHECK_IN_ALLOWED_FROM.includes(visitorState) && !hasBadge
+              VISITOR_BADGE_ENABLED && visitorState && CHECK_IN_ALLOWED_FROM.includes(visitorState) && !hasBadge
                 ? 'Issue a visitor badge before checking them in.'
                 : undefined;
 

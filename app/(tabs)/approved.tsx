@@ -10,6 +10,7 @@ import type { ApprovedAppointmentRow } from '@/lib/services/api';
 import { COLORS, fontFamily, fontSize, spacing, borderRadius } from '@/src/core/theme';
 import { Button } from '@/src/core/ui/Button';
 import { IssueVisitorBadge } from '@/components/gate/IssueVisitorBadge';
+import { VISITOR_BADGE_ENABLED } from '@/constants/featureFlags';
 
 type Status = 'Approved by Host' | 'Visitor Checked In' | string;
 
@@ -49,8 +50,8 @@ function ApprovedCard({
   // Contractor Personnel), not a badge. This screen's query has no
   // visitor-type filter, so without this check a Contractor appointment
   // that reached Approved by Host would land on the same badge gate as a
-  // Visitor.
-  const requiresBadge = item.custom_visitor_type !== 'Contractor';
+  // Visitor. Gated behind VISITOR_BADGE_ENABLED — see constants/featureFlags.ts.
+  const requiresBadge = VISITOR_BADGE_ENABLED && item.custom_visitor_type !== 'Contractor';
   // Same client-side gate as the Gate tab: a visitor badge must be issued
   // before check-in — this screen has its own independent CHECK IN button,
   // so it needs the same enforcement or it's a bypass of the Gate tab's gate.
