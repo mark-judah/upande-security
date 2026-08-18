@@ -42,6 +42,10 @@ try:
     # ══════════════════════════════════════════════════════════════════
     # 1) PATROL AGGREGATES — one SQL: counts + distance + bbox in one pass
     #     Distance uses LAG window function (same formula as the submit_patrol_points script).
+    #     Guard identity is COALESCE(internal_guard, external_guard) — Patrol GPS Log
+    #     split its old single `guard`/`guard_type` pair into these two dedicated
+    #     Link fields (Employee / Security Guard) when Internal/External Guard
+    #     support shipped; there is no `guard` column anymore.
     # ══════════════════════════════════════════════════════════════════
     patrol_agg = frappe.db.sql("""
         SELECT
@@ -73,7 +77,7 @@ try:
             FROM (
                 SELECT
                     patrol,
-                    guard,
+                    COALESCE(internal_guard, external_guard) AS guard,
                     captured_at,
                     CAST(latitude  AS DECIMAL(12,8)) AS lat,
                     CAST(longitude AS DECIMAL(12,8)) AS lng,
@@ -127,7 +131,7 @@ try:
             points = frappe.db.sql("""
                 SELECT
                     patrol,
-                    guard,
+                    COALESCE(internal_guard, external_guard) AS guard,
                     captured_at,
                     CAST(latitude  AS DECIMAL(12,8)) AS lat,
                     CAST(longitude AS DECIMAL(12,8)) AS lng
@@ -142,7 +146,7 @@ try:
                 SELECT patrol, guard, captured_at, lat, lng FROM (
                     SELECT
                         patrol,
-                        guard,
+                        COALESCE(internal_guard, external_guard) AS guard,
                         captured_at,
                         CAST(latitude  AS DECIMAL(12,8)) AS lat,
                         CAST(longitude AS DECIMAL(12,8)) AS lng,
@@ -157,7 +161,10 @@ try:
             """, points_params, as_dict=True)
 
         # ══════════════════════════════════════════════════════════════
-        # 3) RESOLVE GUARD NAMES — batch lookup
+        # 3) RESOLVE GUARD NAMES — batch lookup across both guard doctypes
+        #    (internal guards are Employees, external guards are Security
+        #    Guard records — same split as everywhere else this app
+        #    resolves a patrol's guard identity)
         # ══════════════════════════════════════════════════════════════
         guard_ids = []
         seen_guards = {}   # guard_id -> True
@@ -180,6 +187,17 @@ try:
             while er_i < len(emp_rows):
                 name_map[emp_rows[er_i].name] = emp_rows[er_i].employee_name or emp_rows[er_i].name
                 er_i = er_i + 1
+
+            sg_rows = frappe.db.sql("""
+                SELECT name, full_name
+                FROM `tabSecurity Guard`
+                WHERE name IN %(ids)s
+            """, {"ids": tuple(guard_ids)}, as_dict=True)
+            sg_i = 0
+            while sg_i < len(sg_rows):
+                if sg_rows[sg_i].name not in name_map:
+                    name_map[sg_rows[sg_i].name] = sg_rows[sg_i].full_name or sg_rows[sg_i].name
+                sg_i = sg_i + 1
 
         # ══════════════════════════════════════════════════════════════
         # 4) BUILD PATROL PATHS — group points by patrol_tag with hard cap
