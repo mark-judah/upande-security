@@ -1,7 +1,8 @@
 import { View, Text } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { WORKFLOW_META, type WorkflowState } from '@/constants/workflowStates';
 import type { Appointment } from '@/lib/api/types';
+import { COLORS, spacing, borderRadius, fontSize } from '@/src/core/theme';
 
 type Props = { appointment: Appointment };
 
@@ -18,13 +19,13 @@ export function WorkflowTrail({ appointment }: Props) {
   return (
     <View
       style={{
-        backgroundColor: '#F5F5F5',
-        borderRadius: 8,
+        backgroundColor: COLORS.surfaceAlt,
+        borderRadius: borderRadius.md,
         padding: 10,
-        marginTop: 8,
+        marginTop: spacing.sm,
       }}
     >
-      <Text style={{ fontSize: 12, fontWeight: '700', color: '#666666', marginBottom: 8 }}>
+      <Text style={{ fontSize: fontSize.xs, fontWeight: '700', color: COLORS.textMuted, marginBottom: spacing.sm }}>
         Workflow trail
       </Text>
       {states.map((s, i) => {
@@ -34,17 +35,17 @@ export function WorkflowTrail({ appointment }: Props) {
         return (
           <View key={`${s}-${i}`} style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
             <View style={{ alignItems: 'center', width: 20 }}>
-              <MaterialIcons
-                name={isCurrent ? 'radio-button-checked' : 'check-circle'}
+              <Ionicons
+                name={isCurrent ? 'radio-button-on' : 'checkmark-circle'}
                 size={16}
-                color={meta?.color ?? '#999999'}
+                color={meta?.color ?? COLORS.textMuted}
               />
               {!isLast ? (
                 <View
                   style={{
                     width: 1.5,
                     height: 16,
-                    backgroundColor: '#D0D0D0',
+                    backgroundColor: COLORS.border,
                     marginTop: 2,
                     marginBottom: 2,
                   }}
@@ -53,8 +54,8 @@ export function WorkflowTrail({ appointment }: Props) {
             </View>
             <Text
               style={{
-                fontSize: 12,
-                color: isCurrent ? '#111111' : '#666666',
+                fontSize: fontSize.xs,
+                color: isCurrent ? COLORS.text : COLORS.textMuted,
                 fontWeight: isCurrent ? '600' : '400',
                 marginLeft: 6,
                 paddingBottom: isLast ? 0 : 10,

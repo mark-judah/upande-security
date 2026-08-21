@@ -1,8 +1,8 @@
 import { useMutation } from '@tanstack/react-query';
-import { fetchStaffEmployee } from '@/lib/api/staff';
+import { searchStaffEmployees } from '@/lib/api/staff';
 
 export function useStaffSearch() {
   return useMutation({
-    mutationFn: (query: string) => fetchStaffEmployee(query),
+    mutationFn: (query: string) => searchStaffEmployees(query),
   });
 }

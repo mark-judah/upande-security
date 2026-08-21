@@ -1,22 +1,26 @@
 import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { LiveTimer } from '@/components/ui/LiveTimer';
-import { fmtTime } from '@/lib/utils/date';
+import { fmtTime, getDuration } from '@/lib/utils/date';
 import { WORKFLOW_META } from '@/constants/workflowStates';
-import { useCheckOut } from '@/lib/hooks/useCheckOut';
-import { useContractorCheckOut } from '@/lib/hooks/useContractorCheckOut';
+import { useAppointmentTempExit } from '@/lib/hooks/useAppointmentTempExit';
 import type { Appointment } from '@/lib/api/types';
+import { COLORS, spacing, borderRadius, fontFamily, fontSize } from '@/src/core/theme';
 
-type Props = { appointment: Appointment };
+type Props = {
+  appointment: Appointment;
+  onCheckOut?: (name: string) => void;
+  busy?: boolean;
+};
 
 const VISITOR_TYPE_STYLE: Record<
   NonNullable<Appointment['custom_visitor_type']>,
   { bg: string; fg: string }
 > = {
-  Visitor:    { bg: '#1E88E5', fg: '#FFFFFF' },
-  Staff:      { bg: '#43A047', fg: '#FFFFFF' },
-  Contractor: { bg: '#FB8C00', fg: '#FFFFFF' },
-  Customer:   { bg: '#8E24AA', fg: '#FFFFFF' },
+  Visitor: { bg: COLORS.primary, fg: COLORS.textOnPrimary },
+  Staff: { bg: COLORS.success, fg: COLORS.textOnPrimary },
+  Contractor: { bg: COLORS.warn, fg: COLORS.textOnPrimary },
+  Customer: { bg: '#8E24AA', fg: COLORS.textOnPrimary },
 };
 
 function VisitorTypeBadge({ type }: { type?: Appointment['custom_visitor_type'] }) {
@@ -28,72 +32,64 @@ function VisitorTypeBadge({ type }: { type?: Appointment['custom_visitor_type'] 
         backgroundColor: palette.bg,
         paddingHorizontal: 6,
         paddingVertical: 2,
-        borderRadius: 4,
-        marginRight: 6,
+        borderRadius: borderRadius.sm,
+        marginRight: spacing.sm - 2,
       }}
     >
-      <Text style={{ color: palette.fg, fontSize: 9, fontWeight: '800', letterSpacing: 0.5 }}>
+      <Text style={{ color: palette.fg, fontSize: 9, fontFamily: fontFamily.bold, letterSpacing: 0.5 }}>
         {resolved.toUpperCase()}
       </Text>
     </View>
   );
 }
 
-export function InsideCard({ appointment: a }: Props) {
+export function InsideCard({ appointment: a, onCheckOut, busy }: Props) {
   const checkInDate = a.custom_check_in_time ? new Date(a.custom_check_in_time) : null;
   const meta = WORKFLOW_META[a.workflow_state];
   const isContractor = a.custom_visitor_type === 'Contractor';
 
-  const visitorCheckOut = useCheckOut();
-  const contractorCheckOut = useContractorCheckOut();
-  const busy = visitorCheckOut.isPending || contractorCheckOut.isPending;
+  const tempExit = useAppointmentTempExit();
+  const steppedOut = Boolean(a.custom_temp_exit_time);
 
-  async function handleCheckOut() {
-    if (isContractor) {
-      await contractorCheckOut.mutateAsync(a.name);
-    } else {
-      await visitorCheckOut.mutateAsync(a.name);
+  async function handleTempExit() {
+    try {
+      await tempExit.mutateAsync({ name: a.name, direction: steppedOut ? 'in' : 'out' });
+    } catch {
+      // feedback handled in the hook
     }
   }
 
   return (
     <View
       style={{
-        backgroundColor: '#FFFFFF',
-        borderRadius: 10,
-        padding: 12,
-        marginBottom: 8,
-        borderLeftWidth: 3,
-        borderLeftColor: isContractor ? '#FB8C00' : '#000000',
-        shadowColor: '#000000',
-        shadowOpacity: 0.04,
-        shadowRadius: 4,
-        shadowOffset: { width: 0, height: 1 },
-        elevation: 1,
+        backgroundColor: COLORS.surface,
+        borderRadius: borderRadius.md,
+        padding: spacing.md,
+        marginBottom: spacing.sm,
+        borderWidth: 1,
+        borderColor: COLORS.border,
       }}
     >
       {/* Header row */}
       <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-        <MaterialIcons
-          name={isContractor ? 'engineering' : 'person-pin'}
-          size={20}
-          color={isContractor ? '#FB8C00' : '#000000'}
-        />
-        <View style={{ flex: 1, marginLeft: 8 }}>
+        <Ionicons name="person" size={20} color={COLORS.text} />
+        <View style={{ flex: 1, marginLeft: spacing.sm }}>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <VisitorTypeBadge type={a.custom_visitor_type} />
             <Text
-              style={{ fontWeight: '700', color: '#111111', flexShrink: 1 }}
+              style={{ fontFamily: fontFamily.semiBold, fontSize: fontSize.sm, color: COLORS.text, flexShrink: 1 }}
               numberOfLines={1}
             >
               {a.customer_name}
             </Text>
           </View>
           {a.customer_phone_number ? (
-            <Text style={{ color: '#666666', fontSize: 12 }}>{a.customer_phone_number}</Text>
+            <Text style={{ color: COLORS.textMuted, fontSize: fontSize.xs, fontFamily: fontFamily.regular }}>
+              {a.customer_phone_number}
+            </Text>
           ) : null}
           {isContractor && a.custom_contractor_ref ? (
-            <Text style={{ color: '#FB8C00', fontSize: 11, fontWeight: '600' }}>
+            <Text style={{ color: COLORS.warn, fontSize: 11, fontFamily: fontFamily.semiBold }}>
               {a.custom_contractor_ref}
             </Text>
           ) : null}
@@ -101,27 +97,29 @@ export function InsideCard({ appointment: a }: Props) {
         {checkInDate ? <LiveTimer entryTime={checkInDate} compact /> : null}
       </View>
 
-      {/* Details row */}
-      <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8, flexWrap: 'wrap' }}>
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          marginTop: spacing.sm,
+          flexWrap: 'wrap',
+        }}
+      >
         {meta ? (
           <>
-            <MaterialIcons
-              name={meta.icon as keyof typeof import('@expo/vector-icons').MaterialIcons.glyphMap}
-              size={14}
-              color={meta.color}
-            />
-            <Text style={{ color: meta.color, fontSize: 12, marginLeft: 4, marginRight: 10 }}>
+            <Ionicons name={meta.icon} size={14} color={meta.color} />
+            <Text style={{ color: meta.color, fontSize: fontSize.xs, fontFamily: fontFamily.regular, marginLeft: spacing.xs, marginRight: 10 }}>
               {a.workflow_state}
             </Text>
           </>
         ) : null}
         {checkInDate ? (
-          <Text style={{ color: '#666666', fontSize: 12, marginRight: 10 }}>
+          <Text style={{ color: COLORS.textMuted, fontSize: fontSize.xs, fontFamily: fontFamily.regular, marginRight: 10 }}>
             In {fmtTime(a.custom_check_in_time)}
           </Text>
         ) : null}
         {a.custom_mode_of_transport ? (
-          <Text style={{ color: '#666666', fontSize: 12, marginRight: 10 }}>
+          <Text style={{ color: COLORS.textMuted, fontSize: fontSize.xs, fontFamily: fontFamily.regular, marginRight: 10 }}>
             {a.custom_mode_of_transport}
           </Text>
         ) : null}
@@ -130,55 +128,105 @@ export function InsideCard({ appointment: a }: Props) {
             style={{
               flexDirection: 'row',
               alignItems: 'center',
-              backgroundColor: '#EEEEEE',
-              borderRadius: 4,
+              backgroundColor: COLORS.bgMuted,
+              borderRadius: borderRadius.sm,
               paddingHorizontal: 5,
               paddingVertical: 2,
               marginRight: 10,
             }}
           >
-            <MaterialIcons name="directions-car" size={11} color="#333333" />
-            <Text style={{ fontSize: 11, color: '#111111', fontWeight: '700', marginLeft: 3 }}>
+            <Ionicons name="car-outline" size={11} color={COLORS.textSecondary} />
+            <Text style={{ fontSize: 11, color: COLORS.text, fontFamily: fontFamily.semiBold, marginLeft: 3 }}>
               {a.custom_vehicles_number_plate}
               {a.custom_vehicles_colour ? ` · ${a.custom_vehicles_colour}` : ''}
             </Text>
           </View>
         ) : null}
         {a.custom_number_of_passengers ? (
-          <Text style={{ color: '#333333', fontSize: 12 }}>
+          <Text style={{ color: COLORS.textSecondary, fontSize: fontSize.xs, fontFamily: fontFamily.regular }}>
             +{a.custom_number_of_passengers} pax
           </Text>
         ) : null}
       </View>
 
-      {/* Check Out button */}
-      <TouchableOpacity
-        onPress={handleCheckOut}
-        disabled={busy}
-        activeOpacity={0.8}
-        style={{
-          marginTop: 10,
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'center',
-          backgroundColor: isContractor ? '#FB8C00' : '#000000',
-          borderRadius: 7,
-          paddingVertical: 10,
-          opacity: busy ? 0.6 : 1,
-          minHeight: 40,
-        }}
-      >
-        {busy ? (
-          <ActivityIndicator size="small" color="#FFFFFF" />
-        ) : (
-          <>
-            <MaterialIcons name="logout" size={16} color="#FFFFFF" />
-            <Text style={{ color: '#FFFFFF', fontWeight: '700', marginLeft: 6, fontSize: 13 }}>
-              CHECK OUT
-            </Text>
-          </>
-        )}
-      </TouchableOpacity>
+      {steppedOut ? (
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            backgroundColor: '#FFFBEB',
+            borderRadius: borderRadius.sm,
+            paddingHorizontal: spacing.sm + 2,
+            paddingVertical: spacing.sm - 2,
+            marginTop: spacing.sm,
+          }}
+        >
+          <Ionicons name="walk-outline" size={14} color={COLORS.warn} />
+          <Text style={{ color: COLORS.warn, fontSize: fontSize.xs, fontFamily: fontFamily.semiBold, marginLeft: spacing.sm - 2 }}>
+            Stepped out at {fmtTime(a.custom_temp_exit_time)} ·{' '}
+            {getDuration(a.custom_temp_exit_time)}
+          </Text>
+        </View>
+      ) : null}
+
+      <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm + 2 }}>
+        <TouchableOpacity
+          onPress={handleTempExit}
+          disabled={tempExit.isPending}
+          activeOpacity={0.8}
+          style={{
+            flex: 1,
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: steppedOut ? COLORS.success : COLORS.warn,
+            borderRadius: borderRadius.sm,
+            paddingVertical: spacing.sm + 2,
+            opacity: tempExit.isPending ? 0.6 : 1,
+            minHeight: 40,
+          }}
+        >
+          {tempExit.isPending ? (
+            <ActivityIndicator size="small" color={COLORS.textOnPrimary} />
+          ) : (
+            <>
+              <Ionicons name={steppedOut ? 'log-in-outline' : 'walk-outline'} size={16} color={COLORS.textOnPrimary} />
+              <Text style={{ color: COLORS.textOnPrimary, fontFamily: fontFamily.semiBold, marginLeft: spacing.sm - 2, fontSize: fontSize.sm }}>
+                {steppedOut ? 'CONFIRM RETURN' : 'STEP OUT'}
+              </Text>
+            </>
+          )}
+        </TouchableOpacity>
+
+        {onCheckOut ? (
+          <TouchableOpacity
+            onPress={() => onCheckOut(a.name)}
+            disabled={busy}
+            activeOpacity={0.8}
+            style={{
+              flex: 1,
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: busy ? COLORS.border : COLORS.primary,
+              borderRadius: borderRadius.sm,
+              paddingVertical: spacing.sm + 2,
+              minHeight: 40,
+            }}
+          >
+            {busy ? (
+              <ActivityIndicator size="small" color={COLORS.textMuted} />
+            ) : (
+              <>
+                <Ionicons name="log-out-outline" size={16} color={COLORS.textOnPrimary} />
+                <Text style={{ color: COLORS.textOnPrimary, fontFamily: fontFamily.semiBold, fontSize: fontSize.sm, marginLeft: spacing.sm - 2 }}>
+                  CHECK OUT
+                </Text>
+              </>
+            )}
+          </TouchableOpacity>
+        ) : null}
+      </View>
     </View>
   );
 }

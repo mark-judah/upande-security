@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
-import { View, Text, TextInput, Pressable, ActivityIndicator } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
+import { View, Text, TextInput, Pressable, ActivityIndicator, ScrollView } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useEmployeeSearch } from '@/lib/hooks/useEmployeeSearch';
-import { theme } from '@/constants/theme';
+import { COLORS, borderRadius, fontSize, spacing } from '@/src/core/theme';
 
 type Props = {
   selectedHostId: string | null;
@@ -29,126 +29,154 @@ export function HostSearchField({
 
   const { data: results, isFetching } = useEmployeeSearch(debounced);
   const showDropdown = !selectedHostId && debounced.length >= 2 && (results?.length ?? 0) > 0;
+  const noResults =
+    !selectedHostId && debounced.length >= 2 && !isFetching && (results?.length ?? 0) === 0;
 
   return (
-    <View style={{ marginBottom: 12 }}>
-      <Text style={{ fontSize: 13, color: '#555', marginBottom: 4 }}>Person to Visit *</Text>
+    <View style={{ marginBottom: spacing.md }}>
+      <Text
+        style={{
+          fontSize: fontSize.xs,
+          color: COLORS.textMuted,
+          marginBottom: spacing.xs,
+          textTransform: 'uppercase',
+          letterSpacing: 0.4,
+        }}
+      >
+        Person to Visit *
+      </Text>
+
       <View
         style={{
           flexDirection: 'row',
           alignItems: 'center',
           borderWidth: 1,
-          borderColor: error ? theme.error : '#D0D0D0',
-          borderRadius: 8,
-          paddingHorizontal: 12,
-          backgroundColor: 'white',
+          borderColor: error ? COLORS.danger : COLORS.border,
+          borderRadius: borderRadius.md,
+          paddingHorizontal: spacing.md,
+          backgroundColor: COLORS.bg,
         }}
       >
+        <Ionicons
+          name={selectedHostId ? 'person' : 'person-circle-outline'}
+          size={20}
+          color={COLORS.textMuted}
+          style={{ marginRight: spacing.sm }}
+        />
         <TextInput
           value={selectedHostName ?? query}
           onChangeText={(v) => {
             if (selectedHostId) onClear();
             setQuery(v);
           }}
-          placeholder="Search employee by name"
-          placeholderTextColor="#A0A0A0"
+          placeholder="Search by name"
+          placeholderTextColor={COLORS.textMuted}
           editable={!selectedHostId}
           autoCapitalize="words"
           autoCorrect={false}
-          style={{ flex: 1, paddingVertical: 10, fontSize: 15, color: '#111' }}
+          style={{
+            flex: 1,
+            paddingVertical: spacing.sm + 2,
+            fontSize: fontSize.md,
+            color: COLORS.text,
+            fontWeight: selectedHostId ? '600' : '400',
+          }}
         />
         {selectedHostId ? (
-          <Pressable onPress={onClear} hitSlop={8}>
-            <MaterialIcons name="close" size={18} color="#666" />
+          <Pressable
+            onPress={onClear}
+            hitSlop={10}
+            accessibilityLabel="Clear selected host"
+          >
+            <Ionicons name="close" size={20} color={COLORS.text} />
           </Pressable>
         ) : isFetching ? (
-          <ActivityIndicator size="small" color={theme.primaryColor} />
+          <ActivityIndicator size="small" color={COLORS.text} />
         ) : (
-          <MaterialIcons name="search" size={20} color="#666" />
+          <Ionicons name="search" size={20} color={COLORS.textMuted} />
         )}
       </View>
-
-      {selectedHostId && selectedHostName ? (
-        <View
-          style={{
-            marginTop: 6,
-            alignSelf: 'flex-start',
-            backgroundColor: '#E8F5E9',
-            borderRadius: 999,
-            paddingHorizontal: 10,
-            paddingVertical: 4,
-            flexDirection: 'row',
-            alignItems: 'center',
-          }}
-        >
-          <MaterialIcons name="check-circle" size={14} color={theme.success} />
-          <Text style={{ color: '#2E7D32', fontSize: 12, marginLeft: 4 }}>
-            {selectedHostName} · {selectedHostId}
-          </Text>
-        </View>
-      ) : null}
 
       {showDropdown ? (
         <View
           style={{
-            marginTop: 4,
+            marginTop: 6,
             borderWidth: 1,
-            borderColor: '#E0E0E0',
-            borderRadius: 8,
-            backgroundColor: 'white',
-            maxHeight: 220,
+            borderColor: COLORS.border,
+            borderRadius: borderRadius.md,
+            backgroundColor: COLORS.bg,
+            maxHeight: 260,
             overflow: 'hidden',
-            elevation: 4,
-            shadowColor: '#000',
-            shadowOpacity: 0.08,
-            shadowRadius: 6,
-            shadowOffset: { width: 0, height: 2 },
           }}
         >
-          {(results ?? []).map((r) => (
-            <Pressable
-              key={r.name}
-              onPress={() => {
-                onSelect(r.name, r.employee_name);
-                setQuery('');
-              }}
-              style={({ pressed }) => ({
-                flexDirection: 'row',
-                alignItems: 'center',
-                padding: 10,
-                backgroundColor: pressed ? '#F5F5F5' : 'white',
-                borderBottomWidth: 1,
-                borderBottomColor: '#F0F0F0',
-              })}
-            >
-              <View
-                style={{
-                  width: 32,
-                  height: 32,
-                  borderRadius: 16,
-                  backgroundColor: theme.primaryColor,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <Text style={{ color: 'white', fontWeight: '700' }}>
-                  {r.employee_name.charAt(0).toUpperCase()}
-                </Text>
-              </View>
-              <View style={{ flex: 1, marginLeft: 10 }}>
-                <Text style={{ fontWeight: '600', color: '#111' }}>{r.employee_name}</Text>
-                <Text style={{ color: '#666', fontSize: 12 }}>
-                  {[r.designation, r.department].filter(Boolean).join(' · ')}
-                </Text>
-              </View>
-              <Text style={{ color: '#999', fontSize: 11 }}>{r.name}</Text>
-            </Pressable>
-          ))}
+          <ScrollView
+            keyboardShouldPersistTaps="handled"
+            nestedScrollEnabled
+          >
+            {(results ?? []).map((r, idx) => {
+              const fullName =
+                `${r.first_name ?? ''} ${r.last_name ?? ''}`.trim() ||
+                r.employee_name ||
+                r.name;
+              const meta = [r.designation, r.department].filter(Boolean).join(' · ');
+              return (
+                <Pressable
+                  key={r.name}
+                  onPress={() => {
+                    onSelect(r.name, fullName);
+                    setQuery('');
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Select ${fullName}`}
+                  style={({ pressed }) => ({
+                    paddingVertical: spacing.md,
+                    paddingHorizontal: 14,
+                    backgroundColor: pressed ? COLORS.bgMuted : COLORS.bg,
+                    borderBottomWidth: idx === (results?.length ?? 0) - 1 ? 0 : 1,
+                    borderBottomColor: COLORS.bgMuted,
+                  })}
+                >
+                  <Text
+                    style={{
+                      color: COLORS.text,
+                      fontSize: fontSize.md,
+                      fontWeight: '600',
+                    }}
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                  >
+                    {fullName}
+                  </Text>
+                  {meta ? (
+                    <Text
+                      style={{
+                        color: COLORS.textMuted,
+                        fontSize: fontSize.xs,
+                        marginTop: 2,
+                      }}
+                      numberOfLines={1}
+                      ellipsizeMode="tail"
+                    >
+                      {meta}
+                    </Text>
+                  ) : null}
+                </Pressable>
+              );
+            })}
+          </ScrollView>
         </View>
       ) : null}
 
+      {noResults ? (
+        <Text style={{ color: COLORS.textMuted, fontSize: fontSize.xs, marginTop: 6 }}>
+          No active employees match "{debounced}".
+        </Text>
+      ) : null}
+
       {error ? (
-        <Text style={{ color: theme.error, fontSize: 12, marginTop: 4 }}>{error}</Text>
+        <Text style={{ color: COLORS.danger, fontSize: fontSize.xs, marginTop: spacing.xs }}>
+          {error}
+        </Text>
       ) : null}
     </View>
   );

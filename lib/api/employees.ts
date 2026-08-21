@@ -1,33 +1,25 @@
-import api from './client';
+// Thin shim over the server-script verbs in lib/services/api.ts.
+// All Employee lookups go through Frappe server scripts — never /api/resource.
+import { api } from '@/lib/services/api';
 import type { Employee, EmployeeResult } from './types';
 
 export async function fetchEmployee(name: string): Promise<Employee> {
-  const res = await api.get<{ data: Employee }>(
-    `/api/resource/Employee/${encodeURIComponent(name)}`,
-  );
-  return res.data.data;
+  const e = await api.getEmployee(name);
+  return e as unknown as Employee;
 }
 
-export async function getEmployeeName(employeeId: string) {
-  const fields = encodeURIComponent(JSON.stringify(['employee_name']));
-  const res = await api.get<{ data: { employee_name: string } }>(
-    `/api/resource/Employee/${encodeURIComponent(employeeId)}?fields=${fields}`,
-  );
-  return res.data.data.employee_name;
+export async function getEmployeeName(employeeId: string): Promise<string> {
+  const e = await api.getEmployee(employeeId);
+  return e.employee_name ?? '';
 }
 
-export async function searchEmployees(query: string) {
-  const filters = encodeURIComponent(
-    JSON.stringify([
-      ['Employee', 'employee_name', 'like', `%${query}%`],
-      ['Employee', 'status', '=', 'Active'],
-    ]),
-  );
-  const fields = encodeURIComponent(
-    JSON.stringify(['name', 'employee_name', 'designation', 'department', 'status']),
-  );
-  const res = await api.get<{ data: EmployeeResult[] }>(
-    `/api/resource/Employee?filters=${filters}&fields=${fields}&limit_page_length=20&order_by=employee_name asc`,
-  );
-  return res.data.data;
+export async function searchEmployees(query: string): Promise<EmployeeResult[]> {
+  const hits = await api.searchEmployees(query);
+  return hits.map((h) => ({
+    name: h.name,
+    employee_name: h.employee_name,
+    designation: h.designation,
+    department: h.department,
+    status: h.status,
+  }));
 }

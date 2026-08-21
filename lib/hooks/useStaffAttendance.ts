@@ -7,7 +7,7 @@ export function useStaffAttendance() {
   const qc = useQueryClient();
   const feedback = useFeedback();
   return useMutation({
-    mutationFn: async (input: { employee: Employee; numberPlate?: string }) => {
+    mutationFn: async (input: { employee: Employee }) => {
       const created = await createStaffAttendance(input);
       try {
         await submitAttendance(created.name);
@@ -24,6 +24,9 @@ export function useStaffAttendance() {
     },
     onSuccess: (created) => {
       qc.invalidateQueries({ queryKey: ['attendance'] });
+      qc.invalidateQueries({ queryKey: ['staff-attendance-today', created.employee] });
+      qc.invalidateQueries({ queryKey: ['staff-attendance-summary'] });
+      qc.invalidateQueries({ queryKey: ['checked-in-staff'] });
       feedback.success(`Attendance ${created.name} recorded`);
     },
     onError: (err: Error) => feedback.error(err.message || 'Check-in failed'),

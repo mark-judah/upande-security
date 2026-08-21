@@ -187,14 +187,16 @@ security-gate/
 │   ├── api/
 │   │   ├── client.ts                     # Axios w/ cookie interceptor
 │   │   ├── auth.ts                       # login, _getWorkingUrl
-│   │   ├── visitors.ts                   # All Appointment endpoints
-│   │   ├── staff.ts                      # Staff search
-│   │   ├── contractors.ts                # Contractor search
-│   │   ├── vehicles.ts                   # Tractor Daily Task endpoints
-│   │   ├── employees.ts                  # Employee type-ahead search
-│   │   ├── summary.ts                    # Daily summary fetch
-│   │   ├── workflow.ts                   # apply_workflow helper
+│   │   ├── visitors.ts                   # Visitor flow shims (delegate to lib/services/api.ts)
+│   │   ├── staff.ts                      # Staff search shim
+│   │   ├── contractors.ts                # Contractor search shim
+│   │   ├── vehicles.ts                   # Tractor Daily Task shims
+│   │   ├── employees.ts                  # Employee search shim
+│   │   ├── summary.ts                    # Daily summary shim
 │   │   └── types.ts                      # All TypeScript types
+│   │
+│   ├── services/
+│   │   └── api.ts                        # SINGLE entry point — one method per Frappe Server Script verb. All callers go through here.
 │   │
 │   ├── hooks/
 │   │   ├── useAuth.ts
@@ -454,37 +456,53 @@ api.interceptors.response.use(
 export default api;
 ```
 
-### Endpoint inventory (1:1 with Flutter `apiService`)
+### Endpoint inventory
 
-| Function | HTTP | Endpoint | Body / params |
-|---|---|---|---|
-| `fetchVisitorAppointment(query)` | POST | `/api/method/getVisitorAppointment` | `{ query }` |
-| `fetchStaffEmployee(query)` | POST | `/api/method/getStaffEmployee` | `{ query }` |
-| `fetchContractorContract(query)` | POST | `/api/method/getContractorContract` | `{ query }` |
-| `fetchAppointmentDoc(name)` | GET | `/api/resource/Appointment/{name}` | — |
-| `getEmployeeName(employeeId)` | GET | `/api/resource/Employee/{employeeId}?fields=["employee_name"]` | — |
-| `searchEmployees(query)` | GET | `/api/resource/Employee?filters=...&fields=...&limit_page_length=20&order_by=employee_name asc` | filter on `employee_name like %query%` AND `status = Active` |
-| `setAppointmentClosed(name)` | PUT | `/api/resource/Appointment/{name}` | `{ status: "Closed" }` |
-| `updateAppointmentStatus({...})` | PUT | `/api/resource/Appointment/{name}` | `custom_mode_of_transport`, `custom_vehicles_number_plate`, `custom_vehicles_colour`, `custom_reporting_status`, optional `custom_check_in_time`, `custom_check_out_time` |
-| `runWorkflowAction({name, action})` | POST | `/api/method/frappe.model.workflow.apply_workflow` | `{ doc: <full Appointment doc as JSON string>, action }` (note: doc must be fetched first via `fetchAppointmentDoc`) |
-| `createAppointment({...})` | POST | `/api/resource/Appointment` | `customer_name`, `customer_phone_number`, `customer_email`, `custom_meet_with`, `scheduled_time`, `customer_details`, `custom_mode_of_transport`, `status: "Open"`, optional vehicle fields |
-| `fetchDailySummary({date})` | GET | `/api/resource/Appointment?filters=...&fields=...&limit_page_length=200&order_by=custom_check_in_time desc` | Filter `scheduled_time between [00:00:00, 23:59:59]` |
-| `fetchTractorDailyTask(name)` | GET | `/api/resource/Tractor%20Daily%20Task/{name}` | — |
-| `recordTractorGateEntry({name, entryTime, farm})` | PUT | `/api/resource/Tractor%20Daily%20Task/{name}` | `custom_gate_entry_time`, `custom_gate_entry_farm`, `custom_gate_status: "Inside"` |
-| `recordTractorGateExit({name, exitTime, completionNote})` | PUT | `/api/resource/Tractor%20Daily%20Task/{name}` | `custom_gate_exit_time`, `custom_completion_note`, `custom_gate_status: "Exited"` |
-| `updateTractorDailyTask({name, data})` | PUT | `/api/resource/Tractor Daily Task/{name}` | arbitrary partial update |
+**All data traffic goes through Frappe Server Scripts.** Never call `/api/resource/...` or `frappe.client.*` from the app — those bypass the validation, workflow transitions, and authorization the server scripts enforce. The single entry point is `lib/services/api.ts`, which exposes one method per verb. Server-side source lives in `frappe/scripts/*.py` and is registered in `frappe/server_scripts.json`.
 
-### Workflow action mapping
-
-The Flutter `BLoC` events map to these workflow actions on the Appointment doc:
-
-| Flutter event | Workflow action | Resulting state |
+| Client method (`api.*`) | Server verb | Purpose |
 |---|---|---|
-| `ConfirmGateCheckIn` | Update fields then run `Check In` action OR set `workflow_state = "Visitor Checked In"` directly with `custom_check_in_time = now` | `Visitor Checked In` |
-| `ConfirmGateCheckOut` | Run `Check Out` action with `custom_check_out_time = now` | `Visitor Checked Out` |
-| `SendToSecretary` | Run `Send to Secretary` action | `Pending Secretary Review` |
+| `getSessionInfo()` | `get_session_info` | Current user, roles, employee link — drives side menu and role-gated UI |
+| `searchVisitorAppointment(query)` | `search_visitor_appointment` | Fuzzy visitor lookup, returns best match for today |
+| `searchStaff(query)` | `search_staff` | Staff lookup by employee ID |
+| `searchContractor(query)` | `getContractorContract` | Active contractor contract (Supplier-backed, with vehicle child table) |
+| `contractorCheckIn(input)` | `contractor_gate_checkin` | Create + check-in a contractor appointment in one call |
+| `contractorCheckOut(name)` | `contractor_gate_checkout` | Transition contractor appointment to Checked Out |
+| `searchEmployees(query)` | `search_employees` | Type-ahead host search (Active employees) |
+| `getEmployee(name)` | `get_employee` | Full employee record for staff attendance / host pre-fill |
+| `getAppointment(name)` | `get_appointment` | Full Appointment doc + current workflow state |
+| `checkInVisitor(input)` | `check_in_visitor` | Update transport fields and transition workflow to "Visitor Checked In" (single call) |
+| `checkOutVisitor(name)` | `check_out_visitor` | Transition to "Visitor Checked Out" and stamp check-out time |
+| `createWalkIn(input)` | `create_walk_in` | Create + check-in a walk-in Appointment in one call |
+| `dailySummary(date?)` | `daily_summary` | Server-side aggregation: totals + still-inside list + full activity log |
+| `searchVehicleTickets(query)` | `search_vehicle_tickets` | Tractor Daily Task search by name |
+| `getVehicleTicket(name)` | `get_vehicle_ticket` | Full ticket fetch (with task child rows) |
+| `markVehicleTaskCompleted(ticket, row?)` | `mark_vehicle_task_completed` | Set `completed=1` on a task row |
+| `createGateTimesheet(ticket, entryTime?)` | `create_gate_timesheet` | Build a Timesheet from a ticket on vehicle entry |
+| `submitGateTimesheet(name, exit, note)` | `submit_gate_timesheet` | Compute hours, write completion note, submit (docstatus=1) |
+| `createStaffAttendance(employee, plate?)` | `create_staff_attendance` | Insert Attendance row (Present, in_time=now) |
+| `submitStaffAttendance(name)` | `submit_staff_attendance` | Submit (docstatus=1) an Attendance row |
+| `listIncidentCategories()` | `list_incident_categories` | Categories for the incident-report form |
+| `createIncident(input)` | `create_incident` | Create an Incident Report |
+| `myIncidents()` | `my_incidents` | List incidents reported by `frappe.session.user` |
+| `submitPatrolPoints(points)` | `submit_patrol_points` | Batch GPS-point ingest from the patrol foreground task |
 
-Look at the actual Frappe workflow definition on `Appointment` to confirm action names. The RN code should mirror Flutter's behavior: fetch the full doc, then POST to `apply_workflow` with `doc` (stringified JSON) + `action`.
+**Soft-fail contract.** Server scripts return `frappe.response["message"]`, with `{ error: "..." }` on validation/business failure (still HTTP 200). The `call<T>` wrapper in `lib/services/api.ts` promotes that to a thrown `Error`, so every callsite sees the same failure path. UI hooks should `try/catch` around the mutation, not check for response shape.
+
+**Stock endpoints still in use** (limited to two — do not expand this list):
+- `POST /api/method/login` — initial authentication; returns the `sid` cookie used by every subsequent request.
+- `POST /api/method/upload_file` — multipart photo upload for incident attachments (`uploadIncidentPhoto` in `lib/api/incidents.ts`). Stock Frappe, no equivalent server script.
+
+### Workflow transitions
+
+Workflow transitions are performed **inside the server scripts**, not from the client. `check_in_visitor` and `check_out_visitor` call `frappe.model.workflow.apply_workflow` on the server with the appropriate action. The client never POSTs to `apply_workflow` directly and never serializes Appointment docs into the body.
+
+| Client action | Server verb | Resulting state |
+|---|---|---|
+| Visitor "CHECK IN" button | `check_in_visitor` | `Visitor Checked In` (workflow + `custom_check_in_time` stamped) |
+| Visitor "CHECK OUT" button | `check_out_visitor` | `Visitor Checked Out` (workflow + `custom_check_out_time` stamped) |
+| "REGISTER AS WALK-IN" save | `create_walk_in` | New Appointment created + transitioned to `Visitor Checked In` in one call |
+| Contractor "CHECK IN" button | `contractor_gate_checkin` | New Appointment created with `custom_visitor_type=Contractor`, transitioned + stamped |
 
 ---
 
@@ -538,18 +556,24 @@ Used for host search. Fields read by the app:
 | `custom_completion_note` | Long Text | Required at exit |
 | `custom_gate_status` | Select | `Inside` / `Exited` |
 
-### Custom Frappe API methods (already deployed on Kaitet)
+### Server Scripts (source of truth: `frappe/scripts/*.py`)
 
-| Method | Purpose | Request | Response shape |
-|---|---|---|---|
-| `getVisitorAppointment` | Server-side fuzzy search for visitor by name/ID/phone, returns single best appointment match for today | `POST { query }` | `{ message: { has_appointment, visitor_name, id_no, phone_number, organization, host_name, scheduled_time, purpose, transport_mode, vehicle_reg_no, vehicle_color, name, status } }` |
-| `getStaffEmployee` | Lookup staff by ID | `POST { query }` | `{ message: { full_name, employee_id, ... } }` |
-| `getContractorContract` | Lookup active contractor contract | `POST { query }` | `{ message: { contract_name, contractor_name, ... } }` |
+Every API verb the app uses is a Frappe Server Script. The full inventory is in §4 above; the Python source for each verb lives at `frappe/scripts/<verb>.py`, and `frappe/server_scripts.json` is the importable record for `bench import-doc`.
 
-**Standard Frappe methods used:**
-- `frappe.model.workflow.apply_workflow` — runs a workflow transition
+**House style for new verbs** is documented in `frappe/README.md`. Hard rules (all derived from the safe-exec sandbox):
 
-The RN dev does not need to create or modify any of these on the server.
+- No imports — use `frappe`, `frappe.utils`, builtins.
+- No `.format()` / f-strings — use `+` concatenation or `"%s" % value`.
+- No top-level `return` — branch with `if/elif/else` and assign to `frappe.response["message"]` in each branch.
+- No augmented assignment (`+=`, `-=`) at top level — use `x = x + 1`.
+- `frappe.db.sql` is SELECT-only — use `frappe.db.set_value`, `frappe.new_doc(...).insert()`, `frappe.delete_doc(...)` for DML.
+- Always parameterise SQL (`%s`, `%(foo)s`) — never f-string user input.
+- Soft-fail on HTTP 200 with `{"error": "..."}` — the client wrapper promotes that to a thrown error.
+- No identifiers starting with `_` — they fail at compile time.
+- `type()` / `isinstance()` are not available — for list-vs-dict dispatch, probe `raw[0]` in try/except.
+- `.get(...)` on a dict is intercepted as a key lookup, not a method — use bracket access with `try/except (KeyError, TypeError)`.
+
+The RN dev does not need to create or modify these on the server during normal feature work — call the existing verbs from `lib/services/api.ts`. If a new verb is needed, write the Python script under `frappe/scripts/`, add an entry to `server_scripts.json`, push to the live instance (FAC), and add the wrapper to `lib/services/api.ts` in the same PR.
 
 ---
 
@@ -788,7 +812,7 @@ Modal triggered after a ticket is fetched. Mirrors `_showGateEntryDialog()`.
 
 **Actions:**
 - **Cancel** (text button) → close, `loading=false`
-- **CONFIRM ENTRY** (green, login icon) → close dialog, set `loading=true`, call `recordTractorGateEntry({name, farm, entryTime: now ISO})`. On success: `vehicleInside=true`, `gateEntryTime=entryTime`, success snackbar "Vehicle entered — timer started ✓"
+- **CONFIRM ENTRY** (green, login icon) → close dialog, set `loading=true`, call `api.createGateTimesheet(ticket.name, entryTime)`. On success: store the returned timesheet name in `vehicleStore`, set `vehicleInside=true`, success snackbar "Timesheet TS-... created"
 
 #### 10. Vehicle inside card (`<VehicleInsideCard>`)
 
@@ -804,7 +828,7 @@ Shown while a vehicle is tracked inside. Mirrors `_buildVehicleInsideCard()`.
 - Multiline TextInput (2 lines, hint "e.g. Avocado transportation — 54ha covered")
 - **TASK COMPLETE — CHECK OUT** button (full width, red, logout icon, 52pt tall) → calls `onVehicleCheckOut()`:
   1. Validate completion note non-empty (else warning snackbar)
-  2. Set `loading=true`, call `recordTractorGateExit({name, exitTime: now ISO, completionNote})`
+  2. Set `loading=true`, call `api.submitGateTimesheet(timesheetName, exitTime, completionNote)`, then `api.markVehicleTaskCompleted(ticketName, taskRow)`
   3. On success: reset all vehicle state, success snackbar, refresh summary if on that tab
 
 #### 11. `<LiveTimer>` component
@@ -841,25 +865,27 @@ When `loading === true`, render a full-screen translucent overlay with a centere
 
 #### Data fetched on this screen
 
-| Trigger | Endpoint |
+Every call is `POST /api/method/<verb>` — the table lists the verb. See §4 for the full inventory.
+
+| Trigger | Verb (`api.*` wrapper) |
 |---|---|
-| Manual visitor search | `POST /api/method/getVisitorAppointment` |
-| Manual staff search | `POST /api/method/getStaffEmployee` |
-| Manual contractor search | `POST /api/method/getContractorContract` |
-| Tap PROCEED on found appointment | `GET /api/resource/Appointment/{name}` (to get current `workflow_state`) |
-| Host search (debounced) | `GET /api/resource/Employee?filters=...&fields=...` |
-| Scan/enter ticket | `GET /api/resource/Tractor%20Daily%20Task/{name}` |
+| Manual visitor search | `search_visitor_appointment` (`api.searchVisitorAppointment`) |
+| Manual staff search | `search_staff` (`api.searchStaff`) |
+| Manual contractor search | `getContractorContract` (`api.searchContractor`) |
+| Tap PROCEED on found appointment | `get_appointment` (`api.getAppointment`) — returns the full doc including current `workflow_state` |
+| Host search (debounced) | `search_employees` (`api.searchEmployees`) |
+| Scan/enter ticket | `get_vehicle_ticket` (`api.getVehicleTicket`) |
 
 #### Data posted on this screen
 
-| Action | Endpoint | Body |
+| Action | Verb (`api.*` wrapper) | Notes |
 |---|---|---|
-| Check in (visitor or walk-in) | `PUT /api/resource/Appointment/{name}` then `POST /api/method/frappe.model.workflow.apply_workflow` | Update fields then transition workflow to "Visitor Checked In" with `custom_check_in_time = now` |
-| Check out | Same pattern | Transition to "Visitor Checked Out" with `custom_check_out_time = now` |
-| Create walk-in | `POST /api/resource/Appointment` | All visitor fields + `status: "Open"` |
-| Send to secretary | `POST /api/method/frappe.model.workflow.apply_workflow` | action: "Send to Secretary" |
-| Vehicle entry | `PUT /api/resource/Tractor%20Daily%20Task/{name}` | `custom_gate_entry_time`, `custom_gate_entry_farm`, `custom_gate_status: "Inside"` |
-| Vehicle exit | `PUT /api/resource/Tractor%20Daily%20Task/{name}` | `custom_gate_exit_time`, `custom_completion_note`, `custom_gate_status: "Exited"` |
+| Visitor check in | `check_in_visitor` (`api.checkInVisitor`) | Script updates transport fields + transitions workflow + stamps `custom_check_in_time` in one call |
+| Visitor check out | `check_out_visitor` (`api.checkOutVisitor`) | Single call — transition + `custom_check_out_time` |
+| Create walk-in | `create_walk_in` (`api.createWalkIn`) | Creates Appointment AND checks in (one call) |
+| Contractor check in | `contractor_gate_checkin` (`api.contractorCheckIn`) | Creates Appointment with `custom_visitor_type=Contractor` + checks in |
+| Vehicle entry | `create_gate_timesheet` (`api.createGateTimesheet`) | Builds a Timesheet from the ticket + entry_time |
+| Vehicle exit | `submit_gate_timesheet` (`api.submitGateTimesheet`) + `mark_vehicle_task_completed` (`api.markVehicleTaskCompleted`) | Server computes hours, writes completion note, submits (docstatus=1); then marks the task row completed |
 
 #### Sound + haptic feedback (`useFeedback` hook)
 
@@ -953,31 +979,14 @@ const allDocs = summary.all ?? [];
 #### Data fetched
 
 ```typescript
-GET /api/resource/Appointment
-  ?filters=[["Appointment","scheduled_time","between",["2026-04-17 00:00:00","2026-04-17 23:59:59"]]]
-  &fields=["name","customer_name","customer_phone_number","custom_meet_with",
-           "workflow_state","custom_reporting_status","custom_check_in_time",
-           "custom_check_out_time","scheduled_time","custom_mode_of_transport",
-           "custom_vehicles_number_plate","custom_vehicles_colour","customer_details"]
-  &limit_page_length=200
-  &order_by=custom_check_in_time desc
+import { api } from '@/lib/services/api';
+
+const summary = await api.dailySummary(); // optional ISO date arg, defaults to today
+// summary already has the shape the UI consumes:
+// { date, total_checked_in, total_checked_out, still_inside, still_inside_list, all }
 ```
 
-Then locally compute (to mirror Flutter's `DailySummaryLoaded` shape):
-```typescript
-const all = response.data;
-const checkedIn = all.filter(a => a.custom_check_in_time);
-const checkedOut = all.filter(a => a.custom_check_out_time);
-const stillInside = checkedIn.filter(a => !a.custom_check_out_time);
-
-const summary = {
-  total_checked_in: checkedIn.length,
-  total_checked_out: checkedOut.length,
-  still_inside: stillInside.length,
-  still_inside_list: stillInside,
-  all,
-};
-```
+The aggregation (filter check-in/out, compute still-inside) happens **server-side** in `frappe/scripts/daily_summary.py` — the client does not refilter the array.
 
 #### Helpers
 
@@ -1221,7 +1230,8 @@ export function extractTicketName(raw: string): string {
 - [ ] `Appointment` DocType has all `custom_*` fields listed in section 5
 - [ ] Workflow on `Appointment` includes states: `Open`, `Pending Secretary Review`, `Approved by Secretary`, `Rescheduled by Secretary`, `Redirected to Another Host`, `Rejected by Secretary`, `Visitor Checked In`, `Visitor Checked Out`
 - [ ] Workflow transitions: `Send to Secretary`, `Check In`, `Check Out` (verify exact action names with the existing Flutter app's BLoC events)
-- [ ] Custom methods exist and are whitelisted: `getVisitorAppointment`, `getStaffEmployee`, `getContractorContract`
+- [ ] Server scripts deployed (see `frappe/server_scripts.json`): `get_session_info`, `search_visitor_appointment`, `search_staff`, `getContractorContract`, `contractor_gate_checkin`, `contractor_gate_checkout`, `search_employees`, `get_employee`, `get_appointment`, `check_in_visitor`, `check_out_visitor`, `create_walk_in`, `daily_summary`, `search_vehicle_tickets`, `get_vehicle_ticket`, `mark_vehicle_task_completed`, `create_gate_timesheet`, `submit_gate_timesheet`, `create_staff_attendance`, `submit_staff_attendance`, `list_incident_categories`, `create_incident`, `my_incidents`, `submit_patrol_points`
+- [ ] `server_script_enabled: true` in site_config.json + bench restart (Frappe Cloud: private bench only)
 - [ ] `Tractor Daily Task` DocType has all `custom_gate_*` fields and the `custom_completion_note` field
 - [ ] Gate user has Frappe permissions: read/write on `Appointment`, read/write on `Tractor Daily Task`, read on `Employee`, ability to call workflow transitions
 
@@ -1304,22 +1314,25 @@ eas build --profile production --platform all
 | `<WorkflowTrail>` | `_buildTrail()` |
 | `<DialogRow>` | `_dialogRow()` |
 
-## Appendix B — Workflow event-to-action mapping
+## Appendix B — Mutation-to-server-script mapping
 
-| Flutter BLoC event | RN mutation function | Server effect |
+Every entry on the right column is a single `POST /api/method/<verb>` — no more multi-step REST chains.
+
+| Flutter BLoC event | RN mutation/hook | Server verb |
 |---|---|---|
-| `SearchVisitorAppointment` | `useVisitorSearch.mutate(query)` | Calls `getVisitorAppointment` |
-| `SearchStaffEmployee` | `useStaffSearch.mutate(query)` | Calls `getStaffEmployee` |
-| `SearchContractorContract` | `useContractorSearch.mutate(query)` | Calls `getContractorContract` |
-| `FetchAppointmentWorkflowState` | `useAppointment(name)` query | GET Appointment |
-| `ConfirmGateCheckIn` | `useCheckIn.mutate({...})` | PUT update fields + apply_workflow |
-| `ConfirmGateCheckOut` | `useCheckOut.mutate(name)` | PUT update + apply_workflow |
-| `CreateWalkInAppointment` | `useCreateWalkIn.mutate({...})` | POST Appointment |
-| `SearchEmployees` | `useEmployeeSearch(query)` debounced query | GET Employee with filters |
-| `FetchDailySummary` | `useDailySummary()` query | GET Appointment list with date range |
-| `FetchWorkTicketForGate` | `useVehicleTicket(name)` query | GET Tractor Daily Task |
-| `RecordVehicleGateEntry` | `useVehicleEntry.mutate({...})` | PUT Tractor Daily Task |
-| `RecordVehicleGateExit` | `useVehicleExit.mutate({...})` | PUT Tractor Daily Task |
+| `SearchVisitorAppointment` | `useVisitorSearch.mutate(query)` | `search_visitor_appointment` |
+| `SearchStaffEmployee` | `useStaffSearch.mutate(query)` | `search_staff` |
+| `SearchContractorContract` | `useContractorSearch.mutate(query)` | `getContractorContract` |
+| `FetchAppointmentWorkflowState` | `useAppointmentWorkflowState(name)` query | `get_appointment` |
+| `ConfirmGateCheckIn` | `useCheckIn.mutate({...})` | `check_in_visitor` (script does field-update + workflow transition + timestamp) |
+| `ConfirmGateCheckOut` | `useCheckOut.mutate(name)` | `check_out_visitor` (script does workflow transition + timestamp) |
+| `CreateWalkInAppointment` | `useCreateWalkIn.mutate({...})` | `create_walk_in` (script creates + checks in) |
+| Contractor check-in CTA | direct `api.contractorCheckIn(...)` | `contractor_gate_checkin` |
+| `SearchEmployees` | `useEmployeeSearch(query)` debounced query | `search_employees` |
+| `FetchDailySummary` | `useDailySummary()` query | `daily_summary` (server-aggregated) |
+| `FetchWorkTicketForGate` | `useVehicleTicket(name)` query | `get_vehicle_ticket` |
+| `RecordVehicleGateEntry` | direct `api.createGateTimesheet(...)` | `create_gate_timesheet` |
+| `RecordVehicleGateExit` | direct `api.submitGateTimesheet(...)` + `api.markVehicleTaskCompleted(...)` | `submit_gate_timesheet` + `mark_vehicle_task_completed` |
 
 ## Appendix C — Theme tokens
 

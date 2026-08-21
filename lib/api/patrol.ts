@@ -1,4 +1,17 @@
-import api from './client';
+// Thin shim over the server-script verbs in lib/services/api.ts.
+import { api } from '@/lib/services/api';
+import { uploadIncidentPhoto } from '@/lib/api/incidents';
+import type { FilePatrolReportInput, FilePatrolReportResult } from '@/lib/services/api';
+
+export async function filePatrolReport(
+  input: FilePatrolReportInput,
+): Promise<FilePatrolReportResult> {
+  return api.filePatrolReport(input);
+}
+
+// Same stock upload_file endpoint as incident photos — aliased here for
+// naming clarity at patrol callsites.
+export const uploadPatrolPhoto = uploadIncidentPhoto;
 
 export type PatrolGpsPayload = {
   client_id: string;
@@ -19,28 +32,18 @@ export type PatrolGpsResult = {
   message?: string;
 };
 
-// The Frappe Server Script writes its result to frappe.response["message"],
-// which becomes { "message": [...] } in the HTTP body.
-const METHOD = '/api/method/submitPatrolPoints';
-
 export async function uploadPatrolGps(
   payload: PatrolGpsPayload[],
 ): Promise<PatrolGpsResult[]> {
-  const res = await api.post<Record<string, unknown>>(
-    METHOD,
-    JSON.stringify(payload),
-    { headers: { 'Content-Type': 'application/json' } },
+  const result = await api.submitPatrolPoints(
+    payload.map((p) => ({
+      patrol_tag: p.patrol_tag,
+      guard: p.guard,
+      latitude: p.latitude,
+      longitude: p.longitude,
+      accuracy: p.accuracy,
+      captured_at: p.captured_at,
+    })),
   );
-  if (__DEV__) {
-    // Dump the raw response so we can see the actual wrapper shape Frappe returns.
-    console.log('[uploadPatrolGps] status', res.status, 'body', JSON.stringify(res.data));
-  }
-  const body = res.data ?? {};
-  // Frappe Server Scripts conventionally use "message"; some configurations
-  // surface results under "data". Accept either.
-  const list =
-    (body as { message?: PatrolGpsResult[] }).message ??
-    (body as { data?: PatrolGpsResult[] }).data ??
-    [];
-  return Array.isArray(list) ? list : [];
+  return result ?? [];
 }

@@ -1,4 +1,5 @@
 import { Text, TouchableOpacity } from 'react-native';
+import { COLORS, borderRadius, fontFamily, fontSize, spacing } from '@/src/core/theme';
 
 type Props = {
   label: string;
@@ -13,20 +14,20 @@ export function ChoiceChip({ label, selected, onPress }: Props) {
       activeOpacity={0.7}
       accessibilityRole="button"
       style={{
-        paddingHorizontal: 14,
-        paddingVertical: 8,
-        borderRadius: 20,
+        paddingHorizontal: spacing.md + 2,
+        paddingVertical: spacing.sm,
+        borderRadius: borderRadius.full,
         borderWidth: 1,
-        borderColor: '#000000',
-        backgroundColor: selected ? '#000000' : '#FFFFFF',
-        marginRight: 8,
+        borderColor: COLORS.text,
+        backgroundColor: selected ? COLORS.text : COLORS.bg,
+        marginRight: spacing.sm,
       }}
     >
       <Text
         style={{
-          color: selected ? '#FFFFFF' : '#000000',
-          fontWeight: '600',
-          fontSize: 12,
+          color: selected ? COLORS.textOnPrimary : COLORS.text,
+          fontFamily: fontFamily.semiBold,
+          fontSize: fontSize.xs,
           letterSpacing: 0.3,
         }}
       >

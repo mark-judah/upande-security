@@ -41,3 +41,6 @@ app-example
 # generated native folders
 /ios
 /android
+
+# Kaitet instance credentials (local dev only)
+.kaitet-credentials.json

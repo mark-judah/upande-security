@@ -1,9 +1,11 @@
-import { View } from 'react-native';
+import { View, Text, TouchableOpacity } from 'react-native';
 import { Controller, Control, FieldErrors } from 'react-hook-form';
+import { Ionicons } from '@expo/vector-icons';
 import { FormInput } from '@/components/forms/FormInput';
 import { FormSelect } from '@/components/forms/FormSelect';
 import { HostSearchField } from '@/components/forms/HostSearchField';
 import { TRANSPORT_MODES } from '@/constants/transportModes';
+import { COLORS, spacing, borderRadius, fontFamily, fontSize } from '@/src/core/theme';
 import type { VisitorFormValues } from './visitorFormValues';
 
 type Props = {
@@ -13,6 +15,7 @@ type Props = {
   watchTransport: string;
   watchHostId: string;
   watchHostName: string;
+  onScanId?: () => void;
 };
 
 export function VisitorForm({
@@ -22,11 +25,38 @@ export function VisitorForm({
   watchTransport,
   watchHostId,
   watchHostName,
+  onScanId,
 }: Props) {
-  const showVehicleFields = watchTransport && watchTransport !== 'On Foot';
+  // Vehicle and Motorcycle keep the full plate + colour + passengers group.
+  // Taxi only ever needs the number plate.
+  const showFullVehicleFields = watchTransport === 'Vehicle' || watchTransport === 'Motorcycle';
+  const showPlateOnly = watchTransport === 'Taxi';
+  const showPlateField = showFullVehicleFields || showPlateOnly;
 
   return (
     <View>
+      {onScanId ? (
+        <TouchableOpacity
+          onPress={onScanId}
+          activeOpacity={0.8}
+          accessibilityRole="button"
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: COLORS.primary,
+            borderRadius: borderRadius.md,
+            paddingVertical: spacing.md,
+            marginBottom: spacing.md,
+          }}
+        >
+          <Ionicons name="card-outline" size={18} color={COLORS.textOnPrimary} />
+          <Text style={{ color: COLORS.textOnPrimary, fontFamily: fontFamily.semiBold, marginLeft: spacing.sm, fontSize: fontSize.sm }}>
+            SCAN ID CARD
+          </Text>
+        </TouchableOpacity>
+      ) : null}
+
       <Controller
         control={control}
         name="customer_name"
@@ -42,7 +72,7 @@ export function VisitorForm({
         )}
       />
 
-      <View style={{ flexDirection: 'row', gap: 8 }}>
+      <View style={{ flexDirection: 'row', gap: spacing.sm }}>
         <View style={{ flex: 1 }}>
           <Controller
             control={control}
@@ -90,22 +120,25 @@ export function VisitorForm({
         )}
       />
 
-      {showVehicleFields ? (
+      {showPlateField ? (
+        <Controller
+          control={control}
+          name="custom_vehicles_number_plate"
+          render={({ field: { onChange, value, onBlur } }) => (
+            <FormInput
+              label="Number Plate"
+              value={value ?? ''}
+              onChangeText={onChange}
+              onBlur={onBlur}
+              autoCapitalize="characters"
+              error={errors.custom_vehicles_number_plate?.message}
+            />
+          )}
+        />
+      ) : null}
+
+      {showFullVehicleFields ? (
         <>
-          <Controller
-            control={control}
-            name="custom_vehicles_number_plate"
-            render={({ field: { onChange, value, onBlur } }) => (
-              <FormInput
-                label="Number Plate"
-                value={value ?? ''}
-                onChangeText={onChange}
-                onBlur={onBlur}
-                autoCapitalize="characters"
-                error={errors.custom_vehicles_number_plate?.message}
-              />
-            )}
-          />
           <Controller
             control={control}
             name="custom_vehicles_colour"
