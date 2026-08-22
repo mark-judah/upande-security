@@ -27,10 +27,11 @@ export function VisitorForm({
   watchHostName,
   onScanId,
 }: Props) {
-  // Vehicle and Motorcycle keep the full plate + colour + passengers group.
-  // Taxi only ever needs the number plate.
-  const showFullVehicleFields = watchTransport === 'Vehicle' || watchTransport === 'Motorcycle';
-  const showPlateOnly = watchTransport === 'Taxi';
+  // Only Vehicle keeps the full plate + colour + passengers group - a
+  // Motorcycle has no colour/passengers worth capturing, just the plate,
+  // same as Taxi.
+  const showFullVehicleFields = watchTransport === 'Vehicle';
+  const showPlateOnly = watchTransport === 'Taxi' || watchTransport === 'Motorcycle';
   const showPlateField = showFullVehicleFields || showPlateOnly;
 
   return (

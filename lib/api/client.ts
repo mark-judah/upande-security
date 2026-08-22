@@ -7,8 +7,16 @@ const api = axios.create({ timeout: 30000 });
 api.interceptors.request.use(async (config) => {
   const baseURL = await AsyncStorage.getItem('instanceurl');
   const cookie = await AsyncStorage.getItem('cookie');
-  if (!baseURL) throw new Error('No instance URL configured');
-  if (!cookie) throw new Error('Authentication Error: No cookies found');
+  if (!baseURL || !cookie) {
+    // Mirrors the response interceptor's 401/403 recovery below - a
+    // missing cookie is a dead end otherwise, the user just sees a raw
+    // "No cookies found" error with no way forward short of force-quitting.
+    await AsyncStorage.multiRemove(['cookie']);
+    router.replace('/login');
+    return Promise.reject(
+      new Error(!baseURL ? 'No instance URL configured' : 'Session expired — please log in again'),
+    );
+  }
 
   config.baseURL = baseURL;
   config.headers.Cookie = cookie;
