@@ -7,6 +7,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import TextRecognition from '@react-native-ml-kit/text-recognition';
 import { useGateStore } from '@/lib/stores/gateStore';
 import { parseIdCardText } from '@/lib/utils/idCard';
+import { parseMrz } from '@/lib/utils/mrz';
 import { audio } from '@/src/core/audio';
 
 const CARD_ASPECT_RATIO = 1.586; // standard ID card width:height
@@ -99,7 +100,13 @@ export default function ScanIdModal() {
       audio.beep();
 
       const result = await TextRecognition.recognize(photo.uri);
-      const parsed = parseIdCardText(result.text);
+      // MRZ first (the newer bilingual/Maisha Namba generation prints one) —
+      // check-digit validated, so a match here is *known* correct, not a
+      // guess. The classic Kenyan ID has no MRZ at all, so this falls
+      // through to the existing full-text heuristics whenever no valid MRZ
+      // is found, rather than ever blocking on it.
+      const mrz = parseMrz(result.text);
+      const parsed = mrz ?? parseIdCardText(result.text);
       setPendingScannedIdCard(parsed);
     } catch {
       // No text recognized / OCR failed — fall back to a blank scan so the
