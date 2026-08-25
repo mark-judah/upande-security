@@ -3,15 +3,16 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 /**
- * Deliveries verified at the gate that haven't been confirmed departed yet.
+ * Receivings verified at the gate that haven't been confirmed departed yet.
  * Offloading takes time, so "Confirm Departure" is a separate, later
  * action from the arrival check — this list is what lets a guard find it
  * again in a different screen session (or after the app restarts) rather
- * than only right after verifying it. Mirrors the persisted `dispatchStore`
- * pattern.
+ * than only right after verifying it. (The equivalent dispatch-side
+ * "awaiting return" list was dropped as dead/unused - this receiving-side
+ * one is the still-active feature.)
  */
-export type PendingDeliveryDeparture = {
-  /** Gate Delivery Verification doc name — the arg confirm_delivery_departure expects. */
+export type PendingReceivingDeparture = {
+  /** Gate Receiving Verification doc name — the arg confirm_receiving_departure expects. */
   name: string;
   purchase_order: string;
   supplier_name: string;
@@ -20,14 +21,14 @@ export type PendingDeliveryDeparture = {
   verified_at: string; // ISO, client-side timestamp of the verify action
 };
 
-type DeliveryState = {
-  pending: PendingDeliveryDeparture[];
-  addPending: (entry: PendingDeliveryDeparture) => void;
+type ReceivingState = {
+  pending: PendingReceivingDeparture[];
+  addPending: (entry: PendingReceivingDeparture) => void;
   removePending: (name: string) => void;
   clearAll: () => void;
 };
 
-export const useDeliveryStore = create<DeliveryState>()(
+export const useReceivingStore = create<ReceivingState>()(
   persist(
     (set) => ({
       pending: [],
@@ -40,7 +41,7 @@ export const useDeliveryStore = create<DeliveryState>()(
       clearAll: () => set({ pending: [] }),
     }),
     {
-      name: 'delivery-store',
+      name: 'receiving-store',
       storage: createJSONStorage(() => AsyncStorage),
     },
   ),

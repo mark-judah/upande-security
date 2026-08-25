@@ -19,7 +19,7 @@ type TileMeta = {
 const TILES: TileMeta[] = [
   { type: CheckInType.Contractor,     label: 'Contractor', hint: 'Active supplier contract',          icon: 'construct-outline' },
   { type: CheckInType.Customer,       label: 'Customer',   hint: 'Book a visit for a customer',        icon: 'calendar-outline' },
-  { type: CheckInType.Delivery,       label: 'Delivery',   hint: 'Verify a delivery against its PO',   icon: 'cube-outline' },
+  { type: CheckInType.Receiving,      label: 'Receiving',  hint: 'Verify a receiving against its PO',  icon: 'cube-outline' },
   { type: CheckInType.Dispatch,       label: 'Dispatch',   hint: 'Verify a truck against its dispatch',icon: 'clipboard-outline' },
   { type: CheckInType.Staff,          label: 'Staff',      hint: 'Employees clocking in for the day', icon: 'id-card-outline' },
   { type: CheckInType.CompanyVehicle, label: 'Vehicle',    hint: 'Scan a Tractor Daily Task ticket',   icon: 'car-outline' },

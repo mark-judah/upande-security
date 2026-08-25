@@ -1,34 +1,34 @@
 import { useEffect, useState } from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import type { DeliverySearchHit, GateVerificationStatus, VerifyDeliveryResult } from '@/lib/services/api';
-import { useDeliverySearch } from '@/lib/hooks/useDeliverySearch';
-import { useVerifyDelivery } from '@/lib/hooks/useVerifyDelivery';
+import type { ReceivingSearchHit, GateVerificationStatus, VerifyReceivingResult } from '@/lib/services/api';
+import { useReceivingSearch } from '@/lib/hooks/useReceivingSearch';
+import { useVerifyReceiving } from '@/lib/hooks/useVerifyReceiving';
 import { useGateStore } from '@/lib/stores/gateStore';
-import { extractDeliveryReference } from '@/lib/utils/qr';
+import { extractReceivingReference } from '@/lib/utils/qr';
 import { useFeedback } from '@/lib/hooks/useFeedback';
-import { DeliveryLookup } from './DeliveryLookup';
-import { DeliveryResultCard } from './DeliveryResultCard';
-import { DeliveryAwaitingDeparture } from './DeliveryAwaitingDeparture';
+import { ReceivingLookup } from './ReceivingLookup';
+import { ReceivingResultCard } from './ReceivingResultCard';
+import { ReceivingAwaitingDeparture } from './ReceivingAwaitingDeparture';
 import { COLORS, borderRadius, fontFamily, fontSize, spacing } from '@/src/core/theme';
 
 /**
- * Gate Delivery Verification — gate check of inbound supplier deliveries
+ * Gate Receiving Verification — gate check of inbound supplier deliveries
  * against Purchase Order. Self-contained, like DispatchGatePanel: owns its
  * own search/decision state.
  */
-export function DeliveryGatePanel() {
+export function ReceivingGatePanel() {
   const [query, setQuery] = useState('');
-  const [found, setFound] = useState<DeliverySearchHit | null>(null);
+  const [found, setFound] = useState<ReceivingSearchHit | null>(null);
   const [notFoundQuery, setNotFoundQuery] = useState<string | null>(null);
-  const [verified, setVerified] = useState<VerifyDeliveryResult | null>(null);
+  const [verified, setVerified] = useState<VerifyReceivingResult | null>(null);
 
   const feedback = useFeedback();
-  const search = useDeliverySearch();
-  const verify = useVerifyDelivery();
+  const search = useReceivingSearch();
+  const verify = useVerifyReceiving();
 
-  const pendingScannedDelivery = useGateStore((s) => s.pendingScannedDelivery);
-  const setPendingScannedDelivery = useGateStore((s) => s.setPendingScannedDelivery);
+  const pendingScannedReceiving = useGateStore((s) => s.pendingScannedReceiving);
+  const setPendingScannedReceiving = useGateStore((s) => s.setPendingScannedReceiving);
 
   function reset() {
     setQuery('');
@@ -49,7 +49,7 @@ export function DeliveryGatePanel() {
         setNotFoundQuery(reference);
       }
     } catch (e) {
-      feedback.error(e instanceof Error ? e.message : 'Delivery lookup failed');
+      feedback.error(e instanceof Error ? e.message : 'Receiving lookup failed');
     }
   }
 
@@ -63,9 +63,9 @@ export function DeliveryGatePanel() {
   }
 
   useEffect(() => {
-    if (pendingScannedDelivery) {
-      const reference = extractDeliveryReference(pendingScannedDelivery);
-      setPendingScannedDelivery(null);
+    if (pendingScannedReceiving) {
+      const reference = extractReceivingReference(pendingScannedReceiving);
+      setPendingScannedReceiving(null);
       if (reference) {
         setQuery(reference);
         runSearch(reference);
@@ -74,7 +74,7 @@ export function DeliveryGatePanel() {
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pendingScannedDelivery]);
+  }, [pendingScannedReceiving]);
 
   async function onDecide(
     status: GateVerificationStatus,
@@ -163,11 +163,11 @@ export function DeliveryGatePanel() {
               justifyContent: 'center',
             }}
           >
-            <Text style={{ color: COLORS.text, fontFamily: fontFamily.semiBold }}>Verify another delivery</Text>
+            <Text style={{ color: COLORS.text, fontFamily: fontFamily.semiBold }}>Verify another receiving</Text>
           </TouchableOpacity>
         </View>
       ) : found ? (
-        <DeliveryResultCard result={found} onDecide={onDecide} busy={verify.isPending} onReset={reset} />
+        <ReceivingResultCard result={found} onDecide={onDecide} busy={verify.isPending} onReset={reset} />
       ) : notFoundQuery != null ? (
         <View
           style={{
@@ -210,10 +210,10 @@ export function DeliveryGatePanel() {
           </TouchableOpacity>
         </View>
       ) : (
-        <DeliveryLookup value={query} onChangeText={setQuery} onSubmit={onManualSearch} busy={search.isPending} />
+        <ReceivingLookup value={query} onChangeText={setQuery} onSubmit={onManualSearch} busy={search.isPending} />
       )}
 
-      <DeliveryAwaitingDeparture />
+      <ReceivingAwaitingDeparture />
     </View>
   );
 }

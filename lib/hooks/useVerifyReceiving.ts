@@ -1,6 +1,6 @@
 import { useMutation } from '@tanstack/react-query';
-import { api, type VerifyDeliveryInput } from '@/lib/services/api';
-import { useDeliveryStore } from '@/lib/stores/deliveryStore';
+import { api, type VerifyReceivingInput } from '@/lib/services/api';
+import { useReceivingStore } from '@/lib/stores/receivingStore';
 import { useFeedback } from './useFeedback';
 
 type Context = {
@@ -12,17 +12,17 @@ type Context = {
 
 /**
  * Records the guard's Verify / Reject decision. On a Verified result, the
- * delivery is added to the persisted "awaiting departure" list so the
+ * receiving is added to the persisted "awaiting departure" list so the
  * guard (or another guard on a later shift) can confirm the truck's
- * departure once offloading is done — see `useConfirmDeliveryDeparture`.
+ * departure once offloading is done — see `useConfirmReceivingDeparture`.
  */
-export function useVerifyDelivery() {
+export function useVerifyReceiving() {
   const feedback = useFeedback();
-  const addPending = useDeliveryStore((s) => s.addPending);
+  const addPending = useReceivingStore((s) => s.addPending);
 
   return useMutation({
-    mutationFn: ({ input }: { input: VerifyDeliveryInput; context: Context }) =>
-      api.verifyDeliveryAtGate(input),
+    mutationFn: ({ input }: { input: VerifyReceivingInput; context: Context }) =>
+      api.verifyReceivingAtGate(input),
     onSuccess: (result, { context }) => {
       if (result.gate_verification_status === 'Verified') {
         addPending({
@@ -33,9 +33,9 @@ export function useVerifyDelivery() {
           driver_name: context.driver_name,
           verified_at: new Date().toISOString(),
         });
-        feedback.success(`Delivery for ${result.purchase_order} verified ✓`);
+        feedback.success(`Receiving for ${result.purchase_order} verified ✓`);
       } else {
-        feedback.warning(`Delivery for ${result.purchase_order} rejected at the gate`);
+        feedback.warning(`Receiving for ${result.purchase_order} rejected at the gate`);
       }
     },
     onError: (err: Error) => feedback.error(err.message || 'Could not record gate decision'),

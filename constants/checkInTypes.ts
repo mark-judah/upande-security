@@ -4,7 +4,7 @@ export const CheckInType = {
   Contractor: 'contractor',
   CompanyVehicle: 'companyVehicle',
   Dispatch: 'dispatch',
-  Delivery: 'delivery',
+  Receiving: 'receiving',
   Customer: 'customer',
 } as const;
 
@@ -16,6 +16,6 @@ export const CHECK_IN_TYPE_LABELS: Record<CheckInType, string> = {
   contractor: 'CONTRACTOR',
   companyVehicle: 'COMPANYVEHICLE',
   dispatch: 'DISPATCH',
-  delivery: 'DELIVERY',
+  receiving: 'RECEIVING',
   customer: 'CUSTOMER',
 };

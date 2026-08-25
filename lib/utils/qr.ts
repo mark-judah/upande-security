@@ -36,7 +36,7 @@ export function extractDispatchReference(raw: string): string {
   return v;
 }
 
-export function extractDeliveryReference(raw: string): string {
+export function extractReceivingReference(raw: string): string {
   const v = raw.trim();
   if (!v) return '';
   // A PO number or supplier name — same generic Frappe doc URL stripping

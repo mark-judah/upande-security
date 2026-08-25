@@ -6,8 +6,8 @@ import { api } from '@/lib/services/api';
  * they have — read-only lookup against Purchase Order. Safe to call
  * repeatedly as the guard edits the input.
  */
-export function useDeliverySearch() {
+export function useReceivingSearch() {
   return useMutation({
-    mutationFn: (reference: string) => api.searchDeliveryForGate(reference),
+    mutationFn: (reference: string) => api.searchReceivingForGate(reference),
   });
 }

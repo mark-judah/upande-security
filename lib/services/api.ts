@@ -718,6 +718,10 @@ export type VerifyDispatchInput = {
   gate_verification_status: GateVerificationStatus;
   remarks?: string;
   item_checks?: DispatchItemCheckInput[];
+  /** ISO timestamp captured client-side the moment the guard's search
+   * found a match — distinct from gate_exit_time, which the server stamps
+   * itself at submission time. */
+  gate_arrival_time?: string;
 };
 
 export type DispatchItemCheckResult = {
@@ -736,17 +740,12 @@ export type VerifyDispatchResult = {
   item_checks: DispatchItemCheckResult[];
 };
 
-export type ConfirmDispatchReturnResult = {
-  name: string;
-  gate_return_time: string;
-};
-
-// --- Gate Delivery Verification (inbound supplier deliveries checked
-// against Purchase Order — see upande_security.api.gate_delivery on the
+// --- Gate Receiving Verification (inbound supplier deliveries checked
+// against Purchase Order — see upande_security.api.gate_receiving on the
 // server). Single-doctype, not config-driven like dispatch, since there's
 // exactly one clear inbound-authorization document in this system. ---
 
-export type DeliverySearchHit = {
+export type ReceivingSearchHit = {
   found: true;
   purchase_order: string;
   supplier: string;
@@ -758,24 +757,24 @@ export type DeliverySearchHit = {
   items_summary: string;
   is_authorized: boolean;
 };
-export type DeliverySearchMiss = { found: false; error: string };
-export type DeliverySearchResult = DeliverySearchHit | DeliverySearchMiss;
+export type ReceivingSearchMiss = { found: false; error: string };
+export type ReceivingSearchResult = ReceivingSearchHit | ReceivingSearchMiss;
 
-export type VerifyDeliveryInput = {
+export type VerifyReceivingInput = {
   reference: string;
   gate_verification_status: GateVerificationStatus;
   vehicle_no?: string;
   driver_name?: string;
   remarks?: string;
 };
-export type VerifyDeliveryResult = {
+export type VerifyReceivingResult = {
   name: string;
   purchase_order: string;
   gate_verification_status: GateVerificationStatus;
   is_authorized: boolean;
 };
 
-export type ConfirmDeliveryDepartureResult = {
+export type ConfirmReceivingDepartureResult = {
   name: string;
   gate_departure_time: string;
 };
@@ -969,25 +968,28 @@ export const api = {
     }),
   verifyDispatchAtGate: (input: VerifyDispatchInput) =>
     call<VerifyDispatchResult>('upande_security.api.gate_dispatch.verify_dispatch_at_gate', input),
-  confirmDispatchReturn: (name: string) =>
-    call<ConfirmDispatchReturnResult>('upande_security.api.gate_dispatch.confirm_dispatch_return', {
-      name,
-    }),
 
-  // Gate Delivery Verification — inbound supplier deliveries checked
+  // Gate Receiving Verification — inbound supplier deliveries checked
   // against Purchase Order. Read-only against the source document; the
   // server owns the active-supplier / authorized-status checks. Same
   // full-dotted-path requirement as Gate Dispatch Verification above —
-  // api/gate_delivery.py is a plain module, not a Server Script.
-  searchDeliveryForGate: (reference: string) =>
-    call<DeliverySearchResult>('upande_security.api.gate_delivery.search_delivery_for_gate', {
+  // api/gate_receiving.py is a plain module, not a Server Script.
+  //
+  // NOTE: backend rename from gate_delivery -> gate_receiving (and
+  // search_delivery_for_gate -> search_receiving_for_gate, etc.) was done
+  // in a parallel security-backend task. These dotted paths follow the
+  // same naming convention already established for gate_dispatch — double
+  // check them against what the backend agent actually landed on before
+  // shipping.
+  searchReceivingForGate: (reference: string) =>
+    call<ReceivingSearchResult>('upande_security.api.gate_receiving.search_receiving_for_gate', {
       reference,
     }),
-  verifyDeliveryAtGate: (input: VerifyDeliveryInput) =>
-    call<VerifyDeliveryResult>('upande_security.api.gate_delivery.verify_delivery_at_gate', input),
-  confirmDeliveryDeparture: (name: string) =>
-    call<ConfirmDeliveryDepartureResult>(
-      'upande_security.api.gate_delivery.confirm_delivery_departure',
+  verifyReceivingAtGate: (input: VerifyReceivingInput) =>
+    call<VerifyReceivingResult>('upande_security.api.gate_receiving.verify_receiving_at_gate', input),
+  confirmReceivingDeparture: (name: string) =>
+    call<ConfirmReceivingDepartureResult>(
+      'upande_security.api.gate_receiving.confirm_receiving_departure',
       { name },
     ),
 

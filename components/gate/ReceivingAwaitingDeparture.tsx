@@ -1,19 +1,19 @@
 import { ActivityIndicator, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useDispatchStore } from '@/lib/stores/dispatchStore';
-import { useConfirmDispatchReturn } from '@/lib/hooks/useConfirmDispatchReturn';
+import { useReceivingStore } from '@/lib/stores/receivingStore';
+import { useConfirmReceivingDeparture } from '@/lib/hooks/useConfirmReceivingDeparture';
 import { fmtTime } from '@/lib/utils/date';
 import { COLORS, borderRadius, fontFamily, fontSize, spacing } from '@/src/core/theme';
 
 /**
- * Dispatches verified at the gate but not yet confirmed returned. Persisted
- * across screen sessions / app restarts (see dispatchStore) since a truck
- * checked in on one shift may only come back — or never come back — much
+ * Receivings verified at the gate but not yet confirmed departed. Persisted
+ * across screen sessions / app restarts (see receivingStore) since a truck
+ * checked in on one shift may only leave — offloading takes time — much
  * later, possibly to a different guard.
  */
-export function DispatchAwaitingReturn() {
-  const pending = useDispatchStore((s) => s.pending);
-  const confirmReturn = useConfirmDispatchReturn();
+export function ReceivingAwaitingDeparture() {
+  const pending = useReceivingStore((s) => s.pending);
+  const confirmDeparture = useConfirmReceivingDeparture();
 
   if (pending.length === 0) return null;
 
@@ -27,7 +27,7 @@ export function DispatchAwaitingReturn() {
           marginBottom: spacing.sm,
         }}
       >
-        Awaiting return ({pending.length})
+        Awaiting departure ({pending.length})
       </Text>
       {pending.map((entry) => (
         <View
@@ -42,22 +42,22 @@ export function DispatchAwaitingReturn() {
           }}
         >
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <Ionicons name="document-text-outline" size={18} color={COLORS.text} />
+            <Ionicons name="cube-outline" size={18} color={COLORS.text} />
             <View style={{ flex: 1, marginLeft: spacing.sm }}>
               <Text style={{ fontFamily: fontFamily.semiBold, fontSize: fontSize.sm, color: COLORS.text }}>
-                {entry.reference_name}
+                {entry.supplier_name}
               </Text>
               <Text style={{ color: COLORS.textMuted, fontSize: fontSize.xs, fontFamily: fontFamily.regular }}>
-                {[entry.vehicle_no, entry.driver_name, entry.farm].filter(Boolean).join(' · ') || '—'}
-                {' · Verified '}
+                {[entry.purchase_order, entry.vehicle_no, entry.driver_name].filter(Boolean).join(' · ') || '—'}
+                {' · Arrived '}
                 {fmtTime(entry.verified_at)}
               </Text>
             </View>
           </View>
 
           <TouchableOpacity
-            onPress={() => confirmReturn.mutate(entry.name)}
-            disabled={confirmReturn.isPending}
+            onPress={() => confirmDeparture.mutate(entry.name)}
+            disabled={confirmDeparture.isPending}
             activeOpacity={0.8}
             accessibilityRole="button"
             style={{
@@ -65,18 +65,18 @@ export function DispatchAwaitingReturn() {
               alignItems: 'center',
               justifyContent: 'center',
               backgroundColor: COLORS.success,
-              opacity: confirmReturn.isPending ? 0.6 : 1,
+              opacity: confirmDeparture.isPending ? 0.6 : 1,
               borderRadius: borderRadius.sm,
               paddingVertical: spacing.sm + 2,
               marginTop: spacing.sm,
               minHeight: 40,
             }}
           >
-            {confirmReturn.isPending ? (
+            {confirmDeparture.isPending ? (
               <ActivityIndicator size="small" color={COLORS.textOnPrimary} />
             ) : (
               <>
-                <Ionicons name="log-in-outline" size={16} color={COLORS.textOnPrimary} />
+                <Ionicons name="log-out-outline" size={16} color={COLORS.textOnPrimary} />
                 <Text
                   style={{
                     color: COLORS.textOnPrimary,
@@ -86,7 +86,7 @@ export function DispatchAwaitingReturn() {
                     letterSpacing: 0.3,
                   }}
                 >
-                  CONFIRM RETURN
+                  CONFIRM DEPARTURE
                 </Text>
               </>
             )}

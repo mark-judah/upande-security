@@ -12,13 +12,13 @@ type Props = {
 };
 
 /** Scan or type a PO number / supplier name. Mirrors DispatchLookup's layout. */
-export function DeliveryLookup({ value, onChangeText, onSubmit, busy }: Props) {
+export function ReceivingLookup({ value, onChangeText, onSubmit, busy }: Props) {
   const [focused, setFocused] = useState(false);
 
   return (
     <View style={{ marginTop: spacing.sm }}>
       <TouchableOpacity
-        onPress={() => router.push('/scan?intent=delivery')}
+        onPress={() => router.push('/scan?intent=receiving')}
         disabled={busy}
         activeOpacity={0.8}
         accessibilityRole="button"
@@ -43,7 +43,7 @@ export function DeliveryLookup({ value, onChangeText, onSubmit, busy }: Props) {
             letterSpacing: 0.5,
           }}
         >
-          SCAN DELIVERY DOCUMENT
+          SCAN RECEIVING DOCUMENT
         </Text>
       </TouchableOpacity>
 

@@ -8,7 +8,7 @@ import { useGateStore } from '@/lib/stores/gateStore';
 import { audio } from '@/src/core/audio';
 import { COLORS, fontFamily, fontSize, spacing, borderRadius } from '@/src/core/theme';
 
-type Intent = 'ticket' | 'employee' | 'badge' | 'asset' | 'dispatch' | 'delivery';
+type Intent = 'ticket' | 'employee' | 'badge' | 'asset' | 'dispatch' | 'receiving';
 
 export default function ScanModal() {
   const params = useLocalSearchParams<{ intent?: string }>();
@@ -21,8 +21,8 @@ export default function ScanModal() {
           ? 'asset'
           : params.intent === 'dispatch'
             ? 'dispatch'
-            : params.intent === 'delivery'
-              ? 'delivery'
+            : params.intent === 'receiving'
+              ? 'receiving'
               : 'ticket';
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
@@ -32,7 +32,7 @@ export default function ScanModal() {
   const setPendingScannedBadge = useGateStore((s) => s.setPendingScannedBadge);
   const setPendingScannedAsset = useGateStore((s) => s.setPendingScannedAsset);
   const setPendingScannedDispatch = useGateStore((s) => s.setPendingScannedDispatch);
-  const setPendingScannedDelivery = useGateStore((s) => s.setPendingScannedDelivery);
+  const setPendingScannedReceiving = useGateStore((s) => s.setPendingScannedReceiving);
 
   if (!permission) {
     return <View style={s.cameraBg} />;
@@ -83,8 +83,8 @@ export default function ScanModal() {
       setPendingScannedAsset(data);
     } else if (intent === 'dispatch') {
       setPendingScannedDispatch(data);
-    } else if (intent === 'delivery') {
-      setPendingScannedDelivery(data);
+    } else if (intent === 'receiving') {
+      setPendingScannedReceiving(data);
     } else {
       setPendingScannedTicket(data);
     }
@@ -113,8 +113,8 @@ export default function ScanModal() {
                 ? 'Scan the asset QR sticker'
                 : intent === 'dispatch'
                   ? 'Scan the dispatch document QR / barcode'
-                  : intent === 'delivery'
-                    ? 'Scan the delivery/PO document QR / barcode'
+                  : intent === 'receiving'
+                    ? 'Scan the receiving/PO document QR / barcode'
                     : 'Position QR code in the frame'}
         </Text>
       </View>

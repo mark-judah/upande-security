@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { ActivityIndicator, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import type { DeliverySearchHit, GateVerificationStatus } from '@/lib/services/api';
+import type { ReceivingSearchHit, GateVerificationStatus } from '@/lib/services/api';
 import { fmtDateTime } from '@/lib/utils/date';
 import { COLORS, borderRadius, fontFamily, fontSize, spacing } from '@/src/core/theme';
 
 type Props = {
-  result: DeliverySearchHit;
+  result: ReceivingSearchHit;
   onDecide: (status: GateVerificationStatus, vehicleNo: string, driverName: string, remarks: string) => void;
   busy?: boolean;
   onReset: () => void;
@@ -25,7 +25,7 @@ type Props = {
  * captured fresh here. `is_authorized` is informational only — the server
  * doesn't block on it, so it's a warning banner, not a disable.
  */
-export function DeliveryResultCard({ result, onDecide, busy, onReset }: Props) {
+export function ReceivingResultCard({ result, onDecide, busy, onReset }: Props) {
   const [action, setAction] = useState<GateVerificationStatus | null>(null);
   const [vehicleNo, setVehicleNo] = useState('');
   const [driverName, setDriverName] = useState('');

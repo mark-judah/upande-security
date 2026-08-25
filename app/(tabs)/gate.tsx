@@ -17,7 +17,7 @@ import { IssueVisitorBadge } from '@/components/gate/IssueVisitorBadge';
 import { CHECK_IN_ALLOWED_FROM, type WorkflowState } from '@/constants/workflowStates';
 import { StaffCheckInPanel } from '@/components/gate/StaffCheckInPanel';
 import { DispatchGatePanel } from '@/components/gate/DispatchGatePanel';
-import { DeliveryGatePanel } from '@/components/gate/DeliveryGatePanel';
+import { ReceivingGatePanel } from '@/components/gate/ReceivingGatePanel';
 import { CustomerBookingForm } from '@/components/gate/CustomerBookingForm';
 import { ContractorForm } from '@/components/gate/ContractorForm';
 import { VehicleScanAction } from '@/components/gate/VehicleScanAction';
@@ -502,7 +502,7 @@ export default function GateTab() {
 
           {selectedType === CheckInType.Dispatch ? <DispatchGatePanel /> : null}
 
-          {selectedType === CheckInType.Delivery ? <DeliveryGatePanel /> : null}
+          {selectedType === CheckInType.Receiving ? <ReceivingGatePanel /> : null}
 
           {selectedType === CheckInType.Customer ? <CustomerBookingForm /> : null}
 

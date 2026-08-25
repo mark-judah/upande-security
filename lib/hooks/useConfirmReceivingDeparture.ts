@@ -1,20 +1,20 @@
 import { useMutation } from '@tanstack/react-query';
 import { api } from '@/lib/services/api';
-import { useDeliveryStore } from '@/lib/stores/deliveryStore';
+import { useReceivingStore } from '@/lib/stores/receivingStore';
 import { useFeedback } from './useFeedback';
 
 /**
- * Stamps `gate_departure_time` on a previously verified Gate Delivery
+ * Stamps `gate_departure_time` on a previously verified Gate Receiving
  * Verification, once the truck actually leaves after offloading. `name`
  * here is the verification record's own name (returned by
- * verify_delivery_at_gate), not the Purchase Order.
+ * verify_receiving_at_gate), not the Purchase Order.
  */
-export function useConfirmDeliveryDeparture() {
+export function useConfirmReceivingDeparture() {
   const feedback = useFeedback();
-  const removePending = useDeliveryStore((s) => s.removePending);
+  const removePending = useReceivingStore((s) => s.removePending);
 
   return useMutation({
-    mutationFn: (name: string) => api.confirmDeliveryDeparture(name),
+    mutationFn: (name: string) => api.confirmReceivingDeparture(name),
     onSuccess: (result) => {
       removePending(result.name);
       feedback.success('Departure confirmed ✓');

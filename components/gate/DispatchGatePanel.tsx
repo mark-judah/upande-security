@@ -9,8 +9,8 @@ import { extractDispatchReference } from '@/lib/utils/qr';
 import { useFeedback } from '@/lib/hooks/useFeedback';
 import { DispatchLookup } from './DispatchLookup';
 import { DispatchResultCard } from './DispatchResultCard';
-import { DispatchAwaitingReturn } from './DispatchAwaitingReturn';
 import { COLORS, borderRadius, fontFamily, fontSize, spacing } from '@/src/core/theme';
+import { fmtTime } from '@/lib/utils/date';
 
 /**
  * Authoritative (server-computed) styling for each item's final
@@ -41,6 +41,11 @@ export function DispatchGatePanel() {
   // (never item_code — see DispatchItemChecklist for why). Raw strings so
   // the input can hold in-progress decimal typing like "12.".
   const [itemChecks, setItemChecks] = useState<Record<string, string>>({});
+  // ISO timestamp captured client-side the instant the search finds a
+  // match — sent through to verify_dispatch_at_gate as gate_arrival_time.
+  // Cleared on every reset/new-search path alongside itemChecks so a
+  // stale arrival time from a previous dispatch can't leak into this one.
+  const [gateArrivalTime, setGateArrivalTime] = useState<string | null>(null);
 
   const feedback = useFeedback();
   const search = useDispatchSearch();
@@ -55,6 +60,7 @@ export function DispatchGatePanel() {
     setNotFoundQuery(null);
     setVerified(null);
     setItemChecks({});
+    setGateArrivalTime(null);
   }
 
   async function runSearch(reference: string) {
@@ -62,10 +68,12 @@ export function DispatchGatePanel() {
     setNotFoundQuery(null);
     setVerified(null);
     setItemChecks({});
+    setGateArrivalTime(null);
     try {
       const result = await search.mutateAsync(reference);
       if (result.found) {
         setFound(result);
+        setGateArrivalTime(new Date().toISOString());
       } else {
         setNotFoundQuery(reference);
       }
@@ -123,12 +131,7 @@ export function DispatchGatePanel() {
           gate_verification_status: status,
           remarks: remarks || undefined,
           item_checks: item_checks.length > 0 ? item_checks : undefined,
-        },
-        context: {
-          reference_doctype: found.reference_doctype,
-          vehicle_no: found.vehicle_no,
-          driver_name: found.driver_name,
-          farm: found.farm,
+          gate_arrival_time: gateArrivalTime || undefined,
         },
       });
       setFound(null);
@@ -168,7 +171,7 @@ export function DispatchGatePanel() {
               {verified.reference_name} — {verified.gate_verification_status}
             </Text>
           </View>
-          {verified.gate_verification_status === 'Verified' ? (
+          {gateArrivalTime ? (
             <Text
               style={{
                 marginTop: spacing.sm,
@@ -177,8 +180,7 @@ export function DispatchGatePanel() {
                 fontFamily: fontFamily.regular,
               }}
             >
-              Recorded. If this vehicle returns to the farm later, confirm it from the &quot;Awaiting
-              return&quot; list below — it doesn&apos;t have to be this session.
+              Arrived at gate {fmtTime(gateArrivalTime)}
             </Text>
           ) : null}
           {verified.item_checks.length > 0 ? (
@@ -313,8 +315,6 @@ export function DispatchGatePanel() {
       ) : (
         <DispatchLookup value={query} onChangeText={setQuery} onSubmit={onManualSearch} busy={search.isPending} />
       )}
-
-      <DispatchAwaitingReturn />
     </View>
   );
 }
