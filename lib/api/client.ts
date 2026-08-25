@@ -7,18 +7,15 @@ const api = axios.create({ timeout: 30000 });
 api.interceptors.request.use(async (config) => {
   const baseURL = await AsyncStorage.getItem('instanceurl');
   const cookie = await AsyncStorage.getItem('cookie');
-
-  // Same recovery as a real 401/403 (see the response interceptor below) —
-  // previously this just threw a raw string and dead-ended, leaving
-  // whoever hit it stuck on whatever screen they were on with an error
-  // toast and no way forward except manually navigating back to /login.
-  // Missing baseURL/cookie means the exact same thing a 401 means (no
-  // valid session), so route there the same way instead of surfacing a
-  // one-off error shape nothing else in the app expects.
   if (!baseURL || !cookie) {
+    // Mirrors the response interceptor's 401/403 recovery below - a
+    // missing cookie is a dead end otherwise, the user just sees a raw
+    // "No cookies found" error with no way forward short of force-quitting.
     await AsyncStorage.multiRemove(['cookie']);
     router.replace('/login');
-    return Promise.reject(new Error(!baseURL ? 'No instance URL configured' : 'Session expired — please log in again'));
+    return Promise.reject(
+      new Error(!baseURL ? 'No instance URL configured' : 'Session expired — please log in again'),
+    );
   }
 
   config.baseURL = baseURL;

@@ -84,7 +84,7 @@ export function ContractorForm({ result, onNotify, busy }: Props) {
     );
   }
 
-  // Only Vehicle keeps plate + passenger count; Taxi and Motorcycle only
+  // Only Vehicle keeps plate + passenger count; Motorcycle and Taxi only
   // need the plate (mirrors VisitorForm's treatment).
   const showFullVehicleFields = transportMode === 'Vehicle';
   const showPlateOnlyField = transportMode === 'Taxi' || transportMode === 'Motorcycle';

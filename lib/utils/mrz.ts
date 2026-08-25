@@ -1,4 +1,5 @@
 import type { ParsedIdCard } from './idCard';
+import type { TextBlock, Frame } from './ocrAdapter';
 
 /**
  * TD1-format MRZ parser (ICAO 9303) — the 3-line × 30-character machine
@@ -40,12 +41,23 @@ function isCheckDigitChar(c: string): boolean {
 }
 
 /**
- * Scans OCR'd text for three consecutive MRZ-shaped lines (mostly
- * A-Z/0-9/< characters, close to 30 chars). Lenient here on purpose — OCR
+ * True when a single normalized (uppercased, whitespace-stripped) line is
+ * shaped like an MRZ line: mostly A-Z/0-9/< characters, close to 30 chars,
+ * and padded with at least one `<` filler. Lenient on purpose — OCR
  * commonly drops or adds a stray character — actual correctness is proven
  * by check-digit validation afterwards, not by how strictly we detect
  * candidate lines up front.
  */
+function looksLikeMrzLine(l: string): boolean {
+  if (l.length < 28 || l.length > 32) return false;
+  if (!MRZ_CHARSET_RE.test(l)) return false;
+  const fillerCount = (l.match(/</g) || []).length;
+  // A real MRZ line is padded with `<` fairly heavily; a normal OCR'd
+  // sentence won't accidentally satisfy both the charset and this.
+  return fillerCount >= 1;
+}
+
+/** Scans OCR'd plain text for three consecutive MRZ-shaped lines. */
 function findMrzLines(rawText: string): [string, string, string] | null {
   const lines = rawText
     .split('\n')
@@ -54,15 +66,77 @@ function findMrzLines(rawText: string): [string, string, string] | null {
 
   for (let i = 0; i + 2 < lines.length; i++) {
     const candidate = [lines[i], lines[i + 1], lines[i + 2]];
-    const looksLikeMrz = candidate.every((l) => {
-      if (l.length < 28 || l.length > 32) return false;
-      if (!MRZ_CHARSET_RE.test(l)) return false;
-      const fillerCount = (l.match(/</g) || []).length;
-      // A real MRZ line is padded with `<` fairly heavily; a normal OCR'd
-      // sentence won't accidentally satisfy both the charset and this.
-      return fillerCount >= 1;
-    });
-    if (looksLikeMrz) return candidate as [string, string, string];
+    if (candidate.every(looksLikeMrzLine)) return candidate as [string, string, string];
+  }
+  return null;
+}
+
+// Tolerances for geometry-based MRZ line-finding, expressed as ratios of the
+// candidate lines' own frame dimensions rather than fixed pixel counts —
+// the source image resolution/crop varies by device and distance from the
+// card, but the three MRZ lines' relative geometry to each other doesn't.
+const MRZ_LEFT_TOLERANCE_RATIO = 0.6; // left edges must line up within ~0.6 line-heights
+const MRZ_WIDTH_TOLERANCE_RATIO = 0.25; // widths must agree within 25% of each other
+const MRZ_GAP_CONSISTENCY_RATIO = 0.5; // consecutive line-to-line vertical gaps must agree within 50%
+const MRZ_MAX_GAP_TO_HEIGHT_RATIO = 4; // gap between lines shouldn't dwarf the text height (rules out unrelated lines far apart on the card)
+
+type FramedLine = { text: string; frame: Frame };
+
+/**
+ * Geometry-aware MRZ line finder: looks directly at `TextLine.frame` data
+ * from ML Kit's block/line structure for three lines that are stacked like
+ * a genuine MRZ zone (similar left edge, similar width, evenly-spaced top
+ * values), rather than relying on the plain-text `\n` joins that
+ * `findMrzLines` uses. This catches the known OCR failure mode where the
+ * recognizer's own line breaks in `.text` don't line up with the card's
+ * real physical lines (e.g. a stray line merged in, or the MRZ split across
+ * two blocks) — geometry finds the right three lines even when a plain-text
+ * scan would miss them or pick the wrong candidate.
+ */
+export function findMrzLinesFromBlocks(blocks: TextBlock[]): [string, string, string] | null {
+  const candidates: FramedLine[] = [];
+  for (const block of blocks) {
+    for (const line of block.lines) {
+      if (!line.frame) continue;
+      const normalized = line.text.toUpperCase().replace(/\s+/g, '');
+      if (looksLikeMrzLine(normalized)) {
+        candidates.push({ text: normalized, frame: line.frame });
+      }
+    }
+  }
+  if (candidates.length < 3) return null;
+
+  candidates.sort((a, b) => a.frame.top - b.frame.top);
+
+  for (let i = 0; i + 2 < candidates.length; i++) {
+    const a = candidates[i];
+    const b = candidates[i + 1];
+    const c = candidates[i + 2];
+
+    const avgHeight = (a.frame.height + b.frame.height + c.frame.height) / 3;
+    const avgWidth = (a.frame.width + b.frame.width + c.frame.width) / 3;
+
+    const leftTolerance = Math.max(avgHeight * MRZ_LEFT_TOLERANCE_RATIO, 8);
+    const leftsAligned =
+      Math.abs(a.frame.left - b.frame.left) <= leftTolerance &&
+      Math.abs(b.frame.left - c.frame.left) <= leftTolerance;
+
+    const widthTolerance = Math.max(avgWidth * MRZ_WIDTH_TOLERANCE_RATIO, 8);
+    const widthsMatch =
+      Math.abs(a.frame.width - b.frame.width) <= widthTolerance &&
+      Math.abs(b.frame.width - c.frame.width) <= widthTolerance;
+
+    const gap1 = b.frame.top - a.frame.top;
+    const gap2 = c.frame.top - b.frame.top;
+    const avgGap = (gap1 + gap2) / 2;
+    const gapsPositive = gap1 > 0 && gap2 > 0;
+    const gapsConsistent =
+      gapsPositive && Math.abs(gap1 - gap2) <= avgGap * MRZ_GAP_CONSISTENCY_RATIO;
+    const gapLooksLikeLineHeight = gapsPositive && avgGap <= avgHeight * MRZ_MAX_GAP_TO_HEIGHT_RATIO;
+
+    if (leftsAligned && widthsMatch && gapsConsistent && gapLooksLikeLineHeight) {
+      return [a.text, b.text, c.text];
+    }
   }
   return null;
 }
@@ -96,15 +170,13 @@ function formatMrzName(nameField: string): string | undefined {
 export type MrzResult = ParsedIdCard & { mrzValid: boolean };
 
 /**
- * Parses a TD1 MRZ if one is present and its check digits all validate.
- * Returns null if no MRZ-shaped lines were found, or if found but any
- * check digit fails — in either case the caller should fall back to
- * idCard.ts's full-text parser rather than trust a bad read.
+ * Runs the ICAO 9303 check-digit validation against three already-located
+ * candidate MRZ lines, shared by both the plain-text path (`parseMrz`) and
+ * the geometry-based path (`parseMrzFromBlocks`) so the checksum math only
+ * lives in one place. Returns null if any check digit is missing/garbled or
+ * fails to validate — a wrong digit means an OCR misread, not a real MRZ.
  */
-export function parseMrz(rawText: string): MrzResult | null {
-  const lines = findMrzLines(rawText);
-  if (!lines) return null;
-
+function validateMrzLines(lines: [string, string, string]): MrzResult | null {
   const [l1, l2, l3] = lines.map(pad30) as [string, string, string];
 
   // Line 1: doc type(2) + country(3) + doc number(9) + doc number check(1) + optional(15)
@@ -141,6 +213,39 @@ export function parseMrz(rawText: string): MrzResult | null {
     name: formatMrzName(l3),
     mrzValid: true,
   };
+}
+
+/**
+ * Parses a TD1 MRZ if one is present and its check digits all validate.
+ * Returns null if no MRZ-shaped lines were found, or if found but any
+ * check digit fails — in either case the caller should fall back to
+ * idCard.ts's full-text parser rather than trust a bad read.
+ */
+export function parseMrz(rawText: string): MrzResult | null {
+  const lines = findMrzLines(rawText);
+  if (!lines) return null;
+  return validateMrzLines(lines);
+}
+
+/**
+ * Blocks-aware entry point for the continuous auto-capture scan loop.
+ * Tries the geometry-based line finder first (more reliable than a plain
+ * text join when OCR's own line breaks don't match the card's real lines),
+ * validates check digits, and — if that path finds nothing OR finds three
+ * MRZ-shaped lines whose check digits don't validate (e.g. geometry picked
+ * a stacked triplet that isn't quite right) — falls back to the existing
+ * plain-text parser over the same blocks' joined text, exactly as any other
+ * caller of `parseMrz` would get. Never duplicates the checksum math itself;
+ * both paths route through `validateMrzLines`.
+ */
+export function parseMrzFromBlocks(blocks: TextBlock[]): MrzResult | null {
+  const geometryLines = findMrzLinesFromBlocks(blocks);
+  if (geometryLines) {
+    const result = validateMrzLines(geometryLines);
+    if (result) return result;
+  }
+  const joinedText = blocks.map((b) => b.text).join('\n');
+  return parseMrz(joinedText);
 }
 
 /** Convenience for callers that just want "birth/expiry date, if a valid MRZ was read". */

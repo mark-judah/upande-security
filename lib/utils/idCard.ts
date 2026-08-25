@@ -11,16 +11,24 @@ export type ParsedIdCard = {
 // new bilingual ("Maisha Namba") generation print both fields, just with
 // Swahili labels added on the new one — kept in one label list so the same
 // regexes work against either generation without needing to know which.
-const ID_LABEL_RE = /\b(ID\s*(NO\.?|NUMBER)?|NAMBA\s*YA\s*KITAMBULISHO)\s*[:.]?\s*(\d{6,9})/i;
-const SERIAL_LABEL_RE = /\b(SERIAL\s*(NO\.?|NUMBER)?|NAMBA\s*YA\s*MFUATANO)\b/i;
+// Exported (in addition to being used locally below) so idCardTemplate.ts's
+// position-based extractor can reuse the exact same label vocabulary rather
+// than maintaining a second, divergence-prone copy of it.
+export const ID_LABEL_RE = /\b(ID\s*(NO\.?|NUMBER)?|NAMBA\s*YA\s*KITAMBULISHO)\s*[:.]?\s*(\d{6,9})/i;
+export const SERIAL_LABEL_RE = /\b(SERIAL\s*(NO\.?|NUMBER)?|NAMBA\s*YA\s*MFUATANO)\b/i;
 const STANDALONE_ID_RE = /\b\d{6,9}\b/g;
-const DATE_LIKE_RE = /\b\d{1,2}[./]\d{1,2}[./]\d{2,4}\b/;
-const NAME_LABEL_RE = /\b(FULL\s*NAMES?|SURNAME|NAMES?|MAJINA\s*KAMILI|JINA\s*LA\s*UKOO)\s*[:.]?\s*$/i;
+// Exported so idCardTemplate.ts's digit-run candidates can be excluded the
+// same way this file's own extractIdNumber() excludes them — a date's
+// punctuation gets stripped by idCardTemplate's normalize() step, and
+// "12.05.1985" collapsing to "12051985" would otherwise pass a bare 6-9
+// digit shape check.
+export const DATE_LIKE_RE = /\b\d{1,2}[./]\d{1,2}[./]\d{2,4}\b/;
+export const NAME_LABEL_RE = /\b(FULL\s*NAMES?|SURNAME|NAMES?|MAJINA\s*KAMILI|JINA\s*LA\s*UKOO)\s*[:.]?\s*$/i;
 const NAME_LINE_RE = /^[A-Z][A-Z '.-]{3,}$/;
 
 // Card titles/headers — both generations, English + Swahili. Never a name,
 // never an ID number.
-const BOILERPLATE = [
+export const BOILERPLATE = [
   'REPUBLIC OF KENYA',
   'JAMHURI YA KENYA',
   'NATIONAL IDENTITY CARD',
@@ -36,7 +44,7 @@ const BOILERPLATE = [
 // These must never be mistaken for the value they're labelling (e.g. "SEX"
 // or "TAREHE YA KUZALIWA" are all-caps letter runs just like a real name is,
 // so NAME_LINE_RE alone can't tell them apart).
-const FIELD_LABEL_LINES = [
+export const FIELD_LABEL_LINES = [
   'DATE OF BIRTH',
   'TAREHE YA KUZALIWA',
   'SEX',
@@ -53,12 +61,12 @@ const FIELD_LABEL_LINES = [
   'SAHIHI YA MWENYEWE',
 ];
 
-function isBoilerplate(line: string): boolean {
+export function isBoilerplate(line: string): boolean {
   const upper = line.trim().toUpperCase();
   return BOILERPLATE.some((b) => upper === b || upper.includes(b));
 }
 
-function isFieldLabelLine(line: string): boolean {
+export function isFieldLabelLine(line: string): boolean {
   const upper = line.trim().toUpperCase();
   return FIELD_LABEL_LINES.some((b) => upper === b || upper.includes(b));
 }
