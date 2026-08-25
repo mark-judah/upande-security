@@ -4,12 +4,18 @@ import { Ionicons } from '@expo/vector-icons';
 import type { DispatchSearchHit, GateVerificationStatus } from '@/lib/services/api';
 import { fmtDateTime } from '@/lib/utils/date';
 import { COLORS, borderRadius, fontFamily, fontSize, spacing } from '@/src/core/theme';
+import { DispatchItemChecklist } from './DispatchItemChecklist';
 
 type Props = {
   result: DispatchSearchHit;
   onDecide: (status: GateVerificationStatus, remarks: string) => void;
   busy?: boolean;
   onReset: () => void;
+  /** Guard's entered actual counts, keyed by the source document's row_id.
+   * Lifted up to DispatchGatePanel so it survives across a decision being
+   * taken and can be threaded into the verify mutation's item_checks. */
+  itemCheckValues: Record<string, string>;
+  onItemCheckChange: (rowId: string, text: string) => void;
 };
 
 /**
@@ -18,7 +24,14 @@ type Props = {
  * server doesn't block on it, so we surface it as a warning banner rather
  * than disabling anything.
  */
-export function DispatchResultCard({ result, onDecide, busy, onReset }: Props) {
+export function DispatchResultCard({
+  result,
+  onDecide,
+  busy,
+  onReset,
+  itemCheckValues,
+  onItemCheckChange,
+}: Props) {
   const [action, setAction] = useState<GateVerificationStatus | null>(null);
   const [remarks, setRemarks] = useState('');
 
@@ -112,6 +125,15 @@ export function DispatchResultCard({ result, onDecide, busy, onReset }: Props) {
             : 'Source document status is NOT in the authorized list — use judgement'}
         </Text>
       </View>
+
+      {result.expected_items.length > 0 ? (
+        <DispatchItemChecklist
+          items={result.expected_items}
+          values={itemCheckValues}
+          onChange={onItemCheckChange}
+          disabled={busy}
+        />
+      ) : null}
 
       <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md }}>
         <TouchableOpacity

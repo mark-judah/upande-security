@@ -13,6 +13,21 @@ import { DispatchAwaitingReturn } from './DispatchAwaitingReturn';
 import { COLORS, borderRadius, fontFamily, fontSize, spacing } from '@/src/core/theme';
 
 /**
+ * Authoritative (server-computed) styling for each item's final
+ * `match_status`, shown in the "verified" success card after submit — as
+ * opposed to the provisional client-side indicator in DispatchItemChecklist.
+ */
+const ITEM_MATCH_STATUS_META: Record<
+  VerifyDispatchResult['item_checks'][number]['match_status'],
+  { icon: keyof typeof Ionicons.glyphMap; color: string; bg: string }
+> = {
+  Matches: { icon: 'checkmark-circle', color: COLORS.success, bg: '#F0FDF4' },
+  Short: { icon: 'arrow-down-circle', color: COLORS.warn, bg: '#FFFBEB' },
+  Over: { icon: 'arrow-up-circle', color: COLORS.danger, bg: '#FEF2F2' },
+  'Not Checked': { icon: 'help-circle-outline', color: COLORS.textMuted, bg: COLORS.surfaceAlt },
+};
+
+/**
  * Gate Dispatch Verification — config-driven gate check of trucks against
  * a Dispatch Form (or any future dispatch doctype). Self-contained, like
  * StaffCheckInPanel: owns its own search/decision state.
@@ -22,6 +37,10 @@ export function DispatchGatePanel() {
   const [found, setFound] = useState<DispatchSearchHit | null>(null);
   const [notFoundQuery, setNotFoundQuery] = useState<string | null>(null);
   const [verified, setVerified] = useState<VerifyDispatchResult | null>(null);
+  // Guard's entered actual counts for the item checklist, keyed by row_id
+  // (never item_code — see DispatchItemChecklist for why). Raw strings so
+  // the input can hold in-progress decimal typing like "12.".
+  const [itemChecks, setItemChecks] = useState<Record<string, string>>({});
 
   const feedback = useFeedback();
   const search = useDispatchSearch();
@@ -35,12 +54,14 @@ export function DispatchGatePanel() {
     setFound(null);
     setNotFoundQuery(null);
     setVerified(null);
+    setItemChecks({});
   }
 
   async function runSearch(reference: string) {
     setFound(null);
     setNotFoundQuery(null);
     setVerified(null);
+    setItemChecks({});
     try {
       const result = await search.mutateAsync(reference);
       if (result.found) {
@@ -76,14 +97,32 @@ export function DispatchGatePanel() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingScannedDispatch]);
 
+  function onItemCheckChange(rowId: string, text: string) {
+    setItemChecks((prev) => ({ ...prev, [rowId]: text }));
+  }
+
   async function onDecide(status: GateVerificationStatus, remarks: string) {
     if (!found) return;
+    // Only send entries the guard actually typed a value for — omit
+    // anything blank/unparseable rather than sending it as a false 0 count.
+    const item_checks = Object.entries(itemChecks).reduce<{ row_id: string; actual_qty: number }[]>(
+      (acc, [row_id, raw]) => {
+        const trimmed = raw.trim();
+        if (trimmed.length === 0) return acc;
+        const actual_qty = Number(trimmed);
+        if (Number.isNaN(actual_qty)) return acc;
+        acc.push({ row_id, actual_qty });
+        return acc;
+      },
+      []
+    );
     try {
       const result = await verify.mutateAsync({
         input: {
           reference: found.reference_name,
           gate_verification_status: status,
           remarks: remarks || undefined,
+          item_checks: item_checks.length > 0 ? item_checks : undefined,
         },
         context: {
           reference_doctype: found.reference_doctype,
@@ -93,6 +132,7 @@ export function DispatchGatePanel() {
         },
       });
       setFound(null);
+      setItemChecks({});
       setVerified(result);
     } catch {
       // feedback handled in the hook
@@ -141,6 +181,67 @@ export function DispatchGatePanel() {
               return&quot; list below — it doesn&apos;t have to be this session.
             </Text>
           ) : null}
+          {verified.item_checks.length > 0 ? (
+            <View style={{ marginTop: spacing.md, gap: spacing.sm }}>
+              <Text style={{ fontFamily: fontFamily.semiBold, fontSize: fontSize.sm, color: COLORS.text }}>
+                Item check results
+              </Text>
+              {verified.item_checks.map((item, idx) => {
+                const meta = ITEM_MATCH_STATUS_META[item.match_status];
+                return (
+                  <View
+                    key={item.item_code + '-' + idx}
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      backgroundColor: COLORS.surface,
+                      borderRadius: borderRadius.sm,
+                      paddingHorizontal: spacing.sm + 2,
+                      paddingVertical: spacing.sm - 2,
+                    }}
+                  >
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontFamily: fontFamily.medium, fontSize: fontSize.sm, color: COLORS.text }}>
+                        {item.item_name}
+                      </Text>
+                      <Text
+                        style={{
+                          fontFamily: fontFamily.regular,
+                          fontSize: fontSize.xs,
+                          color: COLORS.textMuted,
+                          marginTop: 2,
+                        }}
+                      >
+                        Expected {item.expected_qty} · Actual {item.actual_qty ?? '—'}
+                      </Text>
+                    </View>
+                    <View
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        backgroundColor: meta.bg,
+                        borderRadius: borderRadius.full,
+                        paddingHorizontal: spacing.sm,
+                        paddingVertical: 4,
+                      }}
+                    >
+                      <Ionicons name={meta.icon} size={14} color={meta.color} />
+                      <Text
+                        style={{
+                          marginLeft: 4,
+                          fontFamily: fontFamily.semiBold,
+                          fontSize: fontSize.xs,
+                          color: meta.color,
+                        }}
+                      >
+                        {item.match_status}
+                      </Text>
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+          ) : null}
           <TouchableOpacity
             onPress={reset}
             activeOpacity={0.8}
@@ -160,7 +261,14 @@ export function DispatchGatePanel() {
           </TouchableOpacity>
         </View>
       ) : found ? (
-        <DispatchResultCard result={found} onDecide={onDecide} busy={verify.isPending} onReset={reset} />
+        <DispatchResultCard
+          result={found}
+          onDecide={onDecide}
+          busy={verify.isPending}
+          onReset={reset}
+          itemCheckValues={itemChecks}
+          onItemCheckChange={onItemCheckChange}
+        />
       ) : notFoundQuery != null ? (
         <View
           style={{

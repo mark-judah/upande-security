@@ -682,6 +682,14 @@ export type ReportTab =
 // Dispatch Form or similar dispatch doctype — see
 // upande_security.api.gate_dispatch on the server) ---
 
+export type DispatchExpectedItem = {
+  row_id: string;
+  item_code: string;
+  item_name: string;
+  qty: number;
+  uom: string | null;
+};
+
 export type DispatchSearchHit = {
   found: true;
   reference_doctype: string;
@@ -693,22 +701,39 @@ export type DispatchSearchHit = {
   items_summary: string;
   source_status: string;
   is_authorized: boolean;
+  expected_items: DispatchExpectedItem[];
 };
 export type DispatchSearchMiss = { found: false; error: string };
 export type DispatchSearchResult = DispatchSearchHit | DispatchSearchMiss;
 
 export type GateVerificationStatus = 'Verified' | 'Rejected';
 
+export type DispatchItemCheckInput = {
+  row_id: string;
+  actual_qty: number;
+};
+
 export type VerifyDispatchInput = {
   reference: string;
   gate_verification_status: GateVerificationStatus;
   remarks?: string;
+  item_checks?: DispatchItemCheckInput[];
 };
+
+export type DispatchItemCheckResult = {
+  item_code: string;
+  item_name: string;
+  expected_qty: number;
+  actual_qty: number | null;
+  match_status: 'Not Checked' | 'Matches' | 'Short' | 'Over';
+};
+
 export type VerifyDispatchResult = {
   name: string;
   reference_name: string;
   gate_verification_status: GateVerificationStatus;
   is_authorized: boolean;
+  item_checks: DispatchItemCheckResult[];
 };
 
 export type ConfirmDispatchReturnResult = {
