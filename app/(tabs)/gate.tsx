@@ -241,7 +241,12 @@ export default function GateTab() {
     if (history?.found) {
       setRevisitInfo(history);
       reset({
-        customer_name: history.visitor_name || searchQuery.trim(),
+        // Never fall back to the raw search query here - it's whatever the
+        // guard typed to find this person (often their ID number or phone,
+        // both all-digit), and history.visitor_name should always be
+        // populated for a real match anyway. Falling back to the query
+        // used to put a literal ID number into the locked Name field.
+        customer_name: history.visitor_name ?? '',
         id_ref: history.id_no ?? '',
         customer_phone_number: history.phone_number ?? '',
         custom_mode_of_transport: history.transport_mode ?? 'On Foot',
@@ -254,7 +259,15 @@ export default function GateTab() {
       });
     } else {
       setRevisitInfo(null);
-      reset({ ...emptyVisitorForm, customer_name: searchQuery.trim() });
+      // Only prefill Name from the search query when it actually looks like
+      // a name (no digits) - the search bar also matches on ID number and
+      // phone, both all-digit, and no real name has numbers in it. Blindly
+      // reusing the query put a raw ID/phone straight into the Name field.
+      const queryLooksLikeName = searchQuery.trim().length > 0 && !/\d/.test(searchQuery.trim());
+      reset({
+        ...emptyVisitorForm,
+        customer_name: queryLooksLikeName ? searchQuery.trim() : '',
+      });
     }
   }
 
