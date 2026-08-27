@@ -156,10 +156,11 @@ Stored in `server_scripts.json` — names match the mobile client's
 | `staff_gate_checkout`             | Stamp out_time + working_hours on an open Attendance row |
 | `gate_temp_exit`                  | Step out / return for a currently-inside Appointment or Attendance, without a full check-out |
 | `get_visitor_history`             | Look up a walk-in visitor's most recent past visit to prefill the form |
+| `get_contractor_personnel_history` | Look up one contractor person's most recent past visit (by exact ID number) to prefill/lock their name — different roster every visit, so this matches on the individual, not the contractor company |
 | `submit_patrol_points`            | Batch GPS-point ingest from the patrol foreground task |
 | `list_checked_in_staff`           | Staff currently checked in via the app (not general Attendance) — feeds the checkout list |
 
-27 verbs total.
+28 verbs total.
 
 Also on the instance but outside the mobile app's API surface: `Mark Guard Shift Checkin`
 (`server_scripts/mark_guard_shift_checkin.py`, `script_type: "DocType Event"` on Employee

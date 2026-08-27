@@ -46,6 +46,13 @@ export function DispatchGatePanel() {
   // Cleared on every reset/new-search path alongside itemChecks so a
   // stale arrival time from a previous dispatch can't leak into this one.
   const [gateArrivalTime, setGateArrivalTime] = useState<string | null>(null);
+  // Guard-entered vehicle/driver, editable/confirmable even when the source
+  // document already carries a value — these are AUTHORITATIVE over the
+  // source document at verify time, not just a fallback for blank values.
+  // Initialized from the search hit, cleared on every reset/new-search path
+  // alongside itemChecks/gateArrivalTime.
+  const [vehicleNo, setVehicleNo] = useState('');
+  const [driverName, setDriverName] = useState('');
 
   const feedback = useFeedback();
   const search = useDispatchSearch();
@@ -61,6 +68,8 @@ export function DispatchGatePanel() {
     setVerified(null);
     setItemChecks({});
     setGateArrivalTime(null);
+    setVehicleNo('');
+    setDriverName('');
   }
 
   async function runSearch(reference: string) {
@@ -69,11 +78,15 @@ export function DispatchGatePanel() {
     setVerified(null);
     setItemChecks({});
     setGateArrivalTime(null);
+    setVehicleNo('');
+    setDriverName('');
     try {
       const result = await search.mutateAsync(reference);
       if (result.found) {
         setFound(result);
         setGateArrivalTime(new Date().toISOString());
+        setVehicleNo(result.vehicle_no || '');
+        setDriverName(result.driver_name || '');
       } else {
         setNotFoundQuery(reference);
       }
@@ -132,10 +145,14 @@ export function DispatchGatePanel() {
           remarks: remarks || undefined,
           item_checks: item_checks.length > 0 ? item_checks : undefined,
           gate_arrival_time: gateArrivalTime || undefined,
+          vehicle_no: vehicleNo.trim() || undefined,
+          driver_name: driverName.trim() || undefined,
         },
       });
       setFound(null);
       setItemChecks({});
+      setVehicleNo('');
+      setDriverName('');
       setVerified(result);
     } catch {
       // feedback handled in the hook
@@ -270,6 +287,10 @@ export function DispatchGatePanel() {
           onReset={reset}
           itemCheckValues={itemChecks}
           onItemCheckChange={onItemCheckChange}
+          vehicleNo={vehicleNo}
+          onVehicleNoChange={setVehicleNo}
+          driverName={driverName}
+          onDriverNameChange={setDriverName}
         />
       ) : notFoundQuery != null ? (
         <View

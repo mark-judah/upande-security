@@ -1,11 +1,12 @@
-import { useState } from 'react';
-import { View, Text, TouchableOpacity, TextInput, Platform } from 'react-native';
+import { useCallback, useEffect, useState } from 'react';
+import { View, Text, TouchableOpacity, TextInput, Platform, ActivityIndicator } from 'react-native';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { Ionicons } from '@expo/vector-icons';
 import { HostSearchField } from '@/components/forms/HostSearchField';
 import { FormSelect } from '@/components/forms/FormSelect';
 import type { ContractorSearchResult } from '@/lib/api/types';
-import { toFrappeDateTime } from '@/lib/utils/date';
+import { fetchContractorPersonnelHistory } from '@/lib/api/contractors';
+import { toFrappeDateTime, fmtDateTime } from '@/lib/utils/date';
 import { COLORS, spacing, borderRadius, fontSize } from '@/src/core/theme';
 import { TRANSPORT_MODES, TRANSPORT_MODE_ICONS, type TransportMode } from '@/constants/transportModes';
 
@@ -17,13 +18,36 @@ export type ContractorPersonnelInput = {
 
 type ContractorTransportMode = TransportMode;
 
-type PersonnelRow = ContractorPersonnelInput & { key: string };
+// A row is "recognized" once its id_number has matched a past visit's
+// Contractor Personnel record — historyMatch carries just enough to show
+// the guard why the Full Name field locked. Any edit to id_number after a
+// match must clear this immediately (see PersonnelRowCard's onChangeText)
+// so a new person typed into a reused row never inherits a stale lock.
+type ContractorPersonnelHistoryMatch = {
+  last_contractor_name?: string;
+  last_visit_date?: string;
+};
+type PersonnelRow = ContractorPersonnelInput & {
+  key: string;
+  historyMatch: ContractorPersonnelHistoryMatch | null;
+};
 
 let rowKeySeq = 0;
 function newRowKey() {
   rowKeySeq += 1;
   return 'p' + String(rowKeySeq) + '-' + String(Date.now());
 }
+
+// Below this length an ID number is still being typed — an exact-match
+// lookup against a partial ID is just a wasted request (and Kenyan
+// national IDs run 7-8 digits), so the debounced lookup effect in
+// PersonnelRowCard waits until the value looks plausibly complete.
+const MIN_ID_LOOKUP_LENGTH = 6;
+// Same 250ms-class debounce as HostSearchField/CustomerSearchField's
+// type-ahead search, just a little longer since this fires a
+// single-record exact-match lookup rather than a live-results dropdown —
+// no benefit to firing before the guard has plausibly finished typing.
+const ID_LOOKUP_DEBOUNCE_MS = 400;
 
 type Props = {
   result: ContractorSearchResult;
@@ -50,6 +74,15 @@ export function ContractorForm({ result, onNotify, busy }: Props) {
   const [showExitPicker, setShowExitPicker] = useState(false);
   const [exitPickerMode, setExitPickerMode] = useState<'date' | 'time'>('date');
   const [personnel, setPersonnel] = useState<PersonnelRow[]>([]);
+  // Stable identity (useCallback with no deps — setPersonnel's updater form
+  // never touches anything from this render) so PersonnelRowCard's
+  // debounce effect can depend on it without the timer being torn down and
+  // restarted every time an unrelated field on the form changes. Declared
+  // above the early `if (!found) return` below — Rules of Hooks require
+  // every hook to run unconditionally on every render.
+  const updatePersonRow = useCallback((key: string, patch: Partial<PersonnelRow>) => {
+    setPersonnel((rows) => rows.map((r) => (r.key === key ? { ...r, ...patch } : r)));
+  }, []);
   // has_active_contract is the real check (a Contract row with
   // status=Active) — a contractor whose contract lapsed still matches by
   // name (is_contractor=true) but shouldn't be let through, so this must
@@ -91,15 +124,16 @@ export function ContractorForm({ result, onNotify, busy }: Props) {
   const showPlateField = showFullVehicleFields || showPlateOnlyField;
 
   const addPersonRow = () => {
-    setPersonnel((rows) => [...rows, { key: newRowKey(), full_name: '', id_number: '', is_team_leader: false }]);
+    // Fresh row, fresh key, always unlocked — a brand new row can never
+    // start out carrying a stale historyMatch from some other row.
+    setPersonnel((rows) => [
+      ...rows,
+      { key: newRowKey(), full_name: '', id_number: '', is_team_leader: false, historyMatch: null },
+    ]);
   };
 
   const removePersonRow = (key: string) => {
     setPersonnel((rows) => rows.filter((r) => r.key !== key));
-  };
-
-  const updatePersonRow = (key: string, patch: Partial<ContractorPersonnelInput>) => {
-    setPersonnel((rows) => rows.map((r) => (r.key === key ? { ...r, ...patch } : r)));
   };
 
   const onExitDateChange = (event: DateTimePickerEvent, d?: Date) => {
@@ -355,83 +389,14 @@ export function ContractorForm({ result, onNotify, busy }: Props) {
           Personnel On Site
         </Text>
         {personnel.map((row, idx) => (
-          <View
+          <PersonnelRowCard
             key={row.key}
-            style={{
-              borderWidth: 1,
-              borderColor: COLORS.border,
-              borderRadius: borderRadius.md,
-              backgroundColor: COLORS.surface,
-              padding: spacing.sm,
-              marginBottom: spacing.sm,
-            }}
-          >
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.xs }}>
-              <Text style={{ fontSize: fontSize.xs, color: COLORS.textMuted, flex: 1 }}>
-                Person {idx + 1}
-              </Text>
-              <TouchableOpacity
-                onPress={() => removePersonRow(row.key)}
-                disabled={busy}
-                hitSlop={8}
-                activeOpacity={0.6}
-              >
-                <Ionicons name="close-circle" size={20} color={COLORS.textMuted} />
-              </TouchableOpacity>
-            </View>
-
-            <TextInput
-              value={row.full_name}
-              onChangeText={(v) => updatePersonRow(row.key, { full_name: v })}
-              placeholder="Full Name"
-              placeholderTextColor={COLORS.textMuted}
-              autoCapitalize="words"
-              editable={!busy}
-              style={{
-                borderWidth: 1,
-                borderColor: COLORS.border,
-                borderRadius: borderRadius.sm,
-                paddingHorizontal: spacing.sm,
-                paddingVertical: 8,
-                fontSize: 14,
-                color: COLORS.text,
-                marginBottom: spacing.xs,
-              }}
-            />
-            <TextInput
-              value={row.id_number}
-              onChangeText={(v) => updatePersonRow(row.key, { id_number: v })}
-              placeholder="ID Number (optional)"
-              placeholderTextColor={COLORS.textMuted}
-              editable={!busy}
-              style={{
-                borderWidth: 1,
-                borderColor: COLORS.border,
-                borderRadius: borderRadius.sm,
-                paddingHorizontal: spacing.sm,
-                paddingVertical: 8,
-                fontSize: 14,
-                color: COLORS.text,
-                marginBottom: spacing.xs,
-              }}
-            />
-
-            <TouchableOpacity
-              onPress={() => updatePersonRow(row.key, { is_team_leader: !row.is_team_leader })}
-              disabled={busy}
-              activeOpacity={0.7}
-              style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 4 }}
-            >
-              <Ionicons
-                name={row.is_team_leader ? 'checkbox' : 'square-outline'}
-                size={20}
-                color={row.is_team_leader ? COLORS.primary : COLORS.textMuted}
-              />
-              <Text style={{ marginLeft: spacing.xs, fontSize: fontSize.sm, color: COLORS.text }}>
-                Team Leader / Supervisor
-              </Text>
-            </TouchableOpacity>
-          </View>
+            row={row}
+            idx={idx}
+            busy={busy}
+            updateRow={updatePersonRow}
+            onRemove={removePersonRow}
+          />
         ))}
 
         <TouchableOpacity
@@ -486,3 +451,196 @@ export function ContractorForm({ result, onNotify, busy }: Props) {
     </View>
   );
 }
+
+// One personnel row, independent of every other row: its debounce timer,
+// its in-flight lookup, and its historyMatch lock all live keyed off THIS
+// row's own key/id_number. Two rows editing simultaneously never share any
+// state — each mount of this component gets its own effect instance.
+function PersonnelRowCard({
+  row,
+  idx,
+  busy,
+  updateRow,
+  onRemove,
+}: {
+  row: PersonnelRow;
+  idx: number;
+  busy?: boolean;
+  updateRow: (key: string, patch: Partial<PersonnelRow>) => void;
+  onRemove: (key: string) => void;
+}) {
+  const [checkingHistory, setCheckingHistory] = useState(false);
+  const locked = row.historyMatch != null;
+
+  // Debounced exact-ID lookup. Keyed on row.id_number (and row.key, which
+  // never changes for a given row instance) — NOT on updateRow's identity,
+  // which is why updateRow is wrapped in useCallback up in ContractorForm:
+  // if it weren't stable, every unrelated keystroke on the form (e.g.
+  // Scope of Work) would re-render ContractorForm, hand this row a new
+  // updateRow closure, and reset this timer before it ever fired.
+  useEffect(() => {
+    const value = row.id_number.trim();
+    if (value.length < MIN_ID_LOOKUP_LENGTH) {
+      setCheckingHistory(false);
+      return;
+    }
+    let cancelled = false;
+    setCheckingHistory(true);
+    const timer = setTimeout(() => {
+      fetchContractorPersonnelHistory(value)
+        .then((result) => {
+          // Guards against a slow response landing after the guard kept
+          // typing past this debounce window (id_number has since changed
+          // again, tearing down this effect) — never apply a stale match.
+          if (cancelled) return;
+          if (result.found) {
+            updateRow(row.key, {
+              full_name: result.full_name ?? row.full_name,
+              historyMatch: {
+                last_contractor_name: result.last_contractor_name,
+                last_visit_date: result.last_visit_date,
+              },
+            });
+          }
+        })
+        .finally(() => {
+          if (!cancelled) setCheckingHistory(false);
+        });
+    }, ID_LOOKUP_DEBOUNCE_MS);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+    // row.full_name intentionally excluded — it's only read inside the
+    // .then() as a same-value fallback, and including it would restart the
+    // debounce on every keystroke in Full Name too (irrelevant to this
+    // lookup, which is keyed on id_number only).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [row.id_number, row.key, updateRow]);
+
+  return (
+    <View
+      style={{
+        borderWidth: 1,
+        borderColor: COLORS.border,
+        borderRadius: borderRadius.md,
+        backgroundColor: COLORS.surface,
+        padding: spacing.sm,
+        marginBottom: spacing.sm,
+      }}
+    >
+      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.xs }}>
+        <Text style={{ fontSize: fontSize.xs, color: COLORS.textMuted, flex: 1 }}>
+          Person {idx + 1}
+        </Text>
+        <TouchableOpacity
+          onPress={() => onRemove(row.key)}
+          disabled={busy}
+          hitSlop={8}
+          activeOpacity={0.6}
+        >
+          <Ionicons name="close-circle" size={20} color={COLORS.textMuted} />
+        </TouchableOpacity>
+      </View>
+
+      <TextInput
+        value={row.full_name}
+        onChangeText={(v) => updateRow(row.key, { full_name: v })}
+        placeholder="Full Name"
+        placeholderTextColor={COLORS.textMuted}
+        autoCapitalize="words"
+        editable={!busy && !locked}
+        style={[
+          {
+            borderWidth: 1,
+            borderColor: COLORS.border,
+            borderRadius: borderRadius.sm,
+            paddingHorizontal: spacing.sm,
+            paddingVertical: 8,
+            fontSize: 14,
+            color: COLORS.text,
+            marginBottom: spacing.xs,
+          },
+          locked ? s.lockedInput : undefined,
+        ]}
+      />
+      <TextInput
+        value={row.id_number}
+        onChangeText={(v) =>
+          updateRow(row.key, {
+            id_number: v,
+            // Any edit to the ID field invalidates a previous match right
+            // away — the debounce effect above re-looks-up and, if the new
+            // (or re-typed) value still matches, re-locks on its own. This
+            // is what stops a new person's row from inheriting whatever
+            // was previously typed into this same ID field.
+            historyMatch: null,
+          })
+        }
+        placeholder="ID Number (optional)"
+        placeholderTextColor={COLORS.textMuted}
+        editable={!busy}
+        style={{
+          borderWidth: 1,
+          borderColor: COLORS.border,
+          borderRadius: borderRadius.sm,
+          paddingHorizontal: spacing.sm,
+          paddingVertical: 8,
+          fontSize: 14,
+          color: COLORS.text,
+          marginBottom: spacing.xs,
+        }}
+      />
+
+      {checkingHistory ? (
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.xs }}>
+          <ActivityIndicator size="small" color={COLORS.textMuted} />
+          <Text style={{ marginLeft: 6, fontSize: fontSize.xs, color: COLORS.textMuted }}>
+            Checking history…
+          </Text>
+        </View>
+      ) : null}
+
+      {locked ? (
+        <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: spacing.xs }}>
+          <Ionicons name="checkmark-circle" size={14} color={COLORS.primary} style={{ marginTop: 1 }} />
+          <Text style={{ marginLeft: 6, fontSize: fontSize.xs, color: COLORS.primary, flex: 1 }}>
+            Recognized
+            {row.historyMatch?.last_contractor_name
+              ? ' — last visited with ' + row.historyMatch.last_contractor_name
+              : ''}
+            {row.historyMatch?.last_visit_date
+              ? ' on ' + fmtDateTime(row.historyMatch.last_visit_date)
+              : ''}
+          </Text>
+        </View>
+      ) : null}
+
+      <TouchableOpacity
+        onPress={() => updateRow(row.key, { is_team_leader: !row.is_team_leader })}
+        disabled={busy}
+        activeOpacity={0.7}
+        style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 4 }}
+      >
+        <Ionicons
+          name={row.is_team_leader ? 'checkbox' : 'square-outline'}
+          size={20}
+          color={row.is_team_leader ? COLORS.primary : COLORS.textMuted}
+        />
+        <Text style={{ marginLeft: spacing.xs, fontSize: fontSize.sm, color: COLORS.text }}>
+          Team Leader / Supervisor
+        </Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+const s = {
+  // Visually mirrors the disabled state — editable={false} already makes
+  // this functionally read-only, this just makes it look the part. Same
+  // convention as VisitorForm's identityLocked styling.
+  lockedInput: {
+    backgroundColor: COLORS.bgMuted,
+    color: COLORS.textMuted,
+  },
+} as const;

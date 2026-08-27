@@ -16,6 +16,17 @@ type Props = {
    * taken and can be threaded into the verify mutation's item_checks. */
   itemCheckValues: Record<string, string>;
   onItemCheckChange: (rowId: string, text: string) => void;
+  /** Guard-entered vehicle/driver, lifted to DispatchGatePanel so they
+   * survive across a decision being taken and thread into the verify
+   * mutation as vehicle_no/driver_name — AUTHORITATIVE over whatever the
+   * source document says, not just a display fallback. Pre-filled from
+   * result.vehicle_no/driver_name but always editable so the guard can
+   * confirm or correct them (e.g. a truck/driver swap the source document
+   * doesn't know about yet). */
+  vehicleNo: string;
+  onVehicleNoChange: (text: string) => void;
+  driverName: string;
+  onDriverNameChange: (text: string) => void;
 };
 
 /**
@@ -31,12 +42,17 @@ export function DispatchResultCard({
   onReset,
   itemCheckValues,
   onItemCheckChange,
+  vehicleNo,
+  onVehicleNoChange,
+  driverName,
+  onDriverNameChange,
 }: Props) {
   const [action, setAction] = useState<GateVerificationStatus | null>(null);
   const [remarks, setRemarks] = useState('');
 
   const remarksRequired = action === 'Rejected';
   const canSubmit = action != null && (!remarksRequired || remarks.trim().length > 0);
+  const alreadyVerified = result.already_verified === true;
 
   function submit() {
     if (!action || !canSubmit) return;
@@ -64,17 +80,108 @@ export function DispatchResultCard({
         </View>
       </View>
 
+      {alreadyVerified ? (
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'flex-start',
+            backgroundColor: '#FFFBEB',
+            borderRadius: borderRadius.sm,
+            paddingHorizontal: spacing.sm + 2,
+            paddingVertical: spacing.sm + 2,
+            marginTop: spacing.md,
+          }}
+        >
+          <Ionicons name="alert-circle" size={18} color={COLORS.warn} style={{ marginTop: 1 }} />
+          <View style={{ flex: 1, marginLeft: spacing.sm - 2 }}>
+            <Text
+              style={{
+                color: COLORS.warn,
+                fontSize: fontSize.sm,
+                fontFamily: fontFamily.semiBold,
+              }}
+            >
+              Already verified
+            </Text>
+            <Text
+              style={{
+                color: COLORS.warn,
+                fontSize: fontSize.xs,
+                fontFamily: fontFamily.regular,
+                marginTop: 2,
+              }}
+            >
+              This dispatch was already verified
+              {result.already_verified_by ? ' by ' + result.already_verified_by : ''}
+              {result.already_verified_at ? ' at ' + fmtDateTime(result.already_verified_at) : ''}.
+            </Text>
+          </View>
+        </View>
+      ) : null}
+
+      <View style={{ marginTop: spacing.sm, flexDirection: 'row', gap: spacing.sm }}>
+        <View style={{ flex: 1 }}>
+          <Text
+            style={{
+              fontFamily: fontFamily.semiBold,
+              fontSize: fontSize.xs,
+              color: COLORS.textMuted,
+              marginBottom: 4,
+            }}
+          >
+            Vehicle No.
+          </Text>
+          <TextInput
+            value={vehicleNo}
+            onChangeText={onVehicleNoChange}
+            placeholder="e.g. KDA 123A"
+            placeholderTextColor={COLORS.textMuted}
+            autoCapitalize="characters"
+            editable={!busy && !alreadyVerified}
+            style={{
+              borderWidth: 1,
+              borderColor: COLORS.border,
+              borderRadius: borderRadius.sm,
+              paddingHorizontal: spacing.sm + 2,
+              paddingVertical: spacing.sm - 2,
+              fontSize: fontSize.md,
+              color: COLORS.text,
+              backgroundColor: COLORS.surfaceAlt,
+            }}
+          />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text
+            style={{
+              fontFamily: fontFamily.semiBold,
+              fontSize: fontSize.xs,
+              color: COLORS.textMuted,
+              marginBottom: 4,
+            }}
+          >
+            Driver Name
+          </Text>
+          <TextInput
+            value={driverName}
+            onChangeText={onDriverNameChange}
+            placeholder="Driver's name"
+            placeholderTextColor={COLORS.textMuted}
+            editable={!busy && !alreadyVerified}
+            style={{
+              borderWidth: 1,
+              borderColor: COLORS.border,
+              borderRadius: borderRadius.sm,
+              paddingHorizontal: spacing.sm + 2,
+              paddingVertical: spacing.sm - 2,
+              fontSize: fontSize.md,
+              color: COLORS.text,
+              backgroundColor: COLORS.surfaceAlt,
+            }}
+          />
+        </View>
+      </View>
+
       <View style={{ marginTop: spacing.sm, gap: 4 }}>
-        {result.vehicle_no ? (
-          <Text style={{ color: COLORS.textSecondary, fontSize: fontSize.sm }}>
-            Vehicle: {result.vehicle_no}
-          </Text>
-        ) : null}
-        {result.driver_name ? (
-          <Text style={{ color: COLORS.textSecondary, fontSize: fontSize.sm }}>
-            Driver: {result.driver_name}
-          </Text>
-        ) : null}
         {result.dispatch_datetime ? (
           <Text style={{ color: COLORS.textSecondary, fontSize: fontSize.sm }}>
             Dispatched: {fmtDateTime(result.dispatch_datetime)}
@@ -135,6 +242,8 @@ export function DispatchResultCard({
         />
       ) : null}
 
+      {!alreadyVerified ? (
+      <>
       <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md }}>
         <TouchableOpacity
           onPress={() => setAction('Verified')}
@@ -268,6 +377,8 @@ export function DispatchResultCard({
             </Text>
           )}
         </TouchableOpacity>
+      ) : null}
+      </>
       ) : null}
 
       <TouchableOpacity

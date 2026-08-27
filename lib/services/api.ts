@@ -453,6 +453,22 @@ export type VisitorHistoryResult =
     }
   | { found: false };
 
+// Contractor Personnel history — unlike VisitorHistoryResult, there is no
+// "today's appointment" match path: the same individual can legitimately be
+// sent by different contractor companies (or the same one) on different
+// visits, so this is a pure history-by-exact-ID-number lookup across ALL
+// past Appointments' Contractor Personnel child rows. See
+// get_contractor_personnel_history.py.
+export type ContractorPersonnelHistoryResult =
+  | {
+      found: true;
+      full_name?: string;
+      id_number?: string;
+      last_contractor_name?: string;
+      last_visit_date?: string;
+    }
+  | { found: false };
+
 export type CreateWalkInInput = {
   customer_name: string;
   id_number?: string;
@@ -713,6 +729,13 @@ export type DispatchSearchHit = {
   source_status: string;
   is_authorized: boolean;
   expected_items: DispatchExpectedItem[];
+  /** Set when the most recent Gate Dispatch Verification for this reference
+   * already has status "Verified" — the client should block re-verifying
+   * (re-verifying after a Rejected attempt is still allowed server-side, so
+   * this only ever reflects a prior Verified record). */
+  already_verified?: boolean;
+  already_verified_at?: string | null;
+  already_verified_by?: string | null;
 };
 export type DispatchSearchMiss = { found: false; error: string };
 export type DispatchSearchResult = DispatchSearchHit | DispatchSearchMiss;
@@ -733,6 +756,12 @@ export type VerifyDispatchInput = {
    * found a match — distinct from gate_exit_time, which the server stamps
    * itself at submission time. */
   gate_arrival_time?: string;
+  /** Guard-entered vehicle/driver at the gate — AUTHORITATIVE over whatever
+   * the source document says (a guard swap of trucks/drivers must be
+   * reflected even if the source document is stale), not just a fallback
+   * for blank values. */
+  vehicle_no?: string;
+  driver_name?: string;
 };
 
 export type DispatchItemCheckResult = {
@@ -931,6 +960,12 @@ export const api = {
   // Walk-in visitor history lookup (pre-fill from a past visit).
   getVisitorHistory: (query: string) =>
     call<VisitorHistoryResult>('get_visitor_history', { query }),
+
+  // Contractor Personnel history lookup (pre-fill + lock a personnel row's
+  // Full Name from a past visit, matched by exact id_number). No "today's
+  // appointment" fast path — see get_contractor_personnel_history.py.
+  getContractorPersonnelHistory: (id_number: string) =>
+    call<ContractorPersonnelHistoryResult>('get_contractor_personnel_history', { id_number }),
 
   // Pending approvals
   pendingApprovals: () => call<PendingApprovalRow[]>('pending_approvals'),

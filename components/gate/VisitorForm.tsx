@@ -16,6 +16,12 @@ type Props = {
   watchHostId: string;
   watchHostName: string;
   onScanId?: () => void;
+  // True once Name/Phone came from an authoritative source — today's
+  // scheduled appointment (onProceed) or a past verified visit
+  // (onRegisterAsWalkIn history match). Hard-locks those two fields so a
+  // guard's typo can't fork the record for the same person/ID. Everything
+  // else (transport, plate, passengers, purpose, host) stays editable.
+  identityLocked?: boolean;
 };
 
 export function VisitorForm({
@@ -26,6 +32,7 @@ export function VisitorForm({
   watchHostId,
   watchHostName,
   onScanId,
+  identityLocked = false,
 }: Props) {
   // Only Vehicle keeps the full plate + colour + passengers group - a
   // Motorcycle has no colour/passengers worth capturing, just the plate,
@@ -63,11 +70,13 @@ export function VisitorForm({
         name="customer_name"
         render={({ field: { onChange, value, onBlur } }) => (
           <FormInput
-            label="Full Name"
+            label={identityLocked ? 'Full Name (verified — locked)' : 'Full Name'}
             value={value}
             onChangeText={onChange}
             onBlur={onBlur}
             autoCapitalize="words"
+            editable={!identityLocked}
+            style={identityLocked ? s.lockedInput : undefined}
             error={errors.customer_name?.message}
           />
         )}
@@ -95,11 +104,13 @@ export function VisitorForm({
             name="customer_phone_number"
             render={({ field: { onChange, value, onBlur } }) => (
               <FormInput
-                label="Phone"
+                label={identityLocked ? 'Phone (verified — locked)' : 'Phone'}
                 value={value ?? ''}
                 onChangeText={onChange}
                 onBlur={onBlur}
                 keyboardType="phone-pad"
+                editable={!identityLocked}
+                style={identityLocked ? s.lockedInput : undefined}
                 error={errors.customer_phone_number?.message}
               />
             )}
@@ -202,3 +213,12 @@ export function VisitorForm({
     </View>
   );
 }
+
+const s = {
+  // Visually mirrors the disabled state — editable={false} already makes
+  // this functionally read-only, this just makes it look the part.
+  lockedInput: {
+    backgroundColor: COLORS.bgMuted,
+    color: COLORS.textMuted,
+  },
+} as const;

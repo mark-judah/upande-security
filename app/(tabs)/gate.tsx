@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { View, Text, Platform, Keyboard, Pressable, ActivityIndicator, Alert, StyleSheet } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { router } from 'expo-router';
@@ -72,6 +72,16 @@ export default function GateTab() {
     useState<VisitorAppointmentSearchResult | null>(null);
   const [isWalkIn, setIsWalkIn] = useState(false);
   const [revisitInfo, setRevisitInfo] = useState<VisitorHistoryResult | null>(null);
+  // Guards the background fetchVisitorHistory() call below against a race
+  // with a second, later onManualSearch() call: search_visitor_appointment
+  // resolving fast re-enables the search bar (isPending only tracks that
+  // mutation, not this trailing history lookup), so a guard can search a
+  // completely different person before this one's history check finishes.
+  // Each invocation stamps its own id here; a response only gets applied if
+  // it's still the most recent search when it lands, otherwise a stale
+  // history match would silently lock the WRONG (currently-displayed)
+  // person's Name/Phone to whoever this earlier search was actually for.
+  const searchRequestIdRef = useRef(0);
 
   const [contractorResult, setContractorResult] = useState<ContractorSearchResult | null>(null);
 
@@ -169,10 +179,21 @@ export default function GateTab() {
       feedback.warning('Please enter a search query');
       return;
     }
+    searchRequestIdRef.current += 1;
+    const requestId = searchRequestIdRef.current;
     setVisitorResult(null);
     setShowVisitorResult(false);
     setSelectedAppointment(null);
     setContractorResult(null);
+    // Unconditionally clear the walk-in/revisit-lock state too, same as
+    // selectedAppointment above — otherwise a fresh search for a DIFFERENT
+    // person that doesn't itself find a history match leaves the previous
+    // person's revisitInfo (and therefore their locked, uneditable Name/
+    // Phone) sitting in the still-open walk-in panel, letting the new
+    // visitor's actual check-in get saved under the old person's identity
+    // with no way for the guard to correct it.
+    setIsWalkIn(false);
+    setRevisitInfo(null);
 
     try {
       if (selectedType === CheckInType.Visitor) {
@@ -183,7 +204,7 @@ export default function GateTab() {
           // No appointment today — check whether they've visited before so
           // we can skip re-typing their details for a walk-in registration.
           const history = await fetchVisitorHistory(q);
-          if (history.found) {
+          if (history.found && searchRequestIdRef.current === requestId) {
             onRegisterAsWalkIn(history);
           }
         }
@@ -553,6 +574,7 @@ export default function GateTab() {
                 watchHostId={watchHostId}
                 watchHostName={watchHostName}
                 onScanId={() => router.push('/scan-id')}
+                identityLocked={Boolean(revisitInfo?.found)}
               />
             </WalkInSection>
           ) : null}
@@ -595,6 +617,7 @@ export default function GateTab() {
                   watchTransport={watchTransport}
                   watchHostId={watchHostId}
                   watchHostName={watchHostName}
+                  identityLocked
                 />
                 {showBadgePanel && selectedAppointment.name ? (
                   <IssueVisitorBadge

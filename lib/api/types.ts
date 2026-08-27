@@ -132,6 +132,14 @@ export type ContractorProject = {
   expected_end_date?: string;
 };
 
+export type ContractorPersonnelHistoryResult = {
+  found: boolean;
+  full_name?: string;
+  id_number?: string;
+  last_contractor_name?: string;
+  last_visit_date?: string;
+};
+
 export type ContractorSearchResult = {
   // Real Contract docname (party_type=Supplier), not the Supplier's own
   // name — may point at a lapsed/unsigned contract when has_active_contract
