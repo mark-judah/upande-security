@@ -27,6 +27,17 @@ async function call<T>(method: string, body: object = {}): Promise<T> {
   ) {
     throw new Error((msg as { error: string }).error);
   }
+  // A 2xx response with no `message` field at all means the server didn't
+  // actually return the shape every verb is supposed to produce — an
+  // unhandled exception that fell through without setting
+  // frappe.response["message"], a maintenance/redeploy page served at 200,
+  // etc. Silently resolving to undefined here just moves the crash
+  // downstream to whatever field a caller reads off it next (e.g.
+  // `result.found`) with a much more confusing error. Fail loudly here
+  // instead, at the one place that actually knows what happened.
+  if (msg === undefined || msg === null) {
+    throw new Error('Server returned an unexpected empty response for ' + method);
+  }
   return res.data.message;
 }
 
