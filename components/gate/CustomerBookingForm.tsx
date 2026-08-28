@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, Platform, ActivityIndicator } from 'react-native';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { Ionicons } from '@expo/vector-icons';
@@ -6,8 +6,18 @@ import { CustomerSearchField } from '@/components/forms/CustomerSearchField';
 import { HostSearchField } from '@/components/forms/HostSearchField';
 import { useBookCustomerAppointment } from '@/lib/hooks/useBookCustomerAppointment';
 import { useFeedback } from '@/lib/hooks/useFeedback';
+import { fetchVisitorHistory } from '@/lib/api/visitors';
 import { toFrappeDateTime } from '@/lib/utils/date';
 import { COLORS, spacing, borderRadius, fontSize } from '@/src/core/theme';
+
+// Same exact-ID-lookup pattern as ContractorForm's per-personnel history
+// lock (get_visitor_history has no visitor-type restriction, so a past
+// Customer-linked appointment's person is found the same way a Visitor's
+// is): once this many digits are typed, debounce a lookup and, on a match,
+// prefill + lock Person's Name so a repeat visitor's name can't drift
+// between visits due to a guard's typo.
+const ID_LOOKUP_DEBOUNCE_MS = 400;
+const MIN_ID_LOOKUP_LENGTH = 6;
 
 /**
  * "Book Visit" gate chip — book a future appointment for a Customer ahead
@@ -23,6 +33,9 @@ export function CustomerBookingForm() {
   const [customerName, setCustomerName] = useState<string | null>(null);
   const [personName, setPersonName] = useState('');
   const [idNumber, setIdNumber] = useState('');
+  const [nameLocked, setNameLocked] = useState(false);
+  const [checkingHistory, setCheckingHistory] = useState(false);
+  const [historyNote, setHistoryNote] = useState<string | null>(null);
   const [hostId, setHostId] = useState<string | null>(null);
   const [hostName, setHostName] = useState<string | null>(null);
   const [scheduledTime, setScheduledTime] = useState<Date>(new Date());
@@ -38,11 +51,53 @@ export function CustomerBookingForm() {
     setCustomerName(null);
     setPersonName('');
     setIdNumber('');
+    setNameLocked(false);
+    setHistoryNote(null);
     setHostId(null);
     setHostName(null);
     setScheduledTime(new Date());
     setPurpose('');
   }
+
+  // Debounced exact-ID lookup against past visit history (any visitor
+  // type — get_visitor_history isn't restricted to Visitor-type
+  // appointments). A match locks Person's Name the same way a Visitor
+  // walk-in's revisit match does; typing a different ID afterwards
+  // re-looks-up and unlocks until a new match confirms it.
+  useEffect(() => {
+    const value = idNumber.trim();
+    if (value.length < MIN_ID_LOOKUP_LENGTH) {
+      setCheckingHistory(false);
+      setNameLocked(false);
+      setHistoryNote(null);
+      return;
+    }
+    let cancelled = false;
+    setCheckingHistory(true);
+    const timer = setTimeout(() => {
+      fetchVisitorHistory(value)
+        .then((result) => {
+          if (cancelled) return;
+          if (result.found) {
+            setPersonName(result.visitor_name ?? '');
+            setNameLocked(true);
+            setHistoryNote(
+              result.last_visit_date ? `Last visited on ${result.last_visit_date}` : 'Matched a past visit',
+            );
+          } else {
+            setNameLocked(false);
+            setHistoryNote(null);
+          }
+        })
+        .finally(() => {
+          if (!cancelled) setCheckingHistory(false);
+        });
+    }, ID_LOOKUP_DEBOUNCE_MS);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [idNumber]);
 
   const onTimeChange = (event: DateTimePickerEvent, d?: Date) => {
     if (Platform.OS === 'android') setShowTimePicker(false);
@@ -111,35 +166,7 @@ export function CustomerBookingForm() {
         }}
       />
 
-      <View style={{ marginTop: -6, marginBottom: spacing.md }}>
-        <Text style={{ fontSize: fontSize.xs, fontWeight: '600', color: COLORS.textSecondary, marginBottom: 6 }}>
-          Person&apos;s Name
-        </Text>
-        <View
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            borderWidth: 1,
-            borderColor: COLORS.border,
-            borderRadius: borderRadius.md,
-            backgroundColor: COLORS.surface,
-            paddingHorizontal: spacing.md,
-          }}
-        >
-          <Ionicons name="person-outline" size={18} color={COLORS.textMuted} />
-          <TextInput
-            value={personName}
-            onChangeText={setPersonName}
-            placeholder="Who is being sent to visit"
-            placeholderTextColor={COLORS.textMuted}
-            autoCapitalize="words"
-            editable={!book.isPending}
-            style={{ flex: 1, paddingVertical: 10, paddingHorizontal: spacing.sm, fontSize: 14, color: COLORS.text }}
-          />
-        </View>
-      </View>
-
-      <View style={{ marginBottom: spacing.md }}>
+      <View style={{ marginTop: -6, marginBottom: spacing.xs }}>
         <Text style={{ fontSize: fontSize.xs, fontWeight: '600', color: COLORS.textSecondary, marginBottom: 6 }}>
           ID Number
         </Text>
@@ -158,9 +185,43 @@ export function CustomerBookingForm() {
           <TextInput
             value={idNumber}
             onChangeText={setIdNumber}
-            placeholder="National ID / Passport number"
+            placeholder="National ID / Passport number — searches past visits"
             placeholderTextColor={COLORS.textMuted}
             editable={!book.isPending}
+            style={{ flex: 1, paddingVertical: 10, paddingHorizontal: spacing.sm, fontSize: 14, color: COLORS.text }}
+          />
+          {checkingHistory ? <ActivityIndicator size="small" color={COLORS.textMuted} /> : null}
+        </View>
+        {historyNote ? (
+          <Text style={{ fontSize: fontSize.xs, color: COLORS.primary, marginTop: 4 }}>
+            ✓ {historyNote} — name filled in and locked below
+          </Text>
+        ) : null}
+      </View>
+
+      <View style={{ marginBottom: spacing.md }}>
+        <Text style={{ fontSize: fontSize.xs, fontWeight: '600', color: COLORS.textSecondary, marginBottom: 6 }}>
+          {nameLocked ? "Person's Name (verified — locked)" : "Person's Name"}
+        </Text>
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            borderWidth: 1,
+            borderColor: COLORS.border,
+            borderRadius: borderRadius.md,
+            backgroundColor: nameLocked ? COLORS.surfaceAlt : COLORS.surface,
+            paddingHorizontal: spacing.md,
+          }}
+        >
+          <Ionicons name="person-outline" size={18} color={COLORS.textMuted} />
+          <TextInput
+            value={personName}
+            onChangeText={setPersonName}
+            placeholder="Who is being sent to visit"
+            placeholderTextColor={COLORS.textMuted}
+            autoCapitalize="words"
+            editable={!book.isPending && !nameLocked}
             style={{ flex: 1, paddingVertical: 10, paddingHorizontal: spacing.sm, fontSize: 14, color: COLORS.text }}
           />
         </View>
