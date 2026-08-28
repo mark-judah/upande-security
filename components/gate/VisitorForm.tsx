@@ -16,9 +16,9 @@ type Props = {
   watchHostId: string;
   watchHostName: string;
   onScanId?: () => void;
-  // True once Name/Phone came from an authoritative source — today's
+  // True once Name/ID/Phone came from an authoritative source — today's
   // scheduled appointment (onProceed) or a past verified visit
-  // (onRegisterAsWalkIn history match). Hard-locks those two fields so a
+  // (onRegisterAsWalkIn history match). Hard-locks those three fields so a
   // guard's typo can't fork the record for the same person/ID. Everything
   // else (transport, plate, passengers, purpose, host) stays editable.
   identityLocked?: boolean;
@@ -89,10 +89,12 @@ export function VisitorForm({
             name="id_ref"
             render={({ field: { onChange, value, onBlur } }) => (
               <FormInput
-                label="ID / Ref"
+                label={identityLocked ? 'ID / Ref (verified — locked)' : 'ID / Ref'}
                 value={value ?? ''}
                 onChangeText={onChange}
                 onBlur={onBlur}
+                editable={!identityLocked}
+                style={identityLocked ? s.lockedInput : undefined}
                 error={errors.id_ref?.message}
               />
             )}

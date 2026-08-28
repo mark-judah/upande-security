@@ -83,11 +83,12 @@ export function ContractorForm({ result, onNotify, busy }: Props) {
   const updatePersonRow = useCallback((key: string, patch: Partial<PersonnelRow>) => {
     setPersonnel((rows) => rows.map((r) => (r.key === key ? { ...r, ...patch } : r)));
   }, []);
-  // has_active_contract is the real check (a Contract row with
-  // status=Active) — a contractor whose contract lapsed still matches by
-  // name (is_contractor=true) but shouldn't be let through, so this must
-  // gate the form, not just "did we find any contractor at all".
-  const found = Boolean(result.is_contractor && result.has_active_contract);
+  // TEMPORARY, per explicit request: the active-contract requirement
+  // (has_active_contract, a Contract row with status=Active) is disabled
+  // for now — this only checks "is this a known contractor at all". Revert
+  // to `Boolean(result.is_contractor && result.has_active_contract)` to
+  // restore the real gate once contract-status enforcement is wanted again.
+  const found = Boolean(result.is_contractor);
 
   if (!found) {
     const known = Boolean(result.is_contractor);
