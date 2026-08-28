@@ -29,26 +29,46 @@ try:
                 "custom_check_in_time",
             ],
             order_by="custom_check_in_time desc",
-            limit_page_length=1,
+            limit_page_length=10,
         )
 
         if not matches:
             frappe.response["message"] = {"found": False}
         else:
+            # Most recent visit is the source of truth for name/ID/host/
+            # purpose - but not every visitor type collects every field
+            # (Customer/Contractor bookings never key in a phone number),
+            # so a later phone-less visit must not blank out a phone that
+            # genuinely IS on file from an earlier one. Backfill each
+            # optional field from the nearest match (still newest-first)
+            # that actually has it, rather than only ever looking at the
+            # single most recent record.
             m = matches[0]
+
+            def backfill(fieldname):
+                for row in matches:
+                    if row.get(fieldname):
+                        return row.get(fieldname)
+                return None
+
+            phone = m.customer_phone_number or backfill("customer_phone_number")
+            transport_mode = m.custom_mode_of_transport or backfill("custom_mode_of_transport")
+            vehicle_reg_no = m.custom_vehicles_number_plate or backfill("custom_vehicles_number_plate")
+            vehicle_color = m.custom_vehicles_colour or backfill("custom_vehicles_colour")
+
             frappe.response["message"] = {
                 "found": True,
                 "visitor_name": m.customer_name,
-                "phone_number": m.customer_phone_number,
+                "phone_number": phone,
                 "id_no": m.custom_id_number,
                 "host_id": m.custom_meet_with,
                 "host_name": frappe.db.get_value(
                     "Employee", m.custom_meet_with, "employee_name"
                 ) if m.custom_meet_with else "",
                 "purpose": m.customer_details,
-                "transport_mode": m.custom_mode_of_transport,
-                "vehicle_reg_no": m.custom_vehicles_number_plate,
-                "vehicle_color": m.custom_vehicles_colour,
+                "transport_mode": transport_mode,
+                "vehicle_reg_no": vehicle_reg_no,
+                "vehicle_color": vehicle_color,
                 "last_visit_date": m.custom_check_in_time or m.scheduled_time,
             }
 except Exception as e:
