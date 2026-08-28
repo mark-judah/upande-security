@@ -56,16 +56,30 @@ async function ensureAndroidChannel(Notifications: NotificationsModule): Promise
 
 let _registering = false;
 
+export type PushRegistrationStatus =
+  | 'ok'
+  | 'no-native-module'
+  | 'permission-denied'
+  | 'no-project-id'
+  | 'no-token'
+  | 'error';
+
 /**
  * Requests notification permission, fetches this device's Expo push token,
  * and registers it against the logged-in user's linked guard record.
  * Best-effort throughout — never throws, since this can run unattended on
- * app start.
+ * app start. Returns a status so the caller can surface a reason to the
+ * user instead of this failing invisibly (the previous behavior — every
+ * failure path was swallowed and only logged behind `__DEV__`, so a real
+ * production build gave zero signal that SOS alerts were silently off).
  */
-export async function registerForNearbyGuardAlerts(): Promise<void> {
+export async function registerForNearbyGuardAlerts(): Promise<PushRegistrationStatus> {
   const Notifications = getNotifications();
-  if (!Notifications) return;
-  if (_registering) return;
+  if (!Notifications) {
+    console.warn('[pushToken] expo-notifications native module unavailable on this build');
+    return 'no-native-module';
+  }
+  if (_registering) return 'ok';
   _registering = true;
   try {
     await ensureAndroidChannel(Notifications);
@@ -76,21 +90,25 @@ export async function registerForNearbyGuardAlerts(): Promise<void> {
       const requested = await Notifications.requestPermissionsAsync();
       granted = requested.granted;
     }
-    if (!granted) return;
+    if (!granted) {
+      console.warn('[pushToken] notification permission not granted — SOS alerts disabled');
+      return 'permission-denied';
+    }
 
     const projectId =
       (Constants.expoConfig?.extra as { eas?: { projectId?: string } } | undefined)?.eas
         ?.projectId;
     if (!projectId) {
-      if (__DEV__) {
-        console.warn('[pushToken] no extra.eas.projectId in app config — cannot fetch Expo push token');
-      }
-      return;
+      console.warn('[pushToken] no extra.eas.projectId in app config — cannot fetch Expo push token');
+      return 'no-project-id';
     }
 
     const tokenResponse = await Notifications.getExpoPushTokenAsync({ projectId });
     const expo_push_token = tokenResponse.data;
-    if (!expo_push_token) return;
+    if (!expo_push_token) {
+      console.warn('[pushToken] getExpoPushTokenAsync returned no token');
+      return 'no-token';
+    }
 
     // Best-effort last-known location — never blocks registration.
     let lat: number | undefined;
@@ -111,8 +129,10 @@ export async function registerForNearbyGuardAlerts(): Promise<void> {
       lat,
       lng,
     });
+    return 'ok';
   } catch (e) {
-    if (__DEV__) console.warn('[pushToken] registration failed:', e);
+    console.warn('[pushToken] registration failed:', e);
+    return 'error';
   } finally {
     _registering = false;
   }
