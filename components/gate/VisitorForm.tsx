@@ -19,8 +19,12 @@ type Props = {
   // True once Name/ID/Phone came from an authoritative source — today's
   // scheduled appointment (onProceed) or a past verified visit
   // (onRegisterAsWalkIn history match). Hard-locks those three fields so a
-  // guard's typo can't fork the record for the same person/ID. Everything
-  // else (transport, plate, passengers, purpose, host) stays editable.
+  // guard's typo can't fork the record for the same person/ID - but only
+  // the ones that actually have a value: a source record with a blank
+  // field (e.g. a Customer-type history match, which never collects
+  // phone) must leave that specific field editable, or it's permanently
+  // unfillable. Everything else (transport, plate, passengers, purpose,
+  // host) stays editable regardless.
   identityLocked?: boolean;
 };
 
@@ -68,18 +72,26 @@ export function VisitorForm({
       <Controller
         control={control}
         name="customer_name"
-        render={({ field: { onChange, value, onBlur } }) => (
-          <FormInput
-            label={identityLocked ? 'Full Name (verified — locked)' : 'Full Name'}
-            value={value}
-            onChangeText={onChange}
-            onBlur={onBlur}
-            autoCapitalize="words"
-            editable={!identityLocked}
-            style={identityLocked ? s.lockedInput : undefined}
-            error={errors.customer_name?.message}
-          />
-        )}
+        render={({ field: { onChange, value, onBlur } }) => {
+          // Lock only when there's actually a value to lock - identityLocked
+          // means "this identity came from a verified source", not "every
+          // field it touched has data". A match with a blank field (e.g. a
+          // history record whose phone was never collected) must leave that
+          // one field editable, or it's permanently unfillable.
+          const locked = identityLocked && !!value;
+          return (
+            <FormInput
+              label={locked ? 'Full Name (verified — locked)' : 'Full Name'}
+              value={value}
+              onChangeText={onChange}
+              onBlur={onBlur}
+              autoCapitalize="words"
+              editable={!locked}
+              style={locked ? s.lockedInput : undefined}
+              error={errors.customer_name?.message}
+            />
+          );
+        }}
       />
 
       <View style={{ flexDirection: 'row', gap: spacing.sm }}>
@@ -87,35 +99,41 @@ export function VisitorForm({
           <Controller
             control={control}
             name="id_ref"
-            render={({ field: { onChange, value, onBlur } }) => (
-              <FormInput
-                label={identityLocked ? 'ID / Ref (verified — locked)' : 'ID / Ref'}
-                value={value ?? ''}
-                onChangeText={onChange}
-                onBlur={onBlur}
-                editable={!identityLocked}
-                style={identityLocked ? s.lockedInput : undefined}
-                error={errors.id_ref?.message}
-              />
-            )}
+            render={({ field: { onChange, value, onBlur } }) => {
+              const locked = identityLocked && !!value;
+              return (
+                <FormInput
+                  label={locked ? 'ID / Ref (verified — locked)' : 'ID / Ref'}
+                  value={value ?? ''}
+                  onChangeText={onChange}
+                  onBlur={onBlur}
+                  editable={!locked}
+                  style={locked ? s.lockedInput : undefined}
+                  error={errors.id_ref?.message}
+                />
+              );
+            }}
           />
         </View>
         <View style={{ flex: 1 }}>
           <Controller
             control={control}
             name="customer_phone_number"
-            render={({ field: { onChange, value, onBlur } }) => (
-              <FormInput
-                label={identityLocked ? 'Phone (verified — locked)' : 'Phone'}
-                value={value ?? ''}
-                onChangeText={onChange}
-                onBlur={onBlur}
-                keyboardType="phone-pad"
-                editable={!identityLocked}
-                style={identityLocked ? s.lockedInput : undefined}
-                error={errors.customer_phone_number?.message}
-              />
-            )}
+            render={({ field: { onChange, value, onBlur } }) => {
+              const locked = identityLocked && !!value;
+              return (
+                <FormInput
+                  label={locked ? 'Phone (verified — locked)' : 'Phone'}
+                  value={value ?? ''}
+                  onChangeText={onChange}
+                  onBlur={onBlur}
+                  keyboardType="phone-pad"
+                  editable={!locked}
+                  style={locked ? s.lockedInput : undefined}
+                  error={errors.customer_phone_number?.message}
+                />
+              );
+            }}
           />
         </View>
       </View>
