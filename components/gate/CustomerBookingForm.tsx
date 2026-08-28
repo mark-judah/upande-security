@@ -167,9 +167,24 @@ export function CustomerBookingForm() {
       />
 
       <View style={{ marginTop: -6, marginBottom: spacing.xs }}>
-        <Text style={{ fontSize: fontSize.xs, fontWeight: '600', color: COLORS.textSecondary, marginBottom: 6 }}>
-          ID Number
-        </Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Text style={{ fontSize: fontSize.xs, fontWeight: '600', color: COLORS.textSecondary, marginBottom: 6 }}>
+            {nameLocked ? 'ID Number (verified — locked)' : 'ID Number'}
+          </Text>
+          {nameLocked ? (
+            <TouchableOpacity
+              onPress={() => {
+                setNameLocked(false);
+                setHistoryNote(null);
+                setPersonName('');
+                setIdNumber('');
+              }}
+              accessibilityRole="button"
+            >
+              <Text style={{ fontSize: fontSize.xs, color: COLORS.primary, fontWeight: '600' }}>Not them? Clear</Text>
+            </TouchableOpacity>
+          ) : null}
+        </View>
         <View
           style={{
             flexDirection: 'row',
@@ -177,7 +192,7 @@ export function CustomerBookingForm() {
             borderWidth: 1,
             borderColor: COLORS.border,
             borderRadius: borderRadius.md,
-            backgroundColor: COLORS.surface,
+            backgroundColor: nameLocked ? COLORS.surfaceAlt : COLORS.surface,
             paddingHorizontal: spacing.md,
           }}
         >
@@ -187,14 +202,14 @@ export function CustomerBookingForm() {
             onChangeText={setIdNumber}
             placeholder="National ID / Passport number — searches past visits"
             placeholderTextColor={COLORS.textMuted}
-            editable={!book.isPending}
+            editable={!book.isPending && !nameLocked}
             style={{ flex: 1, paddingVertical: 10, paddingHorizontal: spacing.sm, fontSize: 14, color: COLORS.text }}
           />
           {checkingHistory ? <ActivityIndicator size="small" color={COLORS.textMuted} /> : null}
         </View>
         {historyNote ? (
           <Text style={{ fontSize: fontSize.xs, color: COLORS.primary, marginTop: 4 }}>
-            ✓ {historyNote} — name filled in and locked below
+            ✓ {historyNote} — ID and name locked below
           </Text>
         ) : null}
       </View>
