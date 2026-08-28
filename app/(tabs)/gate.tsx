@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { View, Text, Platform, Keyboard, Pressable, ActivityIndicator, Alert, StyleSheet } from 'react-native';
+import { View, Text, Platform, Keyboard, Pressable, ActivityIndicator, Alert, StyleSheet, RefreshControl } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { router } from 'expo-router';
 import { useForm } from 'react-hook-form';
@@ -525,6 +525,13 @@ export default function GateTab() {
         extraScrollHeight={Platform.OS === 'ios' ? 20 : 60}
         enableAutomaticScroll
         showsVerticalScrollIndicator={false}
+        // Pull-to-refresh doubles as a manual OTA update check — onCheckForUpdates
+        // already existed fully built (busy state, error handling, reload
+        // prompt) but was never wired to anything, leaving "Check for
+        // updates" reachable only by navigating to Settings. This makes it
+        // reachable from the guard's actual main working screen with a
+        // familiar gesture instead.
+        refreshControl={<RefreshControl refreshing={updateBusy} onRefresh={onCheckForUpdates} />}
       >
         <View style={s.card}>
           <HeaderSelectors selected={selectedType} onSelect={onTypeSelect} />
