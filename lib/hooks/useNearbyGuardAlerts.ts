@@ -1,20 +1,15 @@
 import { useEffect } from 'react';
 import { useAuthStore } from '@/lib/stores/authStore';
-import { useFeedback } from '@/lib/hooks/useFeedback';
 import { attachNearbyAlertListeners } from '@/lib/services/nearbyAlert';
-import {
-  registerForNearbyGuardAlerts,
-  watchPushTokenRotation,
-  type PushRegistrationStatus,
-} from '@/lib/services/pushToken';
+import { registerForNearbyGuardAlerts, watchPushTokenRotation } from '@/lib/services/pushToken';
 
-const STATUS_MESSAGE: Partial<Record<PushRegistrationStatus, string>> = {
-  'no-native-module': 'SOS alerts unavailable — this app needs a fresh install to enable them.',
-  'permission-denied': 'SOS alerts are off — enable notifications for this app in phone settings.',
-  'no-project-id': 'SOS alerts could not start (app config issue) — contact support.',
-  'no-token': 'SOS alerts could not start — try reopening the app.',
-  error: 'SOS alerts could not start — try reopening the app.',
-};
+// NOTE: this hook is mounted directly in app/_layout.tsx's RootLayout body,
+// ABOVE where <ToastProvider> wraps the returned JSX — so useFeedback()/
+// useToast() is NOT available here (it throws "must be used inside
+// <ToastProvider>", which crashed the whole app on launch when this was
+// tried). Diagnostics surface via the always-on console.warn calls in
+// lib/services/pushToken.ts instead — inspect those (Metro / device logs)
+// rather than adding a toast/haptic call in this hook.
 
 /**
  * Mount once inside the root layout. Wires up the nearby-guard SOS push
@@ -31,7 +26,6 @@ const STATUS_MESSAGE: Partial<Record<PushRegistrationStatus, string>> = {
  */
 export function useNearbyGuardAlerts(): void {
   const hasSession = useAuthStore((s) => s.hasSession);
-  const feedback = useFeedback();
 
   // Listeners can be attached regardless of session state — a cold-start
   // notification tap can launch the app before hydration finishes.
@@ -42,16 +36,8 @@ export function useNearbyGuardAlerts(): void {
 
   useEffect(() => {
     if (!hasSession) return;
-    registerForNearbyGuardAlerts()
-      .then((status) => {
-        // Only surface the cases that actually mean "SOS alerts are off" —
-        // previously every failure was silent, which is exactly what made
-        // this impossible to diagnose from the field.
-        if (status !== 'ok') feedback.warning(STATUS_MESSAGE[status] ?? 'SOS alerts could not start.');
-      })
-      .catch(() => {});
+    registerForNearbyGuardAlerts().catch(() => {});
     const stopWatching = watchPushTokenRotation();
     return stopWatching;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasSession]);
 }
