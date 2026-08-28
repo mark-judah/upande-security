@@ -525,7 +525,28 @@ export default function GateTab() {
               <FoundResultCard
                 result={visitorResult}
                 onProceed={() => onProceed(visitorResult)}
-                onRegisterAsWalkIn={onRegisterAsWalkIn}
+                onRegisterAsWalkIn={() =>
+                  // "Different visit? Register as new walk-in" — this person
+                  // is already known (we just found their scheduled
+                  // appointment right here), so treat it exactly like a
+                  // revisit-history match: prefill + lock identity from the
+                  // data already on hand, no extra lookup needed. Previously
+                  // this called onRegisterAsWalkIn with no history at all,
+                  // silently wiping Name/ID/Phone back to blank for a
+                  // visitor we'd just identified seconds earlier.
+                  onRegisterAsWalkIn({
+                    found: true,
+                    visitor_name: visitorResult.visitor_name,
+                    phone_number: visitorResult.phone_number,
+                    id_no: visitorResult.id_no,
+                    host_id: visitorResult.host_id,
+                    host_name: visitorResult.host_name,
+                    purpose: visitorResult.purpose,
+                    transport_mode: visitorResult.transport_mode,
+                    vehicle_reg_no: visitorResult.vehicle_reg_no,
+                    vehicle_color: visitorResult.vehicle_color,
+                  })
+                }
               />
             ) : (
               <NoAppointmentCard onRegisterAsWalkIn={onRegisterAsWalkIn} />

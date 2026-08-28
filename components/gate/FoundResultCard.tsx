@@ -66,7 +66,7 @@ export function FoundResultCard({ result, onProceed, onRegisterAsWalkIn }: Props
       </View>
 
       <TouchableOpacity
-        onPress={onRegisterAsWalkIn}
+        onPress={() => onRegisterAsWalkIn()}
         activeOpacity={0.7}
         accessibilityRole="button"
         style={{

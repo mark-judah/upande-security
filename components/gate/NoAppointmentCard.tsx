@@ -23,7 +23,7 @@ export function NoAppointmentCard({ onRegisterAsWalkIn }: Props) {
         </Text>
       </View>
       <TouchableOpacity
-        onPress={onRegisterAsWalkIn}
+        onPress={() => onRegisterAsWalkIn()}
         activeOpacity={0.8}
         accessibilityRole="button"
         style={{
