@@ -72,6 +72,14 @@ export default function GateTab() {
     useState<VisitorAppointmentSearchResult | null>(null);
   const [isWalkIn, setIsWalkIn] = useState(false);
   const [revisitInfo, setRevisitInfo] = useState<VisitorHistoryResult | null>(null);
+  // Which identity fields to hard-lock, captured ONCE at the moment of a
+  // match (onProceed / onRegisterAsWalkIn) - never re-derived from the
+  // live form value. Deriving "locked" from "does this field currently
+  // have a value" was the bug: the moment a guard typed into an
+  // originally-blank locked field (e.g. Phone, when the matched source
+  // never collected one), that keystroke itself made the value non-empty,
+  // which immediately re-locked the field after a single character.
+  const [lockedFields, setLockedFields] = useState<{ name?: boolean; id?: boolean; phone?: boolean }>({});
   // Guards the background fetchVisitorHistory() call below against a race
   // with a second, later onManualSearch() call: search_visitor_appointment
   // resolving fast re-enables the search bar (isPending only tracks that
@@ -194,6 +202,7 @@ export default function GateTab() {
     // with no way for the guard to correct it.
     setIsWalkIn(false);
     setRevisitInfo(null);
+    setLockedFields({});
 
     try {
       if (selectedType === CheckInType.Visitor) {
@@ -220,6 +229,11 @@ export default function GateTab() {
   function onProceed(result: VisitorAppointmentSearchResult) {
     setSelectedAppointment(result);
     setIsWalkIn(false);
+    setLockedFields({
+      name: !!result.visitor_name,
+      id: !!result.id_no,
+      phone: !!result.phone_number,
+    });
     reset({
       customer_name: result.visitor_name ?? '',
       id_ref: result.id_no ?? '',
@@ -240,6 +254,11 @@ export default function GateTab() {
     setShowVisitorResult(false);
     if (history?.found) {
       setRevisitInfo(history);
+      setLockedFields({
+        name: !!history.visitor_name,
+        id: !!history.id_no,
+        phone: !!history.phone_number,
+      });
       reset({
         // Never fall back to the raw search query here - it's whatever the
         // guard typed to find this person (often their ID number or phone,
@@ -259,6 +278,7 @@ export default function GateTab() {
       });
     } else {
       setRevisitInfo(null);
+      setLockedFields({});
       // Only prefill Name from the search query when it actually looks like
       // a name (no digits) - the search bar also matches on ID number and
       // phone, both all-digit, and no real name has numbers in it. Blindly
@@ -586,6 +606,7 @@ export default function GateTab() {
               onClose={() => {
                 setIsWalkIn(false);
                 setRevisitInfo(null);
+                setLockedFields({});
                 reset(emptyVisitorForm);
               }}
               onSave={onNotifyWalkIn}
@@ -608,7 +629,7 @@ export default function GateTab() {
                 watchHostId={watchHostId}
                 watchHostName={watchHostName}
                 onScanId={() => router.push('/scan-id')}
-                identityLocked={Boolean(revisitInfo?.found)}
+                lockedFields={lockedFields}
               />
             </WalkInSection>
           ) : null}
@@ -651,7 +672,7 @@ export default function GateTab() {
                   watchTransport={watchTransport}
                   watchHostId={watchHostId}
                   watchHostName={watchHostName}
-                  identityLocked
+                  lockedFields={lockedFields}
                 />
                 {showBadgePanel && selectedAppointment.name ? (
                   <IssueVisitorBadge

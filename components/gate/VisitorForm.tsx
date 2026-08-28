@@ -16,16 +16,16 @@ type Props = {
   watchHostId: string;
   watchHostName: string;
   onScanId?: () => void;
-  // True once Name/ID/Phone came from an authoritative source — today's
-  // scheduled appointment (onProceed) or a past verified visit
-  // (onRegisterAsWalkIn history match). Hard-locks those three fields so a
-  // guard's typo can't fork the record for the same person/ID - but only
-  // the ones that actually have a value: a source record with a blank
-  // field (e.g. a Customer-type history match, which never collects
-  // phone) must leave that specific field editable, or it's permanently
-  // unfillable. Everything else (transport, plate, passengers, purpose,
-  // host) stays editable regardless.
-  identityLocked?: boolean;
+  // Per-field lock, captured ONCE by the caller at the moment of a match
+  // (today's scheduled appointment via onProceed, or a past verified visit
+  // via onRegisterAsWalkIn's history match) — never re-derived here from
+  // the live form value. A field only locks if the matched source actually
+  // had a value for it: a source record with a blank field (e.g. a
+  // Customer-type history match, which never collects phone) leaves that
+  // one field editable so the guard can type it in, same as if nothing had
+  // matched. Everything else (transport, plate, passengers, purpose, host)
+  // stays editable regardless.
+  lockedFields?: { name?: boolean; id?: boolean; phone?: boolean };
 };
 
 export function VisitorForm({
@@ -36,7 +36,7 @@ export function VisitorForm({
   watchHostId,
   watchHostName,
   onScanId,
-  identityLocked = false,
+  lockedFields,
 }: Props) {
   // Only Vehicle keeps the full plate + colour + passengers group - a
   // Motorcycle has no colour/passengers worth capturing, just the plate,
@@ -73,12 +73,7 @@ export function VisitorForm({
         control={control}
         name="customer_name"
         render={({ field: { onChange, value, onBlur } }) => {
-          // Lock only when there's actually a value to lock - identityLocked
-          // means "this identity came from a verified source", not "every
-          // field it touched has data". A match with a blank field (e.g. a
-          // history record whose phone was never collected) must leave that
-          // one field editable, or it's permanently unfillable.
-          const locked = identityLocked && !!value;
+          const locked = !!lockedFields?.name;
           return (
             <FormInput
               label={locked ? 'Full Name (verified — locked)' : 'Full Name'}
@@ -100,7 +95,7 @@ export function VisitorForm({
             control={control}
             name="id_ref"
             render={({ field: { onChange, value, onBlur } }) => {
-              const locked = identityLocked && !!value;
+              const locked = !!lockedFields?.id;
               return (
                 <FormInput
                   label={locked ? 'ID / Ref (verified — locked)' : 'ID / Ref'}
@@ -120,7 +115,7 @@ export function VisitorForm({
             control={control}
             name="customer_phone_number"
             render={({ field: { onChange, value, onBlur } }) => {
-              const locked = identityLocked && !!value;
+              const locked = !!lockedFields?.phone;
               return (
                 <FormInput
                   label={locked ? 'Phone (verified — locked)' : 'Phone'}
