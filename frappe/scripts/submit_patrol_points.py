@@ -69,6 +69,31 @@ try:
         if not resolved_guard:
             resolved_guard = user_full or current_user
 
+        # Which farm this guard is patrolling right now - their currently
+        # Active shift assignment, same source the missed-check-in/geofence
+        # scheduled task already trusts for this. Resolved once per batch
+        # (not per point) since every point in one submission belongs to the
+        # same ongoing shift. Left blank, not guessed, when there's no
+        # matching Active shift (e.g. a guard whose shift already ended, or
+        # a submission from an account with no Employee/Security Guard link
+        # at all) - a blank farm on the log is honest; a wrong one isn't.
+        resolved_farm = ""
+        try:
+            if resolved_type == "Employee":
+                resolved_farm = frappe.db.get_value(
+                    "Security Guard Shift Assignment",
+                    {"internal_guard": resolved_guard, "status": "Active"},
+                    "farm",
+                ) or ""
+            elif resolved_type == "Security Guard":
+                resolved_farm = frappe.db.get_value(
+                    "Security Guard Shift Assignment",
+                    {"external_guard": resolved_guard, "status": "Active"},
+                    "farm",
+                ) or ""
+        except Exception:
+            resolved_farm = ""
+
         for entry in data_list:
             try:
                 # Use a fresh defaulted lookup that doesn't rely on .get().
@@ -149,6 +174,8 @@ try:
 
                 log = frappe.new_doc("Patrol GPS Log")
                 log.patrol = patrol_tag
+                if resolved_farm:
+                    log.farm = resolved_farm
                 if resolved_type == "Employee":
                     log.personel = "Internal Guard"
                     log.internal_guard = guard
