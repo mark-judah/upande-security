@@ -163,7 +163,7 @@ export function ReceivingGatePanel() {
               justifyContent: 'center',
             }}
           >
-            <Text style={{ color: COLORS.text, fontFamily: fontFamily.semiBold }}>Verify another receiving</Text>
+            <Text style={{ color: COLORS.text, fontFamily: fontFamily.semiBold }}>Verify another supplier delivery</Text>
           </TouchableOpacity>
         </View>
       ) : found ? (
