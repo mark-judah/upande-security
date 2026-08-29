@@ -66,10 +66,9 @@ try:
 
     source = "company_or_farm_head"
 
-    # A company's own configured fallback, checked before the single
-    # org-wide one below - lets each company (Kaitet Ltd., Karen Roses,
-    # Westwood Dairies, ...) have its own number without needing a real
-    # Security Head assignment just to get one.
+    # A company's own configured fallback - lets each company (Kaitet Ltd.,
+    # Karen Roses, Westwood Dairies, ...) have its own number without
+    # needing a real Security Head assignment just to get one.
     if not phone and company:
         fallback_row = frappe.db.get_value(
             "Security Fallback Contact",
@@ -82,34 +81,17 @@ try:
             phone = fallback_row.contact_phone
             source = "company_fallback"
 
-    # Last resort: a guard in genuine distress must never hit a bare error
-    # just because their identity or company couldn't be resolved, or their
-    # company has no Security Head configured yet. Fall back to a single
-    # org-wide contact from Security Ops Settings (a Singleton a System
-    # Manager/Security Head maintains) rather than dead-ending the call.
-    # This does NOT fix missing HR data or missing per-company Security Head
-    # assignments — those are real gaps that still need fixing at the data
-    # level — it only guarantees the phone call itself always has somewhere
-    # to go while that data catches up.
-    if not phone:
-        settings = frappe.db.get_value(
-            "Security Ops Settings",
-            "Security Ops Settings",
-            ["fallback_contact_name", "fallback_contact_phone"],
-            as_dict=True,
-        )
-        fallback_phone = ((settings.fallback_contact_phone if settings else "") or "").strip()
-        fallback_name = ((settings.fallback_contact_name if settings else "") or "").strip()
-        if fallback_phone:
-            contact_name = fallback_name or "Security Operations"
-            phone = fallback_phone
-            source = "org_fallback"
-
+    # The single org-wide fallback (Security Ops Settings' own
+    # fallback_contact_name/phone/description fields) was removed once every
+    # company got its own row in Security Fallback Contact above - a company
+    # with neither a Security Head nor a fallback row now hits a clear
+    # error naming the company, a real gap to fix by adding a row, not
+    # something to paper over with a stale generic number.
     if not phone:
         frappe.response["message"] = {
             "error": "No Security Head configured for company '"
             + company
-            + "' and no fallback contact is set in Security Ops Settings — ask a System Manager to set one."
+            + "' and no fallback contact row exists for it in Security Ops Settings — ask a System Manager to add one."
         }
     else:
         frappe.response["message"] = {
