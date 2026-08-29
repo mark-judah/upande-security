@@ -66,6 +66,22 @@ try:
 
     source = "company_or_farm_head"
 
+    # A company's own configured fallback, checked before the single
+    # org-wide one below - lets each company (Kaitet Ltd., Karen Roses,
+    # Westwood Dairies, ...) have its own number without needing a real
+    # Security Head assignment just to get one.
+    if not phone and company:
+        fallback_row = frappe.db.get_value(
+            "Security Fallback Contact",
+            {"parent": "Security Ops Settings", "company": company},
+            ["contact_name", "contact_phone"],
+            as_dict=True,
+        )
+        if fallback_row and fallback_row.contact_phone:
+            contact_name = fallback_row.contact_name or "Security Operations"
+            phone = fallback_row.contact_phone
+            source = "company_fallback"
+
     # Last resort: a guard in genuine distress must never hit a bare error
     # just because their identity or company couldn't be resolved, or their
     # company has no Security Head configured yet. Fall back to a single
