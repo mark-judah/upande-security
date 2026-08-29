@@ -8,11 +8,12 @@ type Props = {
   value: string;
   onChangeText: (v: string) => void;
   onSubmit: () => void;
+  onScanSupplierBadge?: () => void;
   busy?: boolean;
 };
 
 /** Scan or type a PO number / supplier name. Mirrors DispatchLookup's layout. */
-export function ReceivingLookup({ value, onChangeText, onSubmit, busy }: Props) {
+export function ReceivingLookup({ value, onChangeText, onSubmit, onScanSupplierBadge, busy }: Props) {
   const [focused, setFocused] = useState(false);
 
   return (
@@ -46,6 +47,38 @@ export function ReceivingLookup({ value, onChangeText, onSubmit, busy }: Props) 
           SCAN RECEIVING DOCUMENT
         </Text>
       </TouchableOpacity>
+
+      {onScanSupplierBadge ? (
+        <TouchableOpacity
+          onPress={onScanSupplierBadge}
+          disabled={busy}
+          activeOpacity={0.7}
+          accessibilityRole="button"
+          style={{
+            marginTop: spacing.sm,
+            borderWidth: 1,
+            borderColor: COLORS.border,
+            paddingVertical: 14,
+            borderRadius: borderRadius.lg,
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            minHeight: 48,
+          }}
+        >
+          <Ionicons name="id-card-outline" size={18} color={COLORS.text} />
+          <Text
+            style={{
+              color: COLORS.text,
+              fontFamily: fontFamily.semiBold,
+              marginLeft: spacing.sm,
+              fontSize: fontSize.sm,
+            }}
+          >
+            Scan supplier's badge instead
+          </Text>
+        </TouchableOpacity>
+      ) : null}
 
       <Text
         style={{

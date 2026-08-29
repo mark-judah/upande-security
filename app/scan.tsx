@@ -8,7 +8,14 @@ import { useGateStore } from '@/lib/stores/gateStore';
 import { audio } from '@/src/core/audio';
 import { COLORS, fontFamily, fontSize, spacing, borderRadius } from '@/src/core/theme';
 
-type Intent = 'ticket' | 'employee' | 'badge' | 'asset' | 'dispatch' | 'receiving';
+type Intent =
+  | 'ticket'
+  | 'employee'
+  | 'badge'
+  | 'asset'
+  | 'dispatch'
+  | 'receiving'
+  | 'supplierBadge';
 
 export default function ScanModal() {
   const params = useLocalSearchParams<{ intent?: string }>();
@@ -23,7 +30,9 @@ export default function ScanModal() {
             ? 'dispatch'
             : params.intent === 'receiving'
               ? 'receiving'
-              : 'ticket';
+              : params.intent === 'supplierBadge'
+                ? 'supplierBadge'
+                : 'ticket';
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
   const handledRef = useRef(false);
@@ -33,6 +42,7 @@ export default function ScanModal() {
   const setPendingScannedAsset = useGateStore((s) => s.setPendingScannedAsset);
   const setPendingScannedDispatch = useGateStore((s) => s.setPendingScannedDispatch);
   const setPendingScannedReceiving = useGateStore((s) => s.setPendingScannedReceiving);
+  const setPendingScannedSupplierBadge = useGateStore((s) => s.setPendingScannedSupplierBadge);
 
   if (!permission) {
     return <View style={s.cameraBg} />;
@@ -85,6 +95,8 @@ export default function ScanModal() {
       setPendingScannedDispatch(data);
     } else if (intent === 'receiving') {
       setPendingScannedReceiving(data);
+    } else if (intent === 'supplierBadge') {
+      setPendingScannedSupplierBadge(data);
     } else {
       setPendingScannedTicket(data);
     }
@@ -115,7 +127,9 @@ export default function ScanModal() {
                   ? 'Scan the dispatch document QR / barcode'
                   : intent === 'receiving'
                     ? 'Scan the receiving/PO document QR / barcode'
-                    : 'Position QR code in the frame'}
+                    : intent === 'supplierBadge'
+                      ? 'Scan the supplier’s badge'
+                      : 'Position QR code in the frame'}
         </Text>
       </View>
     </View>

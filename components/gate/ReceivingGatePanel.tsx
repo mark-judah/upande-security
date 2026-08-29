@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
+import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import type { ReceivingSearchHit, GateVerificationStatus, VerifyReceivingResult } from '@/lib/services/api';
 import { useReceivingSearch } from '@/lib/hooks/useReceivingSearch';
 import { useVerifyReceiving } from '@/lib/hooks/useVerifyReceiving';
+import { useSupplierBadgeScan } from '@/lib/hooks/useSupplierBadgeScan';
 import { useGateStore } from '@/lib/stores/gateStore';
 import { extractReceivingReference } from '@/lib/utils/qr';
 import { useFeedback } from '@/lib/hooks/useFeedback';
@@ -22,19 +24,30 @@ export function ReceivingGatePanel() {
   const [found, setFound] = useState<ReceivingSearchHit | null>(null);
   const [notFoundQuery, setNotFoundQuery] = useState<string | null>(null);
   const [verified, setVerified] = useState<VerifyReceivingResult | null>(null);
+  // Set only when a badge scan resolves to 2+ open POs for its supplier -
+  // the guard has to pick which delivery this is before falling into the
+  // normal found/verify flow, which then proceeds exactly as if that one
+  // PO had been searched for directly.
+  const [badgeMatches, setBadgeMatches] = useState<ReceivingSearchHit[] | null>(null);
+  const [badgeSupplierName, setBadgeSupplierName] = useState<string | null>(null);
 
   const feedback = useFeedback();
   const search = useReceivingSearch();
+  const badgeScan = useSupplierBadgeScan();
   const verify = useVerifyReceiving();
 
   const pendingScannedReceiving = useGateStore((s) => s.pendingScannedReceiving);
   const setPendingScannedReceiving = useGateStore((s) => s.setPendingScannedReceiving);
+  const pendingScannedSupplierBadge = useGateStore((s) => s.pendingScannedSupplierBadge);
+  const setPendingScannedSupplierBadge = useGateStore((s) => s.setPendingScannedSupplierBadge);
 
   function reset() {
     setQuery('');
     setFound(null);
     setNotFoundQuery(null);
     setVerified(null);
+    setBadgeMatches(null);
+    setBadgeSupplierName(null);
   }
 
   async function runSearch(reference: string) {
@@ -75,6 +88,38 @@ export function ReceivingGatePanel() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingScannedReceiving]);
+
+  async function runBadgeScan(reference: string) {
+    setFound(null);
+    setNotFoundQuery(null);
+    setVerified(null);
+    setBadgeMatches(null);
+    setBadgeSupplierName(null);
+    try {
+      const result = await badgeScan.mutateAsync(reference);
+      if (!result.found || result.matches.length === 0) {
+        setNotFoundQuery(result.supplier_name ? result.supplier_name : reference);
+        return;
+      }
+      if (result.matches.length === 1) {
+        setFound(result.matches[0]);
+        return;
+      }
+      setBadgeMatches(result.matches);
+      setBadgeSupplierName(result.supplier_name ?? null);
+    } catch (e) {
+      feedback.error(e instanceof Error ? e.message : 'Supplier badge scan failed');
+    }
+  }
+
+  useEffect(() => {
+    if (pendingScannedSupplierBadge) {
+      const reference = pendingScannedSupplierBadge;
+      setPendingScannedSupplierBadge(null);
+      runBadgeScan(reference);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingScannedSupplierBadge]);
 
   async function onDecide(
     status: GateVerificationStatus,
@@ -168,6 +213,67 @@ export function ReceivingGatePanel() {
         </View>
       ) : found ? (
         <ReceivingResultCard result={found} onDecide={onDecide} busy={verify.isPending} onReset={reset} />
+      ) : badgeMatches ? (
+        <View style={{ marginTop: spacing.sm }}>
+          <Text
+            style={{
+              fontFamily: fontFamily.semiBold,
+              fontSize: fontSize.sm,
+              color: COLORS.text,
+              marginBottom: spacing.sm,
+            }}
+          >
+            {badgeSupplierName ?? 'This supplier'} has {badgeMatches.length} open orders — which one is this?
+          </Text>
+          {badgeMatches.map((m) => (
+            <TouchableOpacity
+              key={m.purchase_order}
+              onPress={() => {
+                setFound(m);
+                setBadgeMatches(null);
+              }}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              style={{
+                borderWidth: 1,
+                borderColor: COLORS.border,
+                borderRadius: borderRadius.md,
+                padding: 12,
+                marginBottom: spacing.sm,
+                backgroundColor: COLORS.surface,
+              }}
+            >
+              <Text style={{ fontFamily: fontFamily.semiBold, fontSize: fontSize.sm, color: COLORS.text }}>
+                {m.purchase_order}
+              </Text>
+              <Text style={{ color: COLORS.textMuted, fontSize: fontSize.xs, marginTop: 2 }}>
+                {m.po_status}
+                {m.schedule_date ? ' · due ' + m.schedule_date : ''}
+              </Text>
+              {m.items_summary ? (
+                <Text style={{ color: COLORS.textSecondary, fontSize: fontSize.xs, marginTop: 2 }}>
+                  {m.items_summary}
+                </Text>
+              ) : null}
+            </TouchableOpacity>
+          ))}
+          <TouchableOpacity
+            onPress={reset}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            style={{
+              borderWidth: 1,
+              borderColor: COLORS.border,
+              borderRadius: borderRadius.md,
+              paddingVertical: spacing.md,
+              minHeight: 44,
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Text style={{ color: COLORS.text, fontFamily: fontFamily.semiBold }}>Cancel</Text>
+          </TouchableOpacity>
+        </View>
       ) : notFoundQuery != null ? (
         <View
           style={{
@@ -210,7 +316,13 @@ export function ReceivingGatePanel() {
           </TouchableOpacity>
         </View>
       ) : (
-        <ReceivingLookup value={query} onChangeText={setQuery} onSubmit={onManualSearch} busy={search.isPending} />
+        <ReceivingLookup
+          value={query}
+          onChangeText={setQuery}
+          onSubmit={onManualSearch}
+          onScanSupplierBadge={() => router.push('/scan?intent=supplierBadge')}
+          busy={search.isPending || badgeScan.isPending}
+        />
       )}
 
       <ReceivingAwaitingDeparture />

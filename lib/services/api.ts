@@ -807,6 +807,20 @@ export type ReceivingSearchHit = {
 export type ReceivingSearchMiss = { found: false; error: string };
 export type ReceivingSearchResult = ReceivingSearchHit | ReceivingSearchMiss;
 
+// Supplier Badge scan — a durable badge assigned to one supplier at a time
+// (see upande_security.api.gate_receiving.search_receiving_by_supplier_badge).
+// Unlike a plain PO/supplier-name lookup, a badge can resolve to several
+// currently open POs at once — the guard picks which one matches the truck
+// actually at the gate.
+export type SupplierBadgeScanResult = {
+  found: boolean;
+  badge?: string;
+  supplier?: string;
+  supplier_name?: string;
+  matches: ReceivingSearchHit[];
+  error: string | null;
+};
+
 export type VerifyReceivingInput = {
   reference: string;
   gate_verification_status: GateVerificationStatus;
@@ -1050,6 +1064,11 @@ export const api = {
     call<ReceivingSearchResult>('upande_security.api.gate_receiving.search_receiving_for_gate', {
       reference,
     }),
+  searchReceivingByBadge: (reference: string) =>
+    call<SupplierBadgeScanResult>(
+      'upande_security.api.gate_receiving.search_receiving_by_supplier_badge',
+      { reference },
+    ),
   verifyReceivingAtGate: (input: VerifyReceivingInput) =>
     call<VerifyReceivingResult>('upande_security.api.gate_receiving.verify_receiving_at_gate', input),
   confirmReceivingDeparture: (name: string) =>
