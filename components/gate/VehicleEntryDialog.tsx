@@ -1,18 +1,29 @@
 import { Modal, View, Text, TouchableOpacity, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { DialogRow } from '@/components/ui/DialogRow';
+import { GatePicker } from '@/components/gate/GatePicker';
 import type { TractorDailyTask } from '@/lib/api/types';
 import { COLORS, spacing, borderRadius, fontSize } from '@/src/core/theme';
 
 type Props = {
   visible: boolean;
   ticket: TractorDailyTask | null;
+  entryGate: string | null;
+  onEntryGateChange: (gate: string) => void;
   onCancel: () => void;
   onConfirm: () => void;
   busy?: boolean;
 };
 
-export function VehicleEntryDialog({ visible, ticket, onCancel, onConfirm, busy }: Props) {
+export function VehicleEntryDialog({
+  visible,
+  ticket,
+  entryGate,
+  onEntryGateChange,
+  onCancel,
+  onConfirm,
+  busy,
+}: Props) {
   if (!ticket) return null;
 
   const activities = Array.from(new Set((ticket.task ?? []).map((t) => t.activity_type))).filter(
@@ -77,6 +88,13 @@ export function VehicleEntryDialog({ visible, ticket, onCancel, onConfirm, busy 
                 Timer starts on entry. Time is recorded to the timesheet when the vehicle exits.
               </Text>
             </View>
+
+            <GatePicker
+              farm={ticket.farm}
+              value={entryGate}
+              onChange={onEntryGateChange}
+              label="Entry Gate"
+            />
           </ScrollView>
 
           <View

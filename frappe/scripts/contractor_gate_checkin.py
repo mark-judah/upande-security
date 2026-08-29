@@ -12,6 +12,7 @@ vehicle_color   = (args.get('vehicle_color')    or '').strip() or None
 passengers_raw  = args.get('passengers')
 scope_of_work   = (args.get('scope_of_work')    or '').strip() or None
 expected_exit_raw = (args.get('expected_exit')  or '').strip() or None
+entry_gate      = (args.get('entry_gate')       or '').strip() or None
 
 if not contractor_name and contractor_ref:
     contractor_name = frappe.db.get_value('Supplier', contractor_ref, 'supplier_name') or contractor_ref
@@ -93,6 +94,7 @@ try:
         if resolved_farm:    updates['custom_farmunit']  = resolved_farm
         if scope_of_work: updates['custom_scope_of_work'] = scope_of_work
         if expected_exit: updates['custom_expected_exit'] = expected_exit
+        if entry_gate: updates['custom_entry_gate'] = entry_gate
 
         frappe.db.set_value('Appointment', appt_name, updates, update_modified=True)
 
@@ -120,6 +122,7 @@ try:
         if resolved_farm:    updates['custom_farmunit']  = resolved_farm
         if scope_of_work: updates['custom_scope_of_work'] = scope_of_work
         if expected_exit: updates['custom_expected_exit'] = expected_exit
+        if entry_gate: updates['custom_entry_gate'] = entry_gate
 
         frappe.db.set_value('Appointment', appt_name, updates, update_modified=True)
         if contractor_ref:

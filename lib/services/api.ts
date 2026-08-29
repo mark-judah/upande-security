@@ -150,6 +150,7 @@ export type ContractorCheckInInput = {
   number_plate?: string;
   vehicle_color?: string;
   passengers?: number;
+  entry_gate?: string;
 };
 export type ContractorCheckInResult = {
   success: boolean;
@@ -297,12 +298,18 @@ export type CreateContractorNotifyResult = {
   notified: number;
 };
 
+export type FarmGate = {
+  gate_name: string;
+  is_main_gate: boolean;
+};
+
 export type CheckInInput = {
   name: string;
   transport?: string;
   plate?: string;
   colour?: string;
   passengers?: number;
+  entry_gate?: string;
 };
 export type VehicleTicketHit = {
   name: string;
@@ -867,8 +874,8 @@ export const api = {
     call<ContractorContractResult>('getContractorContract', { query }),
   contractorCheckIn: (input: ContractorCheckInInput) =>
     call<ContractorCheckInResult>('contractor_gate_checkin', input),
-  contractorCheckOut: (appointment_name: string) =>
-    call<ContractorCheckOutResult>('contractor_gate_checkout', { appointment_name }),
+  contractorCheckOut: (appointment_name: string, exit_gate?: string) =>
+    call<ContractorCheckOutResult>('contractor_gate_checkout', { appointment_name, exit_gate }),
 
   // Patrol GPS — body is an array; response is an array of per-row results.
   // The wrapper's soft-fail check only runs for object responses, so the
@@ -918,7 +925,8 @@ export const api = {
     return call<CreateContractorNotifyResult>('create_contractor_notify', body);
   },
   checkInVisitor: (input: CheckInInput) => call<CheckInResult>('check_in_visitor', input),
-  checkOutVisitor: (name: string) => call<CheckOutResult>('check_out_visitor', { name }),
+  checkOutVisitor: (name: string, exit_gate?: string) =>
+    call<CheckOutResult>('check_out_visitor', { name, exit_gate }),
   issueVisitorBadge: (name: string, badge_number: string) =>
     call<IssueVisitorBadgeResult>('issue_visitor_badge', { name, badge_number }),
   createWalkIn: (input: CreateWalkInInput) =>
@@ -932,14 +940,25 @@ export const api = {
     call<MarkTaskResult>('mark_vehicle_task_completed', { ticket, task_row }),
 
   // Gate timesheet (vehicle entry/exit lifecycle)
-  createGateTimesheet: (ticket: string, entry_time?: string) =>
-    call<CreateGateTimesheetResult>('create_gate_timesheet', { ticket, entry_time }),
-  submitGateTimesheet: (timesheet: string, exit_time: string, completion_note: string) =>
+  createGateTimesheet: (ticket: string, entry_time?: string, entry_gate?: string) =>
+    call<CreateGateTimesheetResult>('create_gate_timesheet', { ticket, entry_time, entry_gate }),
+  submitGateTimesheet: (
+    timesheet: string,
+    exit_time: string,
+    completion_note: string,
+    exit_gate?: string,
+  ) =>
     call<SubmitGateTimesheetResult>('submit_gate_timesheet', {
       timesheet,
       exit_time,
       completion_note,
+      exit_gate,
     }),
+
+  // Gate config — which gates a farm has (Security Ops Settings' Farm
+  // Gates table), for the "which gate?" picker at entry/exit.
+  getFarmGates: (farm: string) =>
+    call<FarmGate[]>('upande_security.api.gate_movement.get_farm_gates', { farm }),
 
   // Staff attendance
   createStaffAttendance: (employee: string) =>

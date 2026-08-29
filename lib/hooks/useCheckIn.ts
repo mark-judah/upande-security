@@ -8,6 +8,7 @@ export type CheckInInput = {
   custom_mode_of_transport?: string;
   custom_vehicles_number_plate?: string;
   custom_vehicles_colour?: string;
+  entry_gate?: string;
 };
 
 export function useCheckIn() {
@@ -20,6 +21,7 @@ export function useCheckIn() {
         transport: input.custom_mode_of_transport,
         plate: input.custom_vehicles_number_plate,
         colour: input.custom_vehicles_colour,
+        entry_gate: input.entry_gate,
       }),
     onSuccess: (_, vars) => {
       qc.setQueryData<PendingApprovalRow[]>(['pending-approvals'], (old) =>

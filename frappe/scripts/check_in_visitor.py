@@ -74,6 +74,12 @@ try:
     except (KeyError, TypeError):
         sent_driver_phone = False
 
+    entry_gate = ""
+    try:
+        entry_gate = str(data["entry_gate"] or "").strip()
+    except (KeyError, TypeError):
+        entry_gate = ""
+
     if not name:
         frappe.response["message"] = {"error": "name is required"}
     else:
@@ -115,6 +121,8 @@ try:
                         updates["custom_number_of_passengers"] = int(passengers_raw)
                     except Exception:
                         pass
+                if entry_gate:
+                    updates["custom_entry_gate"] = entry_gate
 
                 # Stamp which company/farm this visit belongs to, from the
                 # checking-in guard's own scope — this is what the access

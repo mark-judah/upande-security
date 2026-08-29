@@ -2,6 +2,8 @@ appt_name = (frappe.form_dict.get('appointment_name') or '').strip()
 if not appt_name:
     frappe.throw('appointment_name is required')
 
+exit_gate = (frappe.form_dict.get('exit_gate') or '').strip() or None
+
 try:
     now_str = frappe.utils.now()
 
@@ -13,11 +15,18 @@ try:
     except Exception:
         pass
 
-    # Always write checkout fields via set_value (bypasses link validation)
-    frappe.db.set_value('Appointment', appt_name, {
+    checkout_updates = {
         'custom_check_out_time': now_str,
         'custom_reporting_status': 'Checked out',
-    }, update_modified=True)
+    }
+    if exit_gate:
+        checkout_updates['custom_exit_gate'] = exit_gate
+        entry_gate = frappe.db.get_value('Appointment', appt_name, 'custom_entry_gate')
+        if entry_gate and entry_gate != exit_gate:
+            checkout_updates['custom_gate_mismatch'] = 1
+
+    # Always write checkout fields via set_value (bypasses link validation)
+    frappe.db.set_value('Appointment', appt_name, checkout_updates, update_modified=True)
     frappe.db.commit()
 
     frappe.response['message'] = {

@@ -2,17 +2,19 @@ import { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { fmtDateTime } from '@/lib/utils/date';
+import { GatePicker } from '@/components/gate/GatePicker';
 import type { ActiveVehicleEntry } from '@/lib/stores/vehicleStore';
 import { COLORS, spacing, borderRadius, fontSize } from '@/src/core/theme';
 
 type Props = {
   entry: ActiveVehicleEntry;
-  onCheckOut: (entry: ActiveVehicleEntry, completionNote: string) => void;
+  onCheckOut: (entry: ActiveVehicleEntry, completionNote: string, exitGate: string | null) => void;
   busy?: boolean;
 };
 
 export function VehicleInsideCard({ entry, onCheckOut, busy }: Props) {
   const [note, setNote] = useState('');
+  const [exitGate, setExitGate] = useState<string | null>(null);
   const { ticketData: ticket, timesheetName, entryTime } = entry;
 
   const activities = Array.from(
@@ -133,8 +135,15 @@ export function VehicleInsideCard({ entry, onCheckOut, busy }: Props) {
         }}
       />
 
+      <GatePicker
+        farm={ticket.farm}
+        value={exitGate}
+        onChange={setExitGate}
+        label="Exit Gate"
+      />
+
       <TouchableOpacity
-        onPress={() => onCheckOut(entry, note.trim())}
+        onPress={() => onCheckOut(entry, note.trim(), exitGate)}
         disabled={busy}
         activeOpacity={0.8}
         accessibilityRole="button"

@@ -40,6 +40,8 @@ import type { ContractorPersonnelInput } from '@/lib/services/api';
 import { createGateTimesheet, submitGateTimesheet } from '@/lib/api/timesheets';
 import type { ActiveVehicleEntry } from '@/lib/stores/vehicleStore';
 import { useFeedback } from '@/lib/hooks/useFeedback';
+import { useSessionInfo } from '@/lib/hooks/useSessionInfo';
+import { GatePicker } from '@/components/gate/GatePicker';
 import { useGateStore } from '@/lib/stores/gateStore';
 import { useVehicleStore } from '@/lib/stores/vehicleStore';
 import { fetchTractorDailyTask, markTractorTaskRowCompleted } from '@/lib/api/vehicles';
@@ -98,6 +100,13 @@ export default function GateTab() {
     ticket: TractorDailyTask;
     visible: boolean;
   } | null>(null);
+  const [entryGate, setEntryGate] = useState<string | null>(null);
+  // Which gate the guard is physically at — visitor/contractor entry-gate
+  // picker is scoped to this (the guard's own farm), not the appointment's
+  // farm, matching check_in_visitor.py's own custom_farmunit stamping.
+  const [visitorEntryGate, setVisitorEntryGate] = useState<string | null>(null);
+  const sessionInfo = useSessionInfo();
+  const ownFarm = sessionInfo.data?.employee?.custom_farm ?? null;
 
   const feedback = useFeedback();
 
@@ -142,6 +151,7 @@ export default function GateTab() {
     setIsWalkIn(false);
     setRevisitInfo(null);
     setContractorResult(null);
+    setVisitorEntryGate(null);
     reset(emptyVisitorForm);
     Keyboard.dismiss();
   }
@@ -203,6 +213,7 @@ export default function GateTab() {
     setIsWalkIn(false);
     setRevisitInfo(null);
     setLockedFields({});
+    setVisitorEntryGate(null);
 
     try {
       if (selectedType === CheckInType.Visitor) {
@@ -313,6 +324,7 @@ export default function GateTab() {
       custom_mode_of_transport: values.custom_mode_of_transport,
       custom_vehicles_number_plate: values.custom_vehicles_number_plate,
       custom_vehicles_colour: values.custom_vehicles_colour,
+      entry_gate: visitorEntryGate ?? undefined,
     });
     workflowQuery.refetch();
   }
@@ -411,7 +423,10 @@ export default function GateTab() {
     if (!selectedAppointment?.name) return;
     // Plate / transport were stored at notify time — send only the name so the
     // server preserves them rather than overwriting with blanks.
-    await checkIn.mutateAsync({ name: selectedAppointment.name });
+    await checkIn.mutateAsync({
+      name: selectedAppointment.name,
+      entry_gate: visitorEntryGate ?? undefined,
+    });
     workflowQuery.refetch();
   }
 
@@ -422,6 +437,7 @@ export default function GateTab() {
     try {
       const ticket = await fetchTractorDailyTask(name);
       setEntryDialog({ ticket, visible: true });
+      setEntryGate(null);
     } catch (e) {
       feedback.error(e instanceof Error ? e.message : 'Ticket lookup failed');
     } finally {
@@ -440,7 +456,7 @@ export default function GateTab() {
     const now = toFrappeDateTime();
     setVehicleBusy(true);
     try {
-      const timesheet = await createGateTimesheet({ ticket, entryTime: now });
+      const timesheet = await createGateTimesheet({ ticket, entryTime: now, entryGate });
       const firstTask = ticket.task?.[0];
       vehicleStore.addEntry({
         ticketName: ticket.name,
@@ -459,7 +475,11 @@ export default function GateTab() {
     }
   }
 
-  async function onVehicleCheckOut(entry: ActiveVehicleEntry, completionNote: string) {
+  async function onVehicleCheckOut(
+    entry: ActiveVehicleEntry,
+    completionNote: string,
+    exitGate: string | null,
+  ) {
     if (!completionNote) {
       feedback.warning('Completion note required');
       return;
@@ -470,6 +490,7 @@ export default function GateTab() {
         name: entry.timesheetName,
         exitTime: toFrappeDateTime(),
         completionNote,
+        exitGate,
       });
       try {
         await markTractorTaskRowCompleted(entry.ticketName, entry.taskRowName);
@@ -598,6 +619,12 @@ export default function GateTab() {
 
           {selectedType === CheckInType.Contractor && selectedAppointment ? (
             <View style={s.appointmentSection}>
+              <GatePicker
+                farm={ownFarm}
+                value={visitorEntryGate}
+                onChange={setVisitorEntryGate}
+                label="Entry Gate"
+              />
               <ActionButtons
                 appointment={workflowQuery.data}
                 loading={workflowQuery.isLoading}
@@ -614,6 +641,7 @@ export default function GateTab() {
                 setIsWalkIn(false);
                 setRevisitInfo(null);
                 setLockedFields({});
+                setVisitorEntryGate(null);
                 reset(emptyVisitorForm);
               }}
               onSave={onNotifyWalkIn}
@@ -637,6 +665,12 @@ export default function GateTab() {
                 watchHostName={watchHostName}
                 onScanId={() => router.push('/scan-id')}
                 lockedFields={lockedFields}
+              />
+              <GatePicker
+                farm={ownFarm}
+                value={visitorEntryGate}
+                onChange={setVisitorEntryGate}
+                label="Entry Gate"
               />
             </WalkInSection>
           ) : null}
@@ -680,6 +714,12 @@ export default function GateTab() {
                   watchHostId={watchHostId}
                   watchHostName={watchHostName}
                   lockedFields={lockedFields}
+                />
+                <GatePicker
+                  farm={ownFarm}
+                  value={visitorEntryGate}
+                  onChange={setVisitorEntryGate}
+                  label="Entry Gate"
                 />
                 {showBadgePanel && selectedAppointment.name ? (
                   <IssueVisitorBadge
@@ -731,6 +771,8 @@ export default function GateTab() {
       <VehicleEntryDialog
         visible={entryDialog?.visible ?? false}
         ticket={entryDialog?.ticket ?? null}
+        entryGate={entryGate}
+        onEntryGateChange={setEntryGate}
         onCancel={() => setEntryDialog(null)}
         onConfirm={onConfirmVehicleEntry}
         busy={vehicleBusy}

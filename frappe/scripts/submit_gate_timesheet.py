@@ -22,6 +22,11 @@ try:
         completion_note = str(data["completion_note"] or "").strip()
     except (KeyError, TypeError):
         completion_note = ""
+    exit_gate = ""
+    try:
+        exit_gate = str(data["exit_gate"] or "").strip()
+    except (KeyError, TypeError):
+        exit_gate = ""
 
     if not timesheet:
         frappe.response["message"] = {"error": "timesheet is required"}
@@ -57,6 +62,10 @@ try:
                 row.expected_hours = round(hours, 4)
                 row.description = completion_note
                 row.completed = 1
+                if exit_gate:
+                    doc.custom_exit_gate = exit_gate
+                    if doc.custom_entry_gate and doc.custom_entry_gate != exit_gate:
+                        doc.custom_gate_mismatch = 1
                 doc.save(ignore_permissions=True)
                 doc.submit()
                 frappe.db.commit()

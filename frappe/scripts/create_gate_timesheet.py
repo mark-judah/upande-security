@@ -17,6 +17,11 @@ try:
         entry_time = str(data["entry_time"] or "").strip()
     except (KeyError, TypeError):
         entry_time = ""
+    entry_gate = ""
+    try:
+        entry_gate = str(data["entry_gate"] or "").strip()
+    except (KeyError, TypeError):
+        entry_gate = ""
 
     if not ticket:
         frappe.response["message"] = {"error": "ticket is required"}
@@ -75,6 +80,8 @@ try:
                     "Driver", ticket_row.operator, "employee"
                 )
             ts.custom_asset = ticket_row.motor_vehicle
+            if entry_gate:
+                ts.custom_entry_gate = entry_gate
             ts.start_date = frappe.utils.nowdate()
             ts.end_date = frappe.utils.nowdate()
 

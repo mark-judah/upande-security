@@ -13,13 +13,19 @@ try:
     except (KeyError, TypeError):
         name = ""
 
+    exit_gate = ""
+    try:
+        exit_gate = str(data["exit_gate"] or "").strip()
+    except (KeyError, TypeError):
+        exit_gate = ""
+
     if not name:
         frappe.response["message"] = {"error": "name is required"}
     else:
         existing = frappe.db.get_value(
             "Appointment",
             name,
-            ["name", "custom_host_received_time", "custom_visitor_badge"],
+            ["name", "custom_host_received_time", "custom_visitor_badge", "custom_entry_gate"],
             as_dict=True,
         )
         if not existing:
@@ -35,18 +41,24 @@ try:
         else:
             now = frappe.utils.now_datetime()
 
+            checkout_updates = {
+                "workflow_state": "Visitor Checked Out",
+                "custom_reporting_status": "Checked out",
+                "custom_check_out_time": now,
+                "status": "Closed",
+            }
+            if exit_gate:
+                checkout_updates["custom_exit_gate"] = exit_gate
+                # Mismatch only means something once both ends are known -
+                # an entry gate never recorded (site predates this feature,
+                # or the guard skipped the picker) isn't treated as a
+                # mismatch, that would just be noise.
+                if existing.custom_entry_gate and existing.custom_entry_gate != exit_gate:
+                    checkout_updates["custom_gate_mismatch"] = 1
+
             # Safe-exec sandbox blocks `from frappe.model.workflow import ...`
             # so apply_workflow() silently fails. Set workflow_state directly.
-            frappe.db.set_value(
-                "Appointment",
-                name,
-                {
-                    "workflow_state": "Visitor Checked Out",
-                    "custom_reporting_status": "Checked out",
-                    "custom_check_out_time": now,
-                    "status": "Closed",
-                },
-            )
+            frappe.db.set_value("Appointment", name, checkout_updates)
             if existing.custom_visitor_badge:
                 frappe.db.set_value(
                     "Visitor Badge",
