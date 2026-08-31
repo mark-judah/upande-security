@@ -1,6 +1,23 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import CookieManager from '@preeternal/react-native-cookie-manager';
 import { getWorkingUrl } from '@/lib/utils/url';
+
+// @preeternal/react-native-cookie-manager is a native TurboModule. It's
+// committed and part of the JS bundle, but the currently-running native
+// binary was NOT built with it linked in — that only happens on the next
+// real native build. Calling into it on today's binary throws immediately
+// ("TurboModuleRegistry... could not be found"), which is exactly what
+// crashed the app after this shipped via OTA: OTAs patch the JS on top of
+// whatever native binary is already installed, they can never add native
+// code to it. Loading it with require() inside a try/catch (instead of a
+// static import) means a missing native module fails softly right here —
+// once — rather than crashing at import time for every screen that
+// (transitively) imports this file, which is effectively the whole app.
+let CookieManager: typeof import('@preeternal/react-native-cookie-manager').default | null = null;
+try {
+  CookieManager = require('@preeternal/react-native-cookie-manager').default;
+} catch {
+  CookieManager = null;
+}
 
 function parseCookie(setCookieHeader: string | null, name: string): string | null {
   if (!setCookieHeader) return null;
@@ -48,9 +65,20 @@ export async function login(email: string, password: string, urlInput: string) {
   // proof of it). response.headers.get('set-cookie') is kept as a
   // best-effort fallback only, for whatever RN/platform combination might
   // still expose it.
-  const jar = await CookieManager.get(fullUrl);
-  let sid: string | null = jar.sid?.value ?? null;
-  let userId: string | null = jar.user_id?.value ?? null;
+  let sid: string | null = null;
+  let userId: string | null = null;
+  if (CookieManager) {
+    try {
+      const jar = await CookieManager.get(fullUrl);
+      sid = jar.sid?.value ?? null;
+      userId = jar.user_id?.value ?? null;
+    } catch {
+      // Native module present at require-time but still not actually
+      // linked/functional on this binary (or some other native-side
+      // failure) — fall through to the header-parsing fallback below
+      // exactly as if CookieManager were never available at all.
+    }
+  }
   if (!sid) {
     const setCookie = response.headers.get('set-cookie');
     sid = parseCookie(setCookie, 'sid');
