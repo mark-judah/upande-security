@@ -208,6 +208,14 @@ export default function ActivePatrol() {
       />
 
       <Button
+        label="SCAN ASSETS"
+        iconLeft="qr-code-outline"
+        variant="outline"
+        onPress={() => router.push('/asset-scan')}
+        style={s.fileReportBtn}
+      />
+
+      <Button
         label="STOP PATROL"
         iconLeft="stop"
         variant="outline"
