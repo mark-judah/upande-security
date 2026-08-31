@@ -15,7 +15,8 @@ type Intent =
   | 'asset'
   | 'dispatch'
   | 'receiving'
-  | 'supplierBadge';
+  | 'supplierBadge'
+  | 'staffSticker';
 
 export default function ScanModal() {
   const params = useLocalSearchParams<{ intent?: string }>();
@@ -32,7 +33,9 @@ export default function ScanModal() {
               ? 'receiving'
               : params.intent === 'supplierBadge'
                 ? 'supplierBadge'
-                : 'ticket';
+                : params.intent === 'staffSticker'
+                  ? 'staffSticker'
+                  : 'ticket';
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
   const handledRef = useRef(false);
@@ -43,6 +46,7 @@ export default function ScanModal() {
   const setPendingScannedDispatch = useGateStore((s) => s.setPendingScannedDispatch);
   const setPendingScannedReceiving = useGateStore((s) => s.setPendingScannedReceiving);
   const setPendingScannedSupplierBadge = useGateStore((s) => s.setPendingScannedSupplierBadge);
+  const setPendingScannedStaffSticker = useGateStore((s) => s.setPendingScannedStaffSticker);
 
   if (!permission) {
     return <View style={s.cameraBg} />;
@@ -97,6 +101,8 @@ export default function ScanModal() {
       setPendingScannedReceiving(data);
     } else if (intent === 'supplierBadge') {
       setPendingScannedSupplierBadge(data);
+    } else if (intent === 'staffSticker') {
+      setPendingScannedStaffSticker(data);
     } else {
       setPendingScannedTicket(data);
     }
@@ -129,7 +135,9 @@ export default function ScanModal() {
                     ? 'Scan the receiving/PO document QR / barcode'
                     : intent === 'supplierBadge'
                       ? 'Scan the supplier’s badge'
-                      : 'Position QR code in the frame'}
+                      : intent === 'staffSticker'
+                        ? 'Scan the vehicle/motorcycle sticker'
+                        : 'Position QR code in the frame'}
         </Text>
       </View>
     </View>

@@ -100,6 +100,20 @@ export type StaffSearchMatch = {
 };
 export type StaffSearchResult = { matches: StaffSearchMatch[] };
 
+// Staff Vehicle Sticker scan — a durable badge assigned to one employee at a
+// time (see search_staff_vehicle_sticker), scanned once to resolve straight
+// to that employee instead of the guard typing a name/ID. Always resolves to
+// at most one employee (a sticker has exactly one holder), unlike Supplier
+// Badge's scan which can fan out to several open POs.
+export type StaffStickerScanHit = StaffSearchMatch & {
+  found: true;
+  vehicle_type: string;
+  plate_number: string;
+  color: string;
+};
+export type StaffStickerScanMiss = { found: false; error: string };
+export type StaffStickerScanResult = StaffStickerScanHit | StaffStickerScanMiss;
+
 export type ContractorVehicle = {
   number_plate: string;
   colour: string;
@@ -884,6 +898,8 @@ export const api = {
   searchVisitorAppointment: (query: string) =>
     call<VisitorSearchResult>('search_visitor_appointment', { query }),
   searchStaff: (query: string) => call<StaffSearchResult>('search_staff', { query }),
+  searchStaffVehicleSticker: (reference: string) =>
+    call<StaffStickerScanResult>('search_staff_vehicle_sticker', { reference }),
 
   // Contractor flow (Supplier-backed, with vehicle child table)
   // Server scripts: getContractorContract / contractor_gate_checkin / contractor_gate_checkout
@@ -978,8 +994,11 @@ export const api = {
     call<FarmGate[]>('upande_security.api.gate_movement.get_farm_gates', { farm }),
 
   // Staff attendance
-  createStaffAttendance: (employee: string) =>
-    call<StaffAttendanceResult>('create_staff_attendance', { employee }),
+  createStaffAttendance: (employee: string, vehiclePlate?: string) =>
+    call<StaffAttendanceResult>('create_staff_attendance', {
+      employee,
+      vehicle_plate: vehiclePlate,
+    }),
   submitStaffAttendance: (name: string) =>
     call<StaffAttendanceResult>('submit_staff_attendance', { name }),
   checkOutStaffAttendance: (attendance_name: string) =>

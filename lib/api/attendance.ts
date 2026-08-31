@@ -10,8 +10,9 @@ function toFrappeDate(d: Date = new Date()): string {
 
 export async function createStaffAttendance(input: {
   employee: Employee;
+  vehiclePlate?: string;
 }): Promise<Attendance> {
-  const result = await api.createStaffAttendance(input.employee.name);
+  const result = await api.createStaffAttendance(input.employee.name, input.vehiclePlate);
   return result as unknown as Attendance;
 }
 

@@ -7,6 +7,7 @@ import { useCheckedInStaff } from '@/lib/hooks/useCheckedInStaff';
 import { useStaffAttendance } from '@/lib/hooks/useStaffAttendance';
 import { useStaffCheckOut } from '@/lib/hooks/useStaffCheckOut';
 import { useStaffTempExit } from '@/lib/hooks/useStaffTempExit';
+import { useStaffStickerScan } from '@/lib/hooks/useStaffStickerScan';
 import { useGateStore } from '@/lib/stores/gateStore';
 import { extractEmployeeId } from '@/lib/utils/qr';
 import { fmtTime, getDuration } from '@/lib/utils/date';
@@ -17,15 +18,21 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { COLORS, spacing, borderRadius, fontFamily, fontSize } from '@/src/core/theme';
 
+type StickerVehicleInfo = { vehicleType: string; plateNumber: string; color: string };
+
 export function StaffCheckInPanel() {
   const [employeeId, setEmployeeId] = useState<string | null>(null);
   const [manualInput, setManualInput] = useState('');
   const [searching, setSearching] = useState(false);
   const [matches, setMatches] = useState<StaffSearchMatch[]>([]);
+  const [stickerVehicleInfo, setStickerVehicleInfo] = useState<StickerVehicleInfo | null>(null);
 
   const feedback = useFeedback();
   const pendingEmployee = useGateStore((s) => s.pendingScannedEmployee);
   const setPendingEmployee = useGateStore((s) => s.setPendingScannedEmployee);
+  const pendingStaffSticker = useGateStore((s) => s.pendingScannedStaffSticker);
+  const setPendingStaffSticker = useGateStore((s) => s.setPendingScannedStaffSticker);
+  const stickerScan = useStaffStickerScan();
 
   useEffect(() => {
     if (pendingEmployee) {
@@ -33,6 +40,7 @@ export function StaffCheckInPanel() {
       setPendingEmployee(null);
       if (id) {
         setMatches([]);
+        setStickerVehicleInfo(null);
         setEmployeeId(id);
       } else {
         feedback.error('Could not read employee ID from badge');
@@ -40,6 +48,30 @@ export function StaffCheckInPanel() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingEmployee]);
+
+  useEffect(() => {
+    if (pendingStaffSticker) {
+      const reference = pendingStaffSticker;
+      setPendingStaffSticker(null);
+      stickerScan.mutate(reference, {
+        onSuccess: (result) => {
+          if (result.found) {
+            setMatches([]);
+            setStickerVehicleInfo({
+              vehicleType: result.vehicle_type,
+              plateNumber: result.plate_number,
+              color: result.color,
+            });
+            setEmployeeId(result.employee_id);
+          } else {
+            feedback.error(result.error);
+          }
+        },
+        onError: (e) => feedback.error(e instanceof Error ? e.message : 'Sticker scan failed'),
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingStaffSticker]);
 
   const employeeQuery = useQuery({
     queryKey: ['employee', employeeId],
@@ -68,10 +100,12 @@ export function StaffCheckInPanel() {
     setEmployeeId(null);
     setManualInput('');
     setMatches([]);
+    setStickerVehicleInfo(null);
   }
 
   function selectMatch(match: StaffSearchMatch) {
     setMatches([]);
+    setStickerVehicleInfo(null);
     setEmployeeId(match.employee_id);
   }
 
@@ -83,6 +117,7 @@ export function StaffCheckInPanel() {
     }
     setSearching(true);
     setMatches([]);
+    setStickerVehicleInfo(null);
     try {
       const results = await searchStaffEmployees(v);
       if (results.length === 0) {
@@ -106,7 +141,10 @@ export function StaffCheckInPanel() {
       // today-attendance query below gets invalidated by the mutation and
       // refetches, flipping straight to the STEP OUT / CHECK OUT view
       // instead of bouncing back to search with no way to see it.
-      await attendance.mutateAsync({ employee: employeeQuery.data });
+      await attendance.mutateAsync({
+        employee: employeeQuery.data,
+        vehiclePlate: stickerVehicleInfo?.plateNumber,
+      });
     } catch {
       // feedback handled in the hook
     }
@@ -260,6 +298,36 @@ export function StaffCheckInPanel() {
           </Text>
         </TouchableOpacity>
 
+        <TouchableOpacity
+          onPress={() => router.push('/scan?intent=staffSticker')}
+          activeOpacity={0.8}
+          accessibilityRole="button"
+          style={{
+            borderWidth: 1,
+            borderColor: COLORS.primary,
+            paddingVertical: 14,
+            borderRadius: borderRadius.lg,
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            minHeight: 48,
+            marginTop: spacing.sm,
+          }}
+        >
+          <Ionicons name="car-sport-outline" size={20} color={COLORS.primary} />
+          <Text
+            style={{
+              color: COLORS.primary,
+              fontFamily: fontFamily.bold,
+              marginLeft: spacing.sm,
+              fontSize: fontSize.sm,
+              letterSpacing: 0.5,
+            }}
+          >
+            SCAN VEHICLE STICKER
+          </Text>
+        </TouchableOpacity>
+
         <Text style={{ textAlign: 'center', color: COLORS.textMuted, marginVertical: 10, fontSize: fontSize.xs, fontFamily: fontFamily.regular }}>
           Or enter employee ID manually
         </Text>
@@ -389,6 +457,25 @@ export function StaffCheckInPanel() {
             ) : null}
           </View>
         </View>
+
+        {stickerVehicleInfo ? (
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              marginTop: 10,
+              paddingTop: 10,
+              borderTopWidth: 1,
+              borderTopColor: COLORS.border,
+            }}
+          >
+            <Ionicons name="car-sport-outline" size={18} color={COLORS.textSecondary} />
+            <Text style={{ color: COLORS.textSecondary, fontSize: fontSize.sm, fontFamily: fontFamily.medium, marginLeft: 8 }}>
+              {stickerVehicleInfo.vehicleType} · {stickerVehicleInfo.plateNumber}
+              {stickerVehicleInfo.color ? ' · ' + stickerVehicleInfo.color : ''}
+            </Text>
+          </View>
+        ) : null}
       </View>
 
       {todayAttendanceQuery.isLoading ? (
