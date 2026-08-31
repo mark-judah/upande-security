@@ -93,7 +93,8 @@
             "enableShrinkResourcesInReleaseBuilds": true
           }
         }
-      ]
+      ],
+      "@preeternal/react-native-cookie-manager"
     ],
     "experiments": {
       "typedRoutes": true

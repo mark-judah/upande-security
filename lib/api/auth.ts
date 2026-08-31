@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import CookieManager from '@preeternal/react-native-cookie-manager';
 import { getWorkingUrl } from '@/lib/utils/url';
 
 function parseCookie(setCookieHeader: string | null, name: string): string | null {
@@ -37,9 +38,24 @@ export async function login(email: string, password: string, urlInput: string) {
     throw new Error(msg);
   }
 
-  const setCookie = response.headers.get('set-cookie');
-  const sid = parseCookie(setCookie, 'sid');
-  const userId = parseCookie(setCookie, 'user_id');
+  // React Native's fetch does NOT reliably expose the Set-Cookie response
+  // header to JS — the native networking layer (OkHttp on Android,
+  // NSURLSession on iOS) consumes it straight into the platform's own
+  // cookie jar and strips it before `response.headers` ever sees it. Read
+  // the cookie back from that native jar instead of trying to parse it out
+  // of the fetch response, which is the thing that was actually failing
+  // here (login genuinely succeeds server-side; the app just couldn't see
+  // proof of it). response.headers.get('set-cookie') is kept as a
+  // best-effort fallback only, for whatever RN/platform combination might
+  // still expose it.
+  const jar = await CookieManager.get(fullUrl);
+  let sid: string | null = jar.sid?.value ?? null;
+  let userId: string | null = jar.user_id?.value ?? null;
+  if (!sid) {
+    const setCookie = response.headers.get('set-cookie');
+    sid = parseCookie(setCookie, 'sid');
+    userId = userId ?? parseCookie(setCookie, 'user_id');
+  }
   if (!sid) throw new Error('Login succeeded but no session cookie returned');
 
   await AsyncStorage.setItem('instanceurl', fullUrl);
