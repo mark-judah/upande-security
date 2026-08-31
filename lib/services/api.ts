@@ -738,8 +738,15 @@ export type DispatchExpectedItem = {
   uom: string | null;
 };
 
-export type DispatchSearchHit = {
-  found: true;
+// Fields shared by the primary scanned match AND every entry in its
+// related_by_vehicle list — both come from the same server-side
+// _lookup_in_source(). The related entries do NOT carry `found` or their
+// own `related_by_vehicle` (only the top-level search_dispatch_for_gate
+// response adds those two), so this base type is what actually matches
+// the wire shape of a related_by_vehicle[] element; DispatchSearchHit
+// below only adds the two extra fields on top of it for the primary
+// match.
+export type DispatchSearchHitFields = {
   reference_doctype: string;
   reference_name: string;
   vehicle_no: string;
@@ -757,6 +764,20 @@ export type DispatchSearchHit = {
   already_verified?: boolean;
   already_verified_at?: string | null;
   already_verified_by?: string | null;
+};
+
+export type DispatchSearchHit = DispatchSearchHitFields & {
+  found: true;
+  /** Other open (not yet Verified) dispatch documents — across ALL enabled
+   * Dispatch Sources, not just this one's — that share this match's
+   * vehicle_no. One truck can genuinely be carrying more than one delivery
+   * note at once; these are what let the guard release the whole load in
+   * one action via verifyDispatchAtGateBulk instead of scanning each
+   * document separately. Never includes the primary match itself, and
+   * elements never carry their own nested related_by_vehicle. Always
+   * present (possibly empty), not optional, per the server's response
+   * shape (search_dispatch_for_gate / _find_related_by_vehicle). */
+  related_by_vehicle: DispatchSearchHitFields[];
 };
 export type DispatchSearchMiss = { found: false; error: string };
 export type DispatchSearchResult = DispatchSearchHit | DispatchSearchMiss;
@@ -802,6 +823,29 @@ export type VerifyDispatchResult = {
   // short of its own paperwork — auto-filed server-side, category Theft.
   shortfall_incident: string | null;
   item_checks: DispatchItemCheckResult[];
+};
+
+// Bulk verify — the primary scanned dispatch plus any related_by_vehicle
+// documents the guard additionally selected, released together against
+// one shared vehicle/driver. No item_checks input here: item_checks is
+// always returned empty per reference (every row lands "Not Checked",
+// same as calling verify_dispatch_at_gate with item_checks omitted) —
+// per-item quantity counting stays exclusive to the ONE primary document
+// the guard is actually looking at, verified separately via the existing
+// verifyDispatchAtGate/VerifyDispatchInput. Each reference still gets its
+// own Gate Dispatch Verification record and can independently succeed or
+// fail, hence the per-reference result union.
+export type VerifyDispatchBulkHit = {
+  name: string;
+  reference_name: string;
+  gate_verification_status: GateVerificationStatus;
+  is_authorized: boolean;
+  shortfall_incident: string | null;
+  item_checks: DispatchItemCheckResult[];
+};
+export type VerifyDispatchBulkMiss = { reference: string; error: string };
+export type VerifyDispatchBulkResult = {
+  results: (VerifyDispatchBulkHit | VerifyDispatchBulkMiss)[];
 };
 
 // --- Gate Receiving Verification (inbound supplier deliveries checked
@@ -850,6 +894,23 @@ export type VerifyReceivingResult = {
   purchase_order: string;
   gate_verification_status: GateVerificationStatus;
   is_authorized: boolean;
+};
+
+// Bulk verify — every PO the guard selected off one Supplier Badge scan,
+// released together against the one truck/driver at the gate. Each
+// reference still gets its own Gate Receiving Verification record and can
+// independently succeed or fail (a stale/cancelled PO among several
+// selected shouldn't block the rest) — hence a per-reference result union
+// rather than a single pass/fail for the whole call.
+export type VerifyReceivingBulkHit = {
+  name: string;
+  purchase_order: string;
+  gate_verification_status: GateVerificationStatus;
+  is_authorized: boolean;
+};
+export type VerifyReceivingBulkMiss = { reference: string; error: string };
+export type VerifyReceivingBulkResult = {
+  results: (VerifyReceivingBulkHit | VerifyReceivingBulkMiss)[];
 };
 
 export type ConfirmReceivingDepartureResult = {
@@ -1069,6 +1130,23 @@ export const api = {
     }),
   verifyDispatchAtGate: (input: VerifyDispatchInput) =>
     call<VerifyDispatchResult>('upande_security.api.gate_dispatch.verify_dispatch_at_gate', input),
+  // Releases every related_by_vehicle document the guard additionally
+  // selected alongside the one they scanned — one shared vehicle/driver,
+  // one guard action. The primary scanned document is verified separately
+  // via verifyDispatchAtGate above (its own item_checks flow); this call
+  // is only ever for the OTHER references on the same truck.
+  verifyDispatchAtGateBulk: (input: {
+    references: string[];
+    gate_verification_status: GateVerificationStatus;
+    remarks?: string;
+    gate_arrival_time?: string;
+    vehicle_no?: string;
+    driver_name?: string;
+  }) =>
+    call<VerifyDispatchBulkResult>(
+      'upande_security.api.gate_dispatch.verify_dispatch_at_gate_bulk',
+      input,
+    ),
 
   // Gate Receiving Verification — inbound supplier deliveries checked
   // against Purchase Order. Read-only against the source document; the
@@ -1093,6 +1171,21 @@ export const api = {
     ),
   verifyReceivingAtGate: (input: VerifyReceivingInput) =>
     call<VerifyReceivingResult>('upande_security.api.gate_receiving.verify_receiving_at_gate', input),
+  // Releases every PO the guard selected off one Supplier Badge scan (2+
+  // matches) in one action against a single shared vehicle/driver. Each
+  // PO still gets its own Gate Receiving Verification record and can
+  // independently succeed or fail.
+  verifyReceivingAtGateBulk: (input: {
+    references: string[];
+    gate_verification_status: GateVerificationStatus;
+    vehicle_no?: string;
+    driver_name?: string;
+    remarks?: string;
+  }) =>
+    call<VerifyReceivingBulkResult>(
+      'upande_security.api.gate_receiving.verify_receiving_at_gate_bulk',
+      input,
+    ),
   confirmReceivingDeparture: (name: string) =>
     call<ConfirmReceivingDepartureResult>(
       'upande_security.api.gate_receiving.confirm_receiving_departure',

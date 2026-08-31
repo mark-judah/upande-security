@@ -1,14 +1,21 @@
 import { useEffect, useState } from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import type { DispatchSearchHit, GateVerificationStatus, VerifyDispatchResult } from '@/lib/services/api';
+import type {
+  DispatchSearchHit,
+  GateVerificationStatus,
+  VerifyDispatchResult,
+  VerifyDispatchBulkResult,
+} from '@/lib/services/api';
 import { useDispatchSearch } from '@/lib/hooks/useDispatchSearch';
 import { useVerifyDispatch } from '@/lib/hooks/useVerifyDispatch';
+import { useVerifyDispatchBulk } from '@/lib/hooks/useVerifyDispatchBulk';
 import { useGateStore } from '@/lib/stores/gateStore';
 import { extractDispatchReference } from '@/lib/utils/qr';
 import { useFeedback } from '@/lib/hooks/useFeedback';
 import { DispatchLookup } from './DispatchLookup';
 import { DispatchResultCard } from './DispatchResultCard';
+import { DispatchRelatedVerify } from './DispatchRelatedVerify';
 import { COLORS, borderRadius, fontFamily, fontSize, spacing } from '@/src/core/theme';
 import { fmtTime } from '@/lib/utils/date';
 
@@ -57,6 +64,7 @@ export function DispatchGatePanel() {
   const feedback = useFeedback();
   const search = useDispatchSearch();
   const verify = useVerifyDispatch();
+  const verifyBulk = useVerifyDispatchBulk();
 
   const pendingScannedDispatch = useGateStore((s) => s.pendingScannedDispatch);
   const setPendingScannedDispatch = useGateStore((s) => s.setPendingScannedDispatch);
@@ -157,6 +165,28 @@ export function DispatchGatePanel() {
     } catch {
       // feedback handled in the hook
     }
+  }
+
+  // Releases whichever related_by_vehicle documents the guard additionally
+  // selects alongside the primary scanned one — same shared vehicle/driver
+  // captured above, document-level Verified/Rejected only (no item_checks).
+  // The primary document itself is never part of this call; it always goes
+  // through onDecide/verifyDispatchAtGate above via DispatchResultCard.
+  async function onReleaseRelated(input: {
+    references: string[];
+    gate_verification_status: GateVerificationStatus;
+    remarks?: string;
+  }): Promise<VerifyDispatchBulkResult> {
+    return verifyBulk.mutateAsync({
+      input: {
+        references: input.references,
+        gate_verification_status: input.gate_verification_status,
+        remarks: input.remarks,
+        gate_arrival_time: gateArrivalTime || undefined,
+        vehicle_no: vehicleNo.trim() || undefined,
+        driver_name: driverName.trim() || undefined,
+      },
+    });
   }
 
   return (
@@ -280,18 +310,29 @@ export function DispatchGatePanel() {
           </TouchableOpacity>
         </View>
       ) : found ? (
-        <DispatchResultCard
-          result={found}
-          onDecide={onDecide}
-          busy={verify.isPending}
-          onReset={reset}
-          itemCheckValues={itemChecks}
-          onItemCheckChange={onItemCheckChange}
-          vehicleNo={vehicleNo}
-          onVehicleNoChange={setVehicleNo}
-          driverName={driverName}
-          onDriverNameChange={setDriverName}
-        />
+        <>
+          <DispatchResultCard
+            result={found}
+            onDecide={onDecide}
+            busy={verify.isPending}
+            onReset={reset}
+            itemCheckValues={itemChecks}
+            onItemCheckChange={onItemCheckChange}
+            vehicleNo={vehicleNo}
+            onVehicleNoChange={setVehicleNo}
+            driverName={driverName}
+            onDriverNameChange={setDriverName}
+          />
+          {found.related_by_vehicle.length > 0 ? (
+            <DispatchRelatedVerify
+              key={found.reference_name}
+              items={found.related_by_vehicle}
+              vehicleNo={vehicleNo}
+              onSubmit={onReleaseRelated}
+              busy={verifyBulk.isPending}
+            />
+          ) : null}
+        </>
       ) : notFoundQuery != null ? (
         <View
           style={{
