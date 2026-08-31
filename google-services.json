@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "71835626233",
+    "project_id": "upande-security-app",
+    "storage_bucket": "upande-security-app.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:71835626233:android:fe6a2a0a199c8b0d0dd028",
+        "android_client_info": {
+          "package_name": "com.upande.security"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCNe3bxVbpQYhZBzcxxngXUO52_uTgw7Qg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

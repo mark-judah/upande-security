@@ -18,6 +18,7 @@
     },
     "android": {
       "package": "com.upande.security",
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "backgroundColor": "#FFFFFF",
         "foregroundImage": "./assets/images/upande_logo.png"
