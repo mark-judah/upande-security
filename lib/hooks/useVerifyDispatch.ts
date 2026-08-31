@@ -16,6 +16,12 @@ export function useVerifyDispatch() {
       } else {
         feedback.warning(`Dispatch ${result.reference_name} rejected at the gate`);
       }
+      // Item(s) came up short against the dispatch paperwork — the server
+      // already auto-filed a Theft Incident Report for it; this just makes
+      // sure the guard actually sees that happened, not a silent side effect.
+      if (result.shortfall_incident) {
+        feedback.warning(`Shortfall detected — Incident ${result.shortfall_incident} filed`);
+      }
     },
     onError: (err: Error) => feedback.error(err.message || 'Could not record gate decision'),
   });

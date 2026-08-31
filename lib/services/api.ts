@@ -784,6 +784,9 @@ export type VerifyDispatchResult = {
   reference_name: string;
   gate_verification_status: GateVerificationStatus;
   is_authorized: boolean;
+  // Set to the new Incident Report's name when any item cleared the gate
+  // short of its own paperwork — auto-filed server-side, category Theft.
+  shortfall_incident: string | null;
   item_checks: DispatchItemCheckResult[];
 };
 
