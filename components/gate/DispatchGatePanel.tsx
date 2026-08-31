@@ -323,10 +323,10 @@ export function DispatchGatePanel() {
             driverName={driverName}
             onDriverNameChange={setDriverName}
           />
-          {found.related_by_vehicle.length > 0 ? (
+          {(found.related_by_vehicle?.length ?? 0) > 0 ? (
             <DispatchRelatedVerify
               key={found.reference_name}
-              items={found.related_by_vehicle}
+              items={found.related_by_vehicle ?? []}
               vehicleNo={vehicleNo}
               onSubmit={onReleaseRelated}
               busy={verifyBulk.isPending}

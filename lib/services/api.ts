@@ -774,10 +774,15 @@ export type DispatchSearchHit = DispatchSearchHitFields & {
    * note at once; these are what let the guard release the whole load in
    * one action via verifyDispatchAtGateBulk instead of scanning each
    * document separately. Never includes the primary match itself, and
-   * elements never carry their own nested related_by_vehicle. Always
-   * present (possibly empty), not optional, per the server's response
-   * shape (search_dispatch_for_gate / _find_related_by_vehicle). */
-  related_by_vehicle: DispatchSearchHitFields[];
+   * elements never carry their own nested related_by_vehicle.
+   *
+   * Optional, NOT guaranteed present: the server-side piece that adds this
+   * (_find_related_by_vehicle / search_dispatch_for_gate) is real app code
+   * pending its own redeploy — a live response can genuinely omit this
+   * field entirely until that lands, and every read of it must treat
+   * undefined the same as an empty list (this crashed the whole Dispatch
+   * screen once already from a bare `.length` access — don't repeat that). */
+  related_by_vehicle?: DispatchSearchHitFields[];
 };
 export type DispatchSearchMiss = { found: false; error: string };
 export type DispatchSearchResult = DispatchSearchHit | DispatchSearchMiss;
