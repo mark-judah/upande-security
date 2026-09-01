@@ -4,15 +4,18 @@ try:
     if not query:
         frappe.response["message"] = {"found": False}
     else:
-        like_query = "%" + query + "%"
+        # ID number only - deliberately NOT name or phone. Both of those can
+        # match more than one real person (two visitors named "Peter", a
+        # shared/reassigned phone number), and this lookup feeds straight
+        # into pre-filling and LOCKING a walk-in's identity fields - a name
+        # match here would silently attach a stranger's ID/phone/host/
+        # purpose to today's visitor. custom_id_number is the one field
+        # that's actually guaranteed unique per person, so it's the only
+        # safe key for "is this the same person as before".
         matches = frappe.get_all(
             "Appointment",
             filters=[
                 ["custom_check_in_time", "is", "set"],
-            ],
-            or_filters=[
-                ["customer_phone_number", "=", query],
-                ["customer_name", "like", like_query],
                 ["custom_id_number", "=", query],
             ],
             fields=[

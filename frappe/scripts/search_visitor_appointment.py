@@ -62,18 +62,19 @@ try:
             vehicle_reg_no = r.custom_vehicles_number_plate or ""
             vehicle_color = r.custom_vehicles_colour or ""
 
-            if not (phone and transport_mode and vehicle_reg_no and vehicle_color):
-                id_no = r.custom_id_number or ""
+            id_no = r.custom_id_number or ""
+            # Only backfill against this exact person's own ID number - never
+            # by name/phone, which can match a different person entirely and
+            # silently attach a stranger's phone/transport/vehicle to r. No
+            # ID on today's record means no safe unique key to backfill
+            # against, so skip backfill rather than guess.
+            if id_no and not (phone and transport_mode and vehicle_reg_no and vehicle_color):
                 past = frappe.get_all(
                     "Appointment",
                     filters=[
                         ["custom_check_in_time", "is", "set"],
                         ["name", "!=", r.name],
-                    ],
-                    or_filters=[
-                        ["customer_phone_number", "=", query],
-                        ["customer_name", "like", like],
-                        ["custom_id_number", "=", id_no if id_no else query],
+                        ["custom_id_number", "=", id_no],
                     ],
                     fields=[
                         "customer_phone_number",
