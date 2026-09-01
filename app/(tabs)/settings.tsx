@@ -32,6 +32,13 @@ export default function SettingsScreen() {
 
   const appVersion = Constants.expoConfig?.version ?? '1.0.0';
   const runtimeVersion = (Updates.runtimeVersion as string | undefined) || appVersion;
+  // Manually-bumped label for when a real native rebuild ships under an
+  // UNCHANGED app.json version (e.g. this build vs. the Aug 14 preview
+  // build - both report "1.2.3" and the same runtime, since OTA updates
+  // can't add native code, so nothing else distinguishes them on-screen).
+  // Bump/clear this by hand alongside any preview build where that
+  // distinction actually matters. Blank = don't show a tag.
+  const BUILD_LABEL = 'new';
 
   const onToggleBiometric = async () => {
     if (!biometricEnabled) {
@@ -159,6 +166,7 @@ export default function SettingsScreen() {
             <Text style={s.rowLabel}>Version</Text>
             <Text style={s.rowHint}>
               {appVersion}
+              {BUILD_LABEL ? ` (${BUILD_LABEL})` : ''}
               {runtimeVersion && runtimeVersion !== appVersion ? `  ·  runtime ${runtimeVersion}` : ''}
             </Text>
           </View>
