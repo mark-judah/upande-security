@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Alert, Platform, Pressable, StyleSheet, Text, View, type ViewStyle } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
@@ -339,9 +339,33 @@ function PickerField({
   );
 }
 
+// Active shifts are what a Security Head actually needs to act on right
+// now; Ended ones are history. Sorting (not filtering — nothing
+// disappears, an Ended shift is still one scroll away, just not first)
+// so Active/Scheduled surface immediately instead of needing to scroll
+// past a pile of Ended rows to find them. Same status set as STATUS_OPTS
+// above, just ordered by relevance instead of alphabetically.
+const STATUS_SORT_ORDER: Record<ShiftStatus, number> = {
+  Active: 0,
+  Scheduled: 1,
+  Ended: 2,
+  Cancelled: 3,
+};
+
+function sortByStatusPriority(rows: ShiftRow[]): ShiftRow[] {
+  return [...rows].sort((a, b) => {
+    const rank = (STATUS_SORT_ORDER[a.status] ?? 99) - (STATUS_SORT_ORDER[b.status] ?? 99);
+    if (rank !== 0) return rank;
+    // Stable-ish secondary sort within the same status, so rows don't
+    // visibly shuffle around on every refetch.
+    return (a.start_date || '').localeCompare(b.start_date || '');
+  });
+}
+
 export default function CommandCenterShiftsScreen() {
   const [period, setPeriod] = useState<ShiftPeriod>('today');
   const { data, isLoading, isFetching, error, refetch } = useShiftDashboard({ period });
+  const sortedRows = useMemo(() => (data ? sortByStatusPriority(data.rows) : []), [data]);
 
   return (
     <Screen
@@ -385,8 +409,8 @@ export default function CommandCenterShiftsScreen() {
       ) : null}
 
       <Text style={s.sectionTitle}>Assignments</Text>
-      {data && data.rows.length > 0 ? (
-        data.rows.map((row) => <ShiftRowCard key={row.name} row={row} />)
+      {sortedRows.length > 0 ? (
+        sortedRows.map((row) => <ShiftRowCard key={row.name} row={row} />)
       ) : !isLoading ? (
         <View style={s.emptyState}>
           <Ionicons name="calendar-outline" size={48} color={COLORS.border} />
