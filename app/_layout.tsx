@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -78,15 +78,9 @@ export default function RootLayout() {
   const biometricLocked = useAuthStore((s) => s.biometricLocked);
   const initNetwork = useNetworkStore((s) => s.init);
   const isApprover = useIsApprover();
-  const hasCommandCenterAccess = useHasCommandCenterAccess();
 
   const segments = useSegments();
   const router = useRouter();
-
-  let drawerItems = isApprover ? [...DRAWER_ITEMS, APPROVALS_DRAWER_ITEM] : DRAWER_ITEMS;
-  if (hasCommandCenterAccess) {
-    drawerItems = [...drawerItems, COMMAND_CENTER_DRAWER_ITEM];
-  }
 
   useEffect(() => {
     hydrate();
@@ -150,8 +144,16 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <ToastProvider>
-          <DrawerItemsProvider items={drawerItems}>
-            <QueryClientProvider client={queryClient}>
+          <QueryClientProvider client={queryClient}>
+            {/* DrawerItems needs hasCommandCenterAccess, which is a
+             *  useQuery-backed hook — it can only be called from a
+             *  component that's already a DESCENDANT of this
+             *  QueryClientProvider, never from RootLayout's own body
+             *  (that runs before RootLayout's own returned JSX, including
+             *  this provider, has mounted). Hence the separate component
+             *  below rather than computing drawerItems up here like
+             *  isApprover (a plain Zustand read, no provider needed). */}
+            <AppDrawerItems isApprover={isApprover}>
               <StatusBar style="dark" />
               <Stack screenOptions={{ headerShown: false }}>
                 <Stack.Screen name="login" />
@@ -174,10 +176,27 @@ export default function RootLayout() {
                 <Stack.Screen name="command-center-badges" />
                 <Stack.Screen name="command-center-settings" />
               </Stack>
-            </QueryClientProvider>
-          </DrawerItemsProvider>
+            </AppDrawerItems>
+          </QueryClientProvider>
         </ToastProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );
+}
+
+/** Rendered inside QueryClientProvider so useHasCommandCenterAccess() (which
+ *  uses useQuery under the hood) has a QueryClient to find. */
+function AppDrawerItems({
+  isApprover,
+  children,
+}: {
+  isApprover: boolean;
+  children: ReactNode;
+}) {
+  const hasCommandCenterAccess = useHasCommandCenterAccess();
+  let drawerItems = isApprover ? [...DRAWER_ITEMS, APPROVALS_DRAWER_ITEM] : DRAWER_ITEMS;
+  if (hasCommandCenterAccess) {
+    drawerItems = [...drawerItems, COMMAND_CENTER_DRAWER_ITEM];
+  }
+  return <DrawerItemsProvider items={drawerItems}>{children}</DrawerItemsProvider>;
 }
