@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { COLORS, fontFamily, fontSize } from '@/src/core/theme';
 import { AnimatedTabIcon } from '@/src/core/ui/AnimatedTabIcon';
 import { useIsApprover } from '@/lib/hooks/usePendingApprovals';
+import { useHasCommandCenterAccess } from '@/lib/hooks/useSessionInfo';
 
 type TabIconPair = {
   outline: keyof typeof Ionicons.glyphMap;
@@ -25,6 +26,7 @@ const ICONS: Record<string, TabIconPair> = {
 export default function TabsLayout() {
   const insets = useSafeAreaInsets();
   const isApprover = useIsApprover();
+  const hasCommandCenterAccess = useHasCommandCenterAccess();
 
   return (
     <Tabs
@@ -74,6 +76,14 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="approvals"
         options={{ title: 'Approvals', href: isApprover ? undefined : null }}
+      />
+      {/* Role-gated — Security Head / System Manager, or anyone allow-listed
+       *  in Security Ops Settings (has_command_center_access). Drawer-only,
+       *  same as Visits/Summary/Reports/Settings — the bottom bar is
+       *  already full at 5 icons. */}
+      <Tabs.Screen
+        name="command-center"
+        options={{ title: 'Command Center', href: hasCommandCenterAccess ? undefined : null }}
       />
     </Tabs>
   );

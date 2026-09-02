@@ -56,6 +56,14 @@ export type SessionInfo = {
   roles: string[];
   is_gate_guard: boolean;
   is_security_head: boolean;
+  // Gates the mobile "Command Center" admin section (shift planning, full
+  // incident list, sticker/badge approvals, Security Ops Settings).
+  // Server-resolved in get_session_info.py: true for Security Head /
+  // System Manager by role, OR anyone listed in Security Ops Settings'
+  // command_center_extra_users allowlist. Never re-derive this from
+  // `roles` client-side — the allowlist-membership case has no signal the
+  // client can see on its own.
+  has_command_center_access: boolean;
   employee:
     | {
         name?: string;
@@ -953,6 +961,87 @@ export type BookCustomerAppointmentResult = {
   workflow_state: string;
 };
 
+// --- Command Center: Vehicle Sticker approvals ---
+// (Shift Planning has its own types/wrapper in
+// lib/services/securityDashboard.ts — see that file's header for why.)
+
+export type StickerRequestStatus = 'Pending' | 'Approved' | 'Rejected';
+
+export type StickerRequestRow = {
+  name: string;
+  employee: string;
+  employee_name: string;
+  vehicle_type: string;
+  plate_number: string;
+  color: string;
+  collection_farm: string;
+  collection_point: string;
+  status: StickerRequestStatus | string;
+  review_notes: string;
+  linked_sticker: string;
+  creation: string;
+};
+
+export type ListStickerRequestsInput = {
+  /** Server defaults to "Pending" when omitted — pass "" explicitly to see all statuses. */
+  status?: StickerRequestStatus | '';
+  limit?: number;
+};
+
+export type StickerRequestActionResult = { success: true; request: string };
+
+// --- Command Center: Supplier Badges (read-only for now — no
+// create/edit mutation endpoint exists yet) ---
+
+export type SupplierBadgeStatus = 'Unassigned' | 'Active' | 'Suspended' | 'Lost';
+
+export type SupplierBadgeRow = {
+  name: string;
+  badge_number: string;
+  company: string;
+  supplier: string;
+  supplier_name: string;
+  status: SupplierBadgeStatus | string;
+  qr_image: string;
+  creation: string;
+};
+
+export type ListSupplierBadgesInput = {
+  status?: SupplierBadgeStatus | '';
+  company?: string;
+  limit?: number;
+};
+
+// --- Command Center: Security Ops Settings ---
+
+export type CommandCenterExtraUser = { user: string; full_name: string };
+
+export type SecurityOpsSettings = {
+  nearby_guard_alert_radius_m: number;
+  nearby_alert_stale_minutes: number;
+  missed_checkin_minutes: number;
+  escalation_minutes: number;
+  command_center_extra_users: CommandCenterExtraUser[];
+};
+
+export type UpdateSecurityOpsSettingsInput = {
+  nearby_guard_alert_radius_m?: number;
+  nearby_alert_stale_minutes?: number;
+  missed_checkin_minutes?: number;
+  escalation_minutes?: number;
+  /** Full replacement of the allowlist by email — NOT an incremental
+   * add/remove. Always send the complete desired list when editing this. */
+  command_center_extra_users?: string[];
+};
+
+export type UpdateSecurityOpsSettingsResult = SecurityOpsSettings & {
+  success: true;
+  /** Emails in the submitted command_center_extra_users that don't match
+   * a real User — silently dropped server-side, surfaced here so the UI
+   * can warn instead of pretending they saved. */
+  skipped_users: string[];
+};
+
 // --- API surface ---
 
 export const api = {
@@ -1204,4 +1293,27 @@ export const api = {
     call<CustomerSearchHit[]>('search_customers', { query }),
   bookCustomerAppointment: (input: BookCustomerAppointmentInput) =>
     call<BookCustomerAppointmentResult>('book_customer_appointment', input),
+
+  // Command Center — Vehicle Sticker request approvals. Approve/reject are
+  // role-gated server-side to System Manager/Security Head only (narrower
+  // than the general has_command_center_access allowlist) — callers must
+  // surface a permission-denied error cleanly rather than assume success.
+  listStickerRequests: (input: ListStickerRequestsInput = {}) =>
+    call<StickerRequestRow[]>('list_sticker_requests', input),
+  approveStickerRequest: (request_name: string) =>
+    call<StickerRequestActionResult>('approve_staff_sticker_request', { request_name }),
+  rejectStickerRequest: (request_name: string, review_notes?: string) =>
+    call<StickerRequestActionResult>('reject_staff_sticker_request', {
+      request_name,
+      review_notes,
+    }),
+
+  // Command Center — Supplier Badges, read-only list.
+  listSupplierBadges: (input: ListSupplierBadgesInput = {}) =>
+    call<SupplierBadgeRow[]>('list_supplier_badges', input),
+
+  // Command Center — Security Ops Settings.
+  getSecurityOpsSettings: () => call<SecurityOpsSettings>('get_security_ops_settings'),
+  updateSecurityOpsSettings: (input: UpdateSecurityOpsSettingsInput) =>
+    call<UpdateSecurityOpsSettingsResult>('update_security_ops_settings', input),
 };

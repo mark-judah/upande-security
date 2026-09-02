@@ -26,6 +26,7 @@ import { useSosWatcher } from '@/lib/hooks/useSosWatcher';
 import { useNearbyGuardAlerts } from '@/lib/hooks/useNearbyGuardAlerts';
 import { useLocationPing } from '@/lib/hooks/useLocationPing';
 import { useIsApprover } from '@/lib/hooks/usePendingApprovals';
+import { useHasCommandCenterAccess } from '@/lib/hooks/useSessionInfo';
 import '@/lib/services/patrolTracking';
 
 // Hold the native splash until fonts + auth hydrated.
@@ -55,6 +56,12 @@ const APPROVALS_DRAWER_ITEM: DrawerItem = {
   icon: 'checkmark-done-outline',
 };
 
+const COMMAND_CENTER_DRAWER_ITEM: DrawerItem = {
+  label: 'Command Center',
+  route: 'command-center',
+  icon: 'shield-checkmark-outline',
+};
+
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
     DMSans_400Regular,
@@ -71,11 +78,15 @@ export default function RootLayout() {
   const biometricLocked = useAuthStore((s) => s.biometricLocked);
   const initNetwork = useNetworkStore((s) => s.init);
   const isApprover = useIsApprover();
+  const hasCommandCenterAccess = useHasCommandCenterAccess();
 
   const segments = useSegments();
   const router = useRouter();
 
-  const drawerItems = isApprover ? [...DRAWER_ITEMS, APPROVALS_DRAWER_ITEM] : DRAWER_ITEMS;
+  let drawerItems = isApprover ? [...DRAWER_ITEMS, APPROVALS_DRAWER_ITEM] : DRAWER_ITEMS;
+  if (hasCommandCenterAccess) {
+    drawerItems = [...drawerItems, COMMAND_CENTER_DRAWER_ITEM];
+  }
 
   useEffect(() => {
     hydrate();
@@ -151,6 +162,17 @@ export default function RootLayout() {
                 <Stack.Screen name="incident-new" />
                 <Stack.Screen name="patrol-active" />
                 <Stack.Screen name="sos-alert" />
+                {/* Command Center sub-screens — pushed from the
+                 *  app/(tabs)/command-center.tsx landing screen, same
+                 *  top-level-stack-route pattern as incident-new above
+                 *  (this app doesn't nest routes under a tab folder
+                 *  anywhere else, so this mirrors the established
+                 *  convention rather than introducing a new one). */}
+                <Stack.Screen name="command-center-shifts" />
+                <Stack.Screen name="command-center-incidents" />
+                <Stack.Screen name="command-center-stickers" />
+                <Stack.Screen name="command-center-badges" />
+                <Stack.Screen name="command-center-settings" />
               </Stack>
             </QueryClientProvider>
           </DrawerItemsProvider>

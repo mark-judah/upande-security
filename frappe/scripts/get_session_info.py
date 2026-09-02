@@ -24,12 +24,28 @@ try:
         as_dict=True,
     )
 
+    # Command Center (the mobile app's admin/management view — shift planning,
+    # full incident list, sticker/badge approvals, Security Ops Settings) is
+    # open to Security Head / System Manager by role, plus anyone explicitly
+    # listed in Security Ops Settings' "Additional Users" table, so a farm
+    # manager or similar can get access without a role change. Checked here
+    # (not client-side) since the extra-users list isn't something the app
+    # should have to fetch and reason about itself.
+    has_command_center_access = "Security Head" in roles or "System Manager" in roles
+    if not has_command_center_access:
+        extra_user = frappe.db.exists(
+            "Security Command Center User",
+            {"parent": "Security Ops Settings", "user": user},
+        )
+        has_command_center_access = bool(extra_user)
+
     frappe.response["message"] = {
         "user": user,
         "full_name": full_name,
         "roles": roles,
         "is_gate_guard": "Gate Guard" in roles,
         "is_security_head": "Security Head" in roles,
+        "has_command_center_access": has_command_center_access,
         "employee": employee or {},
     }
 except Exception as e:
