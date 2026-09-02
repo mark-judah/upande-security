@@ -16,6 +16,9 @@ function nearbyGuardSummary(alertedGuards?: number): string {
 
 function callSummary(call: EmergencyCallResult): string {
   if (call.placed) return 'Supervisor called automatically.';
+  if (call.method === 'no_contact') {
+    return 'No supervisor contact available on this device yet (never synced) — dialer opened, dial your supervisor manually or use the Incidents tab.';
+  }
   if (call.reason === 'ios') return 'Dialer opened — tap Call to reach your supervisor.';
   if (call.reason === 'permission_denied') {
     return 'Call permission not granted — dialer opened, tap Call to reach your supervisor.';

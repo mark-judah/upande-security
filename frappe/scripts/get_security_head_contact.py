@@ -27,6 +27,25 @@ try:
                 company = guard.company or ""
                 farm = guard.farm or ""
 
+    # This app user isn't linked to any Employee or Security Guard at all
+    # (a shared/test login, or someone testing SOS before their HR/guard
+    # record is set up) - don't error out, pick any real guard's
+    # company/farm at random so the SAME resolution chain below still has
+    # something to resolve against. A contact for the "wrong" company beats
+    # no contact at all in an actual emergency.
+    used_random_guard = False
+    if not company:
+        random_guard = frappe.db.sql(
+            "SELECT company, farm FROM `tabSecurity Guard` "
+            "WHERE company IS NOT NULL AND company != '' "
+            "ORDER BY RAND() LIMIT 1",
+            as_dict=True,
+        )
+        if random_guard:
+            company = random_guard[0].company or ""
+            farm = random_guard[0].farm or ""
+            used_random_guard = True
+
     contact_name = ""
     phone = ""
 
@@ -100,6 +119,7 @@ try:
             "company": company,
             "farm": farm,
             "source": source,
+            "unlinked_user": used_random_guard,
         }
 except Exception as e:
     frappe.log_error("get_security_head_contact", str(e))

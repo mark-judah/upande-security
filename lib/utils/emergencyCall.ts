@@ -6,35 +6,24 @@ import { api } from '@/lib/services/api';
 const CACHED_CONTACT_KEY = 'emergency_contact_number';
 const CACHED_COMPANY_KEY = 'emergency_contact_company';
 
-// Baked-in fallback per company — used only when this device has never once
-// successfully synced a live contact from get_security_head_contact.py (e.g.
-// a brand-new phone with no connectivity yet on its very first SOS). The
-// live lookup is always preferred and re-cached whenever it succeeds; this
-// table exists purely so an actual emergency never falls back to a fake
-// placeholder number. Update here AND confirm the matching User Permission /
-// Security Head role is still correct on the server when a contact changes.
-const COMPANY_EMERGENCY_CONTACTS: Record<string, string> = {
-  'Karen Roses': '0718253145', // Jomo Kamao
-  'Kaitet Group': '+254721320226', // Elvis Koskei
-  'Kaitet Ltd.': '+254721320226', // Elvis Koskei
-};
-
-// Absolute last resort — used only if there's no cached live contact AND no
-// cached company to look up in the table above (e.g. this device has never
-// once reached the server at all).
-export const EMERGENCY_CONTACT_NUMBER = '+254700000000';
-
 export type EmergencyCallResult =
   | { placed: true; method: 'auto' }
-  | { placed: false; method: 'dialer'; reason: 'ios' | 'permission_denied' | 'launch_failed' };
+  | { placed: false; method: 'dialer'; reason: 'ios' | 'permission_denied' | 'launch_failed' }
+  | { placed: false; method: 'no_contact' };
 
 /**
- * Fetches the on-duty Security Head's phone for this guard's company/farm
- * and caches it locally, so an actual SOS never waits on the network —
- * callEmergencyNumber() only ever reads the cache, never calls the API
- * directly. Call this on app start / SOS-watcher mount; safe to call
- * repeatedly and safe to fail silently (falls back to whatever was cached
- * before, or the hardcoded default).
+ * Fetches the on-duty Security Head's (or Security Ops Settings' configured
+ * fallback) phone for this guard's company/farm and caches it locally, so
+ * an actual SOS never waits on the network — callEmergencyNumber() only
+ * ever reads the cache, never calls the API directly. Call this on app
+ * start / SOS-watcher mount; safe to call repeatedly and safe to fail
+ * silently (falls back to whatever was cached before).
+ *
+ * There is deliberately no number baked into the app itself — every
+ * contact this ever resolves to comes from the server (a real Security
+ * Head's User record, or a row in Security Ops Settings > Fallback
+ * Contacts), so changing a company's contact on the server is enough;
+ * nothing in this file ever needs updating to match.
  */
 export async function refreshEmergencyContact(): Promise<void> {
   try {
@@ -46,29 +35,22 @@ export async function refreshEmergencyContact(): Promise<void> {
       await AsyncStorage.setItem(CACHED_COMPANY_KEY, contact.company);
     }
   } catch {
-    // No Security Head configured for this company/farm yet, or offline —
-    // keep whatever was cached before.
+    // No Security Head/fallback configured for this company/farm yet
+    // (get_security_head_contact.py itself now falls back to a random
+    // guard's company when this login isn't linked to one, so a real
+    // error here means Security Ops Settings genuinely has nothing
+    // configured for any company), or offline — keep whatever was
+    // cached before.
   }
 }
 
-async function resolveEmergencyNumber(): Promise<string> {
+/** Null when no live contact has ever been cached — see callEmergencyNumber. */
+async function resolveEmergencyNumber(): Promise<string | null> {
   try {
-    const cached = await AsyncStorage.getItem(CACHED_CONTACT_KEY);
-    if (cached) return cached;
+    return await AsyncStorage.getItem(CACHED_CONTACT_KEY);
   } catch {
-    // fall through
+    return null;
   }
-  // No live contact ever cached — try the baked-in per-company fallback
-  // before giving up to the generic placeholder.
-  try {
-    const company = await AsyncStorage.getItem(CACHED_COMPANY_KEY);
-    if (company && COMPANY_EMERGENCY_CONTACTS[company]) {
-      return COMPANY_EMERGENCY_CONTACTS[company];
-    }
-  } catch {
-    // fall through to the hardcoded default
-  }
-  return EMERGENCY_CONTACT_NUMBER;
 }
 
 /**
@@ -103,9 +85,23 @@ export async function requestCallPermission(): Promise<boolean> {
  * Every other case (iOS, or Android without the permission) falls back to
  * opening the dialer pre-filled via `tel:`, which still requires one tap on
  * "Call" — the best available option there.
+ *
+ * If no contact has ever been cached (this device has never once reached
+ * get_security_head_contact.py — no network at every login so far), there
+ * is no baked-in placeholder to fall back to: dialing a number frozen in
+ * app code could ring someone who is no longer the right contact, or isn't
+ * even at this company. Opening a blank dialer is the safer failure — the
+ * guard sees no pre-filled number and knows to dial manually / use another
+ * channel, rather than an automatic call silently reaching the wrong
+ * person.
  */
 export async function callEmergencyNumber(phoneNumber?: string): Promise<EmergencyCallResult> {
   const number = phoneNumber ?? (await resolveEmergencyNumber());
+
+  if (!number) {
+    await Linking.openURL('tel:').catch(() => {});
+    return { placed: false, method: 'no_contact' };
+  }
 
   if (Platform.OS === 'android') {
     const granted = await requestCallPermission();

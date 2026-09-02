@@ -30,7 +30,17 @@ async function tick(): Promise<void> {
     const patrolling = await isPatrolTrackingActive();
     if (patrolling) return;
 
-    const perms = await Location.getForegroundPermissionsAsync();
+    // REQUEST, not just check — every other location feature in this app
+    // (patrolTracking, asset-scan, incident-new) actively requests, so by
+    // the time a real patrolling guard reaches this tick permission is
+    // already granted. But a logged-in user who never triggers any of
+    // those (a non-patrolling "App User" testing SOS, or a guard's very
+    // first app open) would otherwise never see the OS permission prompt
+    // from this path at all — their Guard Device Token would register fine
+    // but last_seen_lat/lng would stay null forever, making them permanently
+    // unlocatable for nearby-guard SOS matching. Confirmed live on kaitetv16:
+    // two App User tokens registered with last_seen_lat/lng both null.
+    const perms = await Location.requestForegroundPermissionsAsync();
     if (perms.status !== 'granted') return;
 
     const pos = await Location.getCurrentPositionAsync({
