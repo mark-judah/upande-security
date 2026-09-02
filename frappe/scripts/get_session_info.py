@@ -24,20 +24,15 @@ try:
         as_dict=True,
     )
 
-    # Command Center (the mobile app's admin/management view — shift planning,
+    # Command Center (the mobile app's admin/management view - shift planning,
     # full incident list, sticker/badge approvals, Security Ops Settings) is
-    # open to Security Head / System Manager by role, plus anyone explicitly
-    # listed in Security Ops Settings' "Additional Users" table, so a farm
-    # manager or similar can get access without a role change. Checked here
-    # (not client-side) since the extra-users list isn't something the app
-    # should have to fetch and reason about itself.
+    # strictly role-gated: Security Head or System Manager only. No allowlist
+    # bypass - every action inside Command Center is itself sensitive
+    # (editing live shift plans, approving stickers/badges, changing Security
+    # Ops Settings), so access has to track the same role that already governs
+    # write permission on those doctypes, not a separate list that could drift
+    # out of sync with what someone can actually do once inside.
     has_command_center_access = "Security Head" in roles or "System Manager" in roles
-    if not has_command_center_access:
-        extra_user = frappe.db.exists(
-            "Security Command Center User",
-            {"parent": "Security Ops Settings", "user": user},
-        )
-        has_command_center_access = bool(extra_user)
 
     frappe.response["message"] = {
         "user": user,
