@@ -55,7 +55,19 @@ MANIFEST = [
     ("Gate Temp Exit", "gate_temp_exit", "gate_temp_exit.py"),
     ("Staff Gate Checkout", "staff_gate_checkout", "staff_gate_checkout.py"),
     ("Get Visitor History", "get_visitor_history", "get_visitor_history.py"),
+    ("Update Shift Assignment", "update_shift_assignment", "update_shift_assignment.py"),
+    ("Update Incident", "update_incident", "update_incident.py"),
+    ("Update Supplier Badge", "update_supplier_badge", "update_supplier_badge.py"),
 ]
+
+# NOTE (2026-09-02): this MANIFEST list is stale relative to
+# ../server_scripts.json — server_scripts.json currently has 61 records
+# (many added directly, not via this file) while MANIFEST only lists 40.
+# DO NOT run main() until MANIFEST is reconciled to the full live set —
+# doing so today would silently drop every record not listed here. The 3
+# new entries above were added to server_scripts.json (and
+# fixtures/server_script.json) by hand instead, matching the existing
+# record shape.
 
 
 def main():

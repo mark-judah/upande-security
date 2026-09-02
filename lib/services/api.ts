@@ -1013,15 +1013,20 @@ export type ListSupplierBadgesInput = {
 };
 
 // --- Command Center: Security Ops Settings ---
-
-export type CommandCenterExtraUser = { user: string; full_name: string };
+//
+// The "Security Command Center User" allowlist (command_center_extra_users)
+// was removed entirely on 2026-09-02 — Command Center access is now
+// strictly Security Head / System Manager by role
+// (see has_command_center_access on SessionInfo above). get_session_info.py,
+// get_security_ops_settings.py, and update_security_ops_settings.py no
+// longer read or write it, so there is nothing left for the mobile UI to
+// surface here.
 
 export type SecurityOpsSettings = {
   nearby_guard_alert_radius_m: number;
   nearby_alert_stale_minutes: number;
   missed_checkin_minutes: number;
   escalation_minutes: number;
-  command_center_extra_users: CommandCenterExtraUser[];
 };
 
 export type UpdateSecurityOpsSettingsInput = {
@@ -1029,17 +1034,82 @@ export type UpdateSecurityOpsSettingsInput = {
   nearby_alert_stale_minutes?: number;
   missed_checkin_minutes?: number;
   escalation_minutes?: number;
-  /** Full replacement of the allowlist by email — NOT an incremental
-   * add/remove. Always send the complete desired list when editing this. */
-  command_center_extra_users?: string[];
 };
 
 export type UpdateSecurityOpsSettingsResult = SecurityOpsSettings & {
   success: true;
-  /** Emails in the submitted command_center_extra_users that don't match
-   * a real User — silently dropped server-side, surfaced here so the UI
-   * can warn instead of pretending they saved. */
-  skipped_users: string[];
+};
+
+// --- Command Center: Shift Assignment edit ---
+//
+// Internal Guard shifts are an HR-mirrored, read-only calendar (Date/Time
+// split, same lock already enforced in Desk) — the server accepts a
+// status/remarks-only edit for those and returns an `{error}` if the
+// caller also tries to change start/end date or time, which the `call<T>`
+// wrapper promotes to a thrown Error. The UI should proactively disable
+// those fields when `security_guard === 'Internal Guard'` rather than rely
+// on the error alone, but must still surface the error message if it ever
+// gets one (e.g. a stale client that didn't know the row was Internal).
+export type UpdateShiftAssignmentInput = {
+  name: string;
+  status?: string;
+  start_date?: string;
+  end_date?: string;
+  start_time?: string;
+  end_time?: string;
+  remarks?: string;
+};
+
+export type UpdateShiftAssignmentResult = {
+  success: true;
+  name: string;
+  status: string;
+  start_date: string;
+  end_date: string;
+  start_time: string;
+  end_time: string;
+  remarks: string;
+  security_guard: 'Internal Guard' | 'External Guard';
+};
+
+// --- Command Center: Incident review (status transition + resolution
+// notes) — a review/close-out action, distinct from create_incident's
+// initial filing. ---
+
+export type UpdateIncidentInput = {
+  name: string;
+  status?: 'Open' | 'In Progress' | 'Resolved' | 'Closed';
+  resolution?: string;
+  corrective_actions?: string;
+};
+
+export type UpdateIncidentResult = {
+  success: true;
+  name: string;
+  status: string;
+  resolution: string;
+  corrective_actions: string;
+};
+
+// --- Command Center: Supplier Badge edit/issue. Issuing a badge is this
+// same verb — set supplier + company + status="Active" on a currently
+// "Unassigned" badge in one call; there is no separate "issue" endpoint. ---
+
+export type UpdateSupplierBadgeInput = {
+  name: string;
+  supplier?: string;
+  company?: string;
+  status?: SupplierBadgeStatus;
+};
+
+export type UpdateSupplierBadgeResult = {
+  success: true;
+  name: string;
+  badge_number: number;
+  supplier: string;
+  supplier_name: string;
+  company: string;
+  status: SupplierBadgeStatus;
 };
 
 // --- API surface ---
@@ -1308,9 +1378,23 @@ export const api = {
       review_notes,
     }),
 
-  // Command Center — Supplier Badges, read-only list.
+  // Command Center — Supplier Badges: list, plus edit/issue in one verb
+  // (issuing = supplier + company + status="Active" on a currently
+  // "Unassigned" badge, no separate action).
   listSupplierBadges: (input: ListSupplierBadgesInput = {}) =>
     call<SupplierBadgeRow[]>('list_supplier_badges', input),
+  updateSupplierBadge: (input: UpdateSupplierBadgeInput) =>
+    call<UpdateSupplierBadgeResult>('update_supplier_badge', input),
+
+  // Command Center — Shift Planning edit. See UpdateShiftAssignmentInput's
+  // header comment for the Internal-Guard read-only-dates/times case.
+  updateShiftAssignment: (input: UpdateShiftAssignmentInput) =>
+    call<UpdateShiftAssignmentResult>('update_shift_assignment', input),
+
+  // Command Center — incident review (status transition + resolution
+  // notes), separate from the guard-facing createIncident filing flow.
+  updateIncident: (input: UpdateIncidentInput) =>
+    call<UpdateIncidentResult>('update_incident', input),
 
   // Command Center — Security Ops Settings.
   getSecurityOpsSettings: () => call<SecurityOpsSettings>('get_security_ops_settings'),

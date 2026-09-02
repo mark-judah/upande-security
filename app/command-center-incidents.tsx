@@ -1,16 +1,23 @@
-import { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useMemo, useState } from 'react';
+import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useIncidents } from '@/lib/hooks/useIncidents';
+import { useUpdateIncident } from '@/lib/hooks/useUpdateIncident';
 import { fmtDateTime } from '@/lib/utils/date';
 import type { IncidentSeverity } from '@/lib/api/types';
+import type { IncidentSummary } from '@/lib/services/api';
 import { Screen } from '@/src/core/ui/Screen';
+import { Dropdown } from '@/src/core/ui/Dropdown';
+import { Input } from '@/src/core/ui/Input';
+import { Button } from '@/src/core/ui/Button';
 import { borderRadius, COLORS, fontFamily, fontSize, spacing } from '@/src/core/theme';
 
 // Full incident list for Command Center — same list_incidents verb as the
 // guard-facing Incidents tab, but server-side access-scoped broader
-// (System Manager sees all, Security Head their permission scope). No
-// "report incident" CTA here — this is a review surface, not a filing one.
+// (System Manager sees all, Security Head their permission scope). Tapping
+// a card opens an inline review form (status transition + resolution /
+// corrective-action notes) via update_incident — separate from the initial
+// filing flow (create_incident on the guard-facing side).
 
 type Range = 'today' | '7d' | '30d' | 'all';
 
@@ -19,6 +26,15 @@ const RANGE_OPTIONS: { key: Range; label: string }[] = [
   { key: '7d', label: 'Last 7 days' },
   { key: '30d', label: 'Last 30 days' },
   { key: 'all', label: 'All time' },
+];
+
+type IncidentStatus = 'Open' | 'In Progress' | 'Resolved' | 'Closed';
+
+const STATUS_OPTS: { value: IncidentStatus; label: string }[] = [
+  { value: 'Open', label: 'Open' },
+  { value: 'In Progress', label: 'In Progress' },
+  { value: 'Resolved', label: 'Resolved' },
+  { value: 'Closed', label: 'Closed' },
 ];
 
 function severityStyle(level: IncidentSeverity | string): { bg: string; fg: string } {
@@ -64,6 +80,124 @@ function rangeBounds(r: Range): { from?: string; to?: string } {
   return { from: toIsoDate(from), to };
 }
 
+function IncidentCard({ inc }: { inc: IncidentSummary }) {
+  const sev = severityStyle(inc.severity as IncidentSeverity);
+  const st = statusStyle(inc.status);
+  const [expanded, setExpanded] = useState(false);
+
+  // The list verb (list_incidents) doesn't return resolution/
+  // corrective_actions — only the review form ever writes them, so there's
+  // nothing to pre-fill from this row; the form always opens blank and
+  // just submits whatever the reviewer enters this time.
+  const [status, setStatus] = useState<IncidentStatus>((inc.status as IncidentStatus) || 'Open');
+  const [resolution, setResolution] = useState('');
+  const [correctiveActions, setCorrectiveActions] = useState('');
+
+  const updateIncident = useUpdateIncident();
+
+  useEffect(() => {
+    if (expanded) setStatus((inc.status as IncidentStatus) || 'Open');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [expanded, inc.name]);
+
+  const onSave = async () => {
+    try {
+      await updateIncident.mutateAsync({
+        name: inc.name,
+        status,
+        resolution: resolution.trim() || undefined,
+        corrective_actions: correctiveActions.trim() || undefined,
+      });
+      setExpanded(false);
+    } catch (e) {
+      Alert.alert('Could not save incident', e instanceof Error ? e.message : 'Please try again.');
+    }
+  };
+
+  return (
+    <View style={s.card}>
+      <Pressable onPress={() => setExpanded((v) => !v)}>
+        <View style={s.cardHeader}>
+          <View style={{ flex: 1 }}>
+            <Text style={s.cardTitle}>{inc.nature_of_incident}</Text>
+            <Text style={s.cardLocation} numberOfLines={1}>{inc.location}</Text>
+          </View>
+          <View style={s.pillCol}>
+            <View style={[s.pill, { backgroundColor: sev.bg }]}>
+              <Text style={[s.pillText, { color: sev.fg }]}>{inc.severity.toUpperCase()}</Text>
+            </View>
+            <View style={[s.pill, { backgroundColor: st.bg, marginTop: 4 }]}>
+              <Text style={[s.pillText, { color: st.fg }]}>{inc.status || 'Open'}</Text>
+            </View>
+          </View>
+          <Ionicons
+            name={expanded ? 'chevron-up' : 'chevron-down'}
+            size={16}
+            color={COLORS.textMuted}
+            style={{ marginLeft: spacing.sm, marginTop: 2 }}
+          />
+        </View>
+        <Text style={s.cardBody} numberOfLines={3}>{inc.description}</Text>
+        <View style={s.cardFooter}>
+          <Text style={s.cardMeta} numberOfLines={1}>{inc.reported_by || inc.name}</Text>
+          <Text style={s.cardMeta}>{fmtDateTime(inc.incident_datetime)}</Text>
+        </View>
+      </Pressable>
+
+      {expanded ? (
+        <View style={s.reviewForm}>
+          <View style={s.divider} />
+
+          <Dropdown
+            label="Status"
+            value={status}
+            options={STATUS_OPTS.map((o) => ({ label: o.label, value: o.value }))}
+            searchable={false}
+            onChange={(v) => setStatus(v as IncidentStatus)}
+          />
+
+          <Input
+            label="Resolution"
+            value={resolution}
+            onChangeText={setResolution}
+            placeholder="What was done to resolve this?"
+            multiline
+            numberOfLines={3}
+            style={{ minHeight: 70, textAlignVertical: 'top' }}
+          />
+
+          <Input
+            label="Corrective actions"
+            value={correctiveActions}
+            onChangeText={setCorrectiveActions}
+            placeholder="Steps taken to prevent recurrence"
+            multiline
+            numberOfLines={3}
+            style={{ minHeight: 70, textAlignVertical: 'top' }}
+          />
+
+          <View style={s.actionRow}>
+            <Button
+              label="Cancel"
+              variant="outline"
+              onPress={() => setExpanded(false)}
+              disabled={updateIncident.isPending}
+              style={{ flex: 1 }}
+            />
+            <Button
+              label="Save"
+              loading={updateIncident.isPending}
+              disabled={updateIncident.isPending}
+              onPress={onSave}
+              style={{ flex: 1 }}
+            />
+          </View>
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
 export default function CommandCenterIncidentsScreen() {
   const [range, setRange] = useState<Range>('7d');
   const filter = useMemo(() => rangeBounds(range), [range]);
@@ -92,33 +226,7 @@ export default function CommandCenterIncidentsScreen() {
       </View>
 
       {data && data.length > 0 ? (
-        data.map((inc) => {
-          const sev = severityStyle(inc.severity as IncidentSeverity);
-          const st = statusStyle(inc.status);
-          return (
-            <View key={inc.name} style={s.card}>
-              <View style={s.cardHeader}>
-                <View style={{ flex: 1 }}>
-                  <Text style={s.cardTitle}>{inc.nature_of_incident}</Text>
-                  <Text style={s.cardLocation} numberOfLines={1}>{inc.location}</Text>
-                </View>
-                <View style={s.pillCol}>
-                  <View style={[s.pill, { backgroundColor: sev.bg }]}>
-                    <Text style={[s.pillText, { color: sev.fg }]}>{inc.severity.toUpperCase()}</Text>
-                  </View>
-                  <View style={[s.pill, { backgroundColor: st.bg, marginTop: 4 }]}>
-                    <Text style={[s.pillText, { color: st.fg }]}>{inc.status || 'Open'}</Text>
-                  </View>
-                </View>
-              </View>
-              <Text style={s.cardBody} numberOfLines={3}>{inc.description}</Text>
-              <View style={s.cardFooter}>
-                <Text style={s.cardMeta} numberOfLines={1}>{inc.reported_by || inc.name}</Text>
-                <Text style={s.cardMeta}>{fmtDateTime(inc.incident_datetime)}</Text>
-              </View>
-            </View>
-          );
-        })
+        data.map((inc) => <IncidentCard key={inc.name} inc={inc} />)
       ) : (
         <View style={s.emptyState}>
           <Ionicons name="file-tray-outline" size={48} color={COLORS.border} />
@@ -163,4 +271,8 @@ const s = StyleSheet.create({
   cardMeta: { color: COLORS.textMuted, fontSize: 11, fontFamily: fontFamily.regular },
   emptyState: { alignItems: 'center', padding: spacing.xxl + spacing.lg },
   emptyTitle: { color: COLORS.textMuted, marginTop: spacing.sm + 2, fontSize: fontSize.sm, fontFamily: fontFamily.semiBold },
+
+  reviewForm: { marginTop: spacing.sm },
+  divider: { height: StyleSheet.hairlineWidth, backgroundColor: COLORS.border, marginBottom: spacing.md },
+  actionRow: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.xs },
 });
