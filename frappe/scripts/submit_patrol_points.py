@@ -73,10 +73,21 @@ try:
         # Active shift assignment, same source the missed-check-in/geofence
         # scheduled task already trusts for this. Resolved once per batch
         # (not per point) since every point in one submission belongs to the
-        # same ongoing shift. Left blank, not guessed, when there's no
-        # matching Active shift (e.g. a guard whose shift already ended, or
-        # a submission from an account with no Employee/Security Guard link
-        # at all) - a blank farm on the log is honest; a wrong one isn't.
+        # same ongoing shift.
+        #
+        # Falls back to the guard's own farm on their Employee/Security
+        # Guard master record when no Active shift assignment matches -
+        # this is NOT a rare edge case for external guards: Security Guard
+        # Shift Assignment is only ever created with internal_guard set in
+        # practice (external_guard is never populated on any assignment on
+        # kaitetv16), so external guards - most of the actual patrol
+        # traffic - got a permanently blank farm on every single GPS point
+        # without this fallback, silently breaking the Patrol Map's farm
+        # filter (a blank farm never matches a real filter value, so
+        # filtering by farm made almost every point disappear). Only when
+        # BOTH sources come up empty (no shift assignment AND no farm on
+        # the guard's own record) is farm left blank - still honest, just
+        # no longer the default outcome for a whole guard type.
         resolved_farm = ""
         try:
             if resolved_type == "Employee":
@@ -85,12 +96,20 @@ try:
                     {"internal_guard": resolved_guard, "status": "Active"},
                     "farm",
                 ) or ""
+                if not resolved_farm:
+                    resolved_farm = frappe.db.get_value(
+                        "Employee", resolved_guard, "custom_farm"
+                    ) or ""
             elif resolved_type == "Security Guard":
                 resolved_farm = frappe.db.get_value(
                     "Security Guard Shift Assignment",
                     {"external_guard": resolved_guard, "status": "Active"},
                     "farm",
                 ) or ""
+                if not resolved_farm:
+                    resolved_farm = frappe.db.get_value(
+                        "Security Guard", resolved_guard, "farm"
+                    ) or ""
         except Exception:
             resolved_farm = ""
 
