@@ -23,6 +23,7 @@ export type Appointment = {
   customer_name: string;
   customer_phone_number?: string;
   customer_email?: string;
+  customer_organization?: string;
   custom_meet_with?: string;
   host_name?: string;
   scheduled_time?: string;
@@ -51,6 +52,7 @@ export type VisitorHistoryResult = {
   visitor_name?: string;
   phone_number?: string;
   id_no?: string;
+  organization?: string;
   host_id?: string;
   host_name?: string;
   purpose?: string;

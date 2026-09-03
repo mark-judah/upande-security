@@ -178,6 +178,7 @@ export function ActivityRow({ appointment: a }: Props) {
           <DetailRow label="Visitor Type" value={a.custom_visitor_type} />
           <DetailRow label="Contractor" value={a.custom_contractor_ref} />
           <DetailRow label="Phone" value={a.customer_phone_number} />
+          <DetailRow label="Organization" value={a.customer_organization} />
           <DetailRow label="Host" value={a.host_name ?? a.custom_meet_with} />
           <DetailRow label="Transport" value={a.custom_mode_of_transport} />
           <DetailRow label="Vehicle" value={a.custom_vehicles_number_plate} />

@@ -50,6 +50,15 @@ try:
     except (KeyError, TypeError):
         sent_colour = False
 
+    sent_organization = False
+    organization = ""
+    try:
+        v = data["organization"]
+        sent_organization = True
+        organization = str(v).strip() if v is not None else ""
+    except (KeyError, TypeError):
+        sent_organization = False
+
     passengers_raw = ""
     try:
         passengers_raw = str(data["passengers"]) if data["passengers"] is not None else ""
@@ -112,6 +121,8 @@ try:
                     updates["custom_vehicles_number_plate"] = plate
                 if sent_colour:
                     updates["custom_vehicles_colour"] = colour
+                if sent_organization:
+                    updates["customer_organization"] = organization
                 if sent_driver_name:
                     updates["custom_taxi_driver_name"] = driver_name
                 if sent_driver_phone:

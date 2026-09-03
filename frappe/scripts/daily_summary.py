@@ -95,6 +95,7 @@ try:
     rows = frappe.db.sql(
         """
         SELECT a.name, a.customer_name, a.customer_phone_number,
+               a.customer_organization,
                a.custom_meet_with, e.employee_name AS host_name,
                a.workflow_state, a.custom_reporting_status,
                a.custom_check_in_time, a.custom_check_out_time,
@@ -123,6 +124,7 @@ try:
                 "name": r.name,
                 "customer_name": r.customer_name or "",
                 "customer_phone_number": r.customer_phone_number or "",
+                "customer_organization": r.customer_organization or "",
                 "custom_meet_with": r.custom_meet_with or "",
                 "host_name": r.host_name or r.custom_meet_with or "",
                 "workflow_state": r.workflow_state or "",

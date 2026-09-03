@@ -61,6 +61,7 @@ export type CreateAppointmentInput = {
   custom_vehicles_number_plate?: string;
   custom_vehicles_colour?: string;
   custom_number_of_passengers?: number;
+  organization?: string;
 };
 
 export async function createWalkInAppointment(input: CreateAppointmentInput) {
@@ -75,5 +76,6 @@ export async function createWalkInAppointment(input: CreateAppointmentInput) {
     colour: input.custom_vehicles_colour,
     passengers: input.custom_number_of_passengers,
     scheduled_time: input.scheduled_time,
+    organization: input.organization,
   });
 }

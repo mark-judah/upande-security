@@ -345,6 +345,7 @@ export type CheckInInput = {
   transport?: string;
   plate?: string;
   colour?: string;
+  organization?: string;
   passengers?: number;
   entry_gate?: string;
 };
@@ -523,6 +524,7 @@ export type CreateWalkInInput = {
   transport?: string;
   plate?: string;
   colour?: string;
+  organization?: string;
   passengers?: number;
   scheduled_time?: string;
 };

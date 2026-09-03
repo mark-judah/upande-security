@@ -22,6 +22,7 @@ try:
     email = s("email")
     host = s("host")
     purpose = s("purpose")
+    organization = s("organization")
     transport = s("transport") or "On Foot"
     plate = s("plate")
     colour = s("colour")
@@ -68,6 +69,8 @@ try:
             doc.custom_mode_of_transport = transport
             doc.custom_vehicles_number_plate = plate
             doc.custom_vehicles_colour = colour
+            if organization:
+                doc.customer_organization = organization
             if driver_name:
                 doc.custom_taxi_driver_name = driver_name
             if driver_phone:

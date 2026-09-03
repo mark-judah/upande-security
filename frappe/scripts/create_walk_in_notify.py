@@ -20,6 +20,7 @@ try:
     id_number = s("id_number")
     phone = s("phone")
     email = s("email")
+    organization = s("organization")
     host = s("host")
     purpose = s("purpose")
     transport = s("transport") or "On Foot"
@@ -65,6 +66,8 @@ try:
             doc.custom_id_number = id_number
             doc.customer_phone_number = phone
             doc.customer_email = email
+            if organization:
+                doc.customer_organization = organization
             doc.custom_meet_with = host
             doc.scheduled_time = scheduled_time
             doc.customer_details = purpose

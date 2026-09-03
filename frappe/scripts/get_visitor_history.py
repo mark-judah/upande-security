@@ -22,6 +22,7 @@ try:
                 "name",
                 "customer_name",
                 "customer_phone_number",
+                "customer_organization",
                 "custom_id_number",
                 "custom_meet_with",
                 "customer_details",
@@ -55,6 +56,7 @@ try:
                 return None
 
             phone = m.customer_phone_number or backfill("customer_phone_number")
+            organization = m.customer_organization or backfill("customer_organization")
             transport_mode = m.custom_mode_of_transport or backfill("custom_mode_of_transport")
             vehicle_reg_no = m.custom_vehicles_number_plate or backfill("custom_vehicles_number_plate")
             vehicle_color = m.custom_vehicles_colour or backfill("custom_vehicles_colour")
@@ -63,6 +65,7 @@ try:
                 "found": True,
                 "visitor_name": m.customer_name,
                 "phone_number": phone,
+                "organization": organization,
                 "id_no": m.custom_id_number,
                 "host_id": m.custom_meet_with,
                 "host_name": frappe.db.get_value(

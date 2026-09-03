@@ -2,6 +2,7 @@ export type VisitorFormValues = {
   customer_name: string;
   id_ref?: string;
   customer_phone_number?: string;
+  customer_organization?: string;
   custom_mode_of_transport: string;
   custom_vehicles_number_plate?: string;
   custom_vehicles_colour?: string;
@@ -15,6 +16,7 @@ export const emptyVisitorForm: VisitorFormValues = {
   customer_name: '',
   id_ref: '',
   customer_phone_number: '',
+  customer_organization: '',
   custom_mode_of_transport: 'On Foot',
   custom_vehicles_number_plate: '',
   custom_vehicles_colour: '',

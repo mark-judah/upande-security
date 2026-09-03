@@ -135,6 +135,21 @@ export function VisitorForm({
 
       <Controller
         control={control}
+        name="customer_organization"
+        render={({ field: { onChange, value, onBlur } }) => (
+          <FormInput
+            label="Company / Organisation"
+            value={value ?? ''}
+            onChangeText={onChange}
+            onBlur={onBlur}
+            autoCapitalize="words"
+            error={errors.customer_organization?.message}
+          />
+        )}
+      />
+
+      <Controller
+        control={control}
         name="custom_mode_of_transport"
         render={({ field: { onChange, value } }) => (
           <FormSelect

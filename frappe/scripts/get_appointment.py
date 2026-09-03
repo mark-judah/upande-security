@@ -19,7 +19,7 @@ try:
         row = frappe.db.sql(
             """
             SELECT a.name, a.customer_name, a.customer_phone_number,
-                   a.customer_email, a.custom_meet_with,
+                   a.customer_email, a.customer_organization, a.custom_meet_with,
                    e.employee_name AS host_name,
                    a.scheduled_time, a.customer_details,
                    a.custom_mode_of_transport,
@@ -46,6 +46,7 @@ try:
                 "customer_name": r.customer_name or "",
                 "customer_phone_number": r.customer_phone_number or "",
                 "customer_email": r.customer_email or "",
+                "customer_organization": r.customer_organization or "",
                 "custom_meet_with": r.custom_meet_with or "",
                 "host_name": r.host_name or r.custom_meet_with or "",
                 "scheduled_time": str(r.scheduled_time) if r.scheduled_time else "",

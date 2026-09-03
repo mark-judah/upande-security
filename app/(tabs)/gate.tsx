@@ -249,6 +249,7 @@ export default function GateTab() {
       customer_name: result.visitor_name ?? '',
       id_ref: result.id_no ?? '',
       customer_phone_number: result.phone_number ?? '',
+      customer_organization: result.organization ?? '',
       custom_mode_of_transport: result.transport_mode ?? 'On Foot',
       custom_vehicles_number_plate: result.vehicle_reg_no ?? '',
       custom_vehicles_colour: result.vehicle_color ?? '',
@@ -279,6 +280,7 @@ export default function GateTab() {
         customer_name: history.visitor_name ?? '',
         id_ref: history.id_no ?? '',
         customer_phone_number: history.phone_number ?? '',
+        customer_organization: history.organization ?? '',
         custom_mode_of_transport: history.transport_mode ?? 'On Foot',
         custom_vehicles_number_plate: history.vehicle_reg_no ?? '',
         custom_vehicles_colour: history.vehicle_color ?? '',
@@ -324,6 +326,7 @@ export default function GateTab() {
       custom_mode_of_transport: values.custom_mode_of_transport,
       custom_vehicles_number_plate: values.custom_vehicles_number_plate,
       custom_vehicles_colour: values.custom_vehicles_colour,
+      organization: values.customer_organization,
       entry_gate: visitorEntryGate ?? undefined,
     });
     workflowQuery.refetch();
@@ -355,6 +358,7 @@ export default function GateTab() {
         transport: values.custom_mode_of_transport,
         plate: values.custom_vehicles_number_plate,
         colour: values.custom_vehicles_colour,
+        organization: values.customer_organization,
         passengers: values.custom_number_of_passengers,
         scheduled_time: toFrappeDateTime(),
       });
@@ -587,6 +591,7 @@ export default function GateTab() {
                     visitor_name: visitorResult.visitor_name,
                     phone_number: visitorResult.phone_number,
                     id_no: visitorResult.id_no,
+                    organization: visitorResult.organization,
                     host_id: visitorResult.host_id,
                     host_name: visitorResult.host_name,
                     purpose: visitorResult.purpose,

@@ -33,6 +33,9 @@ export function FoundResultCard({ result, onProceed, onRegisterAsWalkIn }: Props
             {result.phone_number ? (
               <Text style={{ color: COLORS.textSecondary, fontSize: fontSize.sm }}>Phone: {result.phone_number}</Text>
             ) : null}
+            {result.organization ? (
+              <Text style={{ color: COLORS.textSecondary, fontSize: fontSize.sm }}>Organization: {result.organization}</Text>
+            ) : null}
             {result.host_name ? (
               <Text style={{ color: COLORS.textSecondary, fontSize: fontSize.sm }}>Visiting: {result.host_name}</Text>
             ) : null}
