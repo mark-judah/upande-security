@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { FormInput } from '@/components/forms/FormInput';
 import { FormSelect } from '@/components/forms/FormSelect';
 import { HostSearchField } from '@/components/forms/HostSearchField';
+import { formatKenyanPlate } from '@/lib/utils/plate';
 import { TRANSPORT_MODES } from '@/constants/transportModes';
 import { COLORS, spacing, borderRadius, fontFamily, fontSize } from '@/src/core/theme';
 import type { VisitorFormValues } from './visitorFormValues';
@@ -169,9 +170,17 @@ export function VisitorForm({
           render={({ field: { onChange, value, onBlur } }) => (
             <FormInput
               label="Number Plate"
+              placeholder="e.g. KAA 001A"
               value={value ?? ''}
               onChangeText={onChange}
-              onBlur={onBlur}
+              onBlur={() => {
+                // Rewrite to NTSA's canonical "KAA 001A" spacing once the
+                // guard finishes typing, whatever they typed it as (no
+                // space, a dash, lowercase) — reformatting on every
+                // keystroke instead would fight the cursor mid-entry.
+                onChange(formatKenyanPlate(value ?? ''));
+                onBlur();
+              }}
               autoCapitalize="characters"
               error={errors.custom_vehicles_number_plate?.message}
             />

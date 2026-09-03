@@ -7,6 +7,7 @@ import { FormSelect } from '@/components/forms/FormSelect';
 import type { ContractorSearchResult } from '@/lib/api/types';
 import { fetchContractorPersonnelHistory } from '@/lib/api/contractors';
 import { toFrappeDateTime, fmtDateTime } from '@/lib/utils/date';
+import { formatKenyanPlate } from '@/lib/utils/plate';
 import { COLORS, spacing, borderRadius, fontSize } from '@/src/core/theme';
 import { TRANSPORT_MODES, TRANSPORT_MODE_ICONS, type TransportMode } from '@/constants/transportModes';
 
@@ -247,6 +248,7 @@ export function ContractorForm({ result, onNotify, busy }: Props) {
             <TextInput
               value={plate}
               onChangeText={(v) => setPlate(v.toUpperCase())}
+              onBlur={() => setPlate((v) => formatKenyanPlate(v))}
               autoCapitalize="characters"
               autoCorrect={false}
               placeholder="e.g. KAA 123A"
