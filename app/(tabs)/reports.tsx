@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   ScrollView,
@@ -12,7 +12,7 @@ import { Screen } from '@/src/core/ui/Screen';
 import { Segmented } from '@/src/core/ui/Segmented';
 import { Dropdown } from '@/src/core/ui/Dropdown';
 import { IncidentCard } from '@/components/reports/IncidentCard';
-import { PatrolMap } from '@/components/reports/PatrolMap';
+import { PatrolMap, type PatrolMapHandle } from '@/components/reports/PatrolMap';
 import { useSecurityReport } from '@/lib/hooks/useSecurityReport';
 import type {
   ReportTab,
@@ -77,7 +77,15 @@ function KpiGrid({ kpis }: { kpis: ReportKpi[] }) {
   );
 }
 
-function ReportTable({ table }: { table: ReportTableT }) {
+function ReportTable({
+  table,
+  onRowPress,
+}: {
+  table: ReportTableT;
+  // Optional — only the patrols tab's "By Guard" table uses this, to zoom
+  // the map to that guard's points on tap. Every other table stays plain.
+  onRowPress?: (row: ReportTableT['rows'][number]) => void;
+}) {
   return (
     <View style={s.block}>
       <Text style={s.blockTitle}>{table.title}</Text>
@@ -96,19 +104,34 @@ function ReportTable({ table }: { table: ReportTableT }) {
         {table.rows.length === 0 ? (
           <Text style={s.emptyRow}>No data in range</Text>
         ) : (
-          table.rows.map((r, ri) => (
-            <View key={ri} style={[s.row, ri % 2 === 1 && s.rowAlt]}>
-              {table.columns.map((c) => (
-                <Text
-                  key={c.key}
-                  style={[s.cell, c.align === 'right' && s.alignRight]}
-                  numberOfLines={1}
-                >
-                  {r[c.key] === undefined || r[c.key] === null ? '—' : String(r[c.key])}
-                </Text>
-              ))}
-            </View>
-          ))
+          table.rows.map((r, ri) => {
+            const cells = table.columns.map((c) => (
+              <Text
+                key={c.key}
+                style={[s.cell, c.align === 'right' && s.alignRight]}
+                numberOfLines={1}
+              >
+                {r[c.key] === undefined || r[c.key] === null ? '—' : String(r[c.key])}
+              </Text>
+            ));
+            if (!onRowPress) {
+              return (
+                <View key={ri} style={[s.row, ri % 2 === 1 && s.rowAlt]}>
+                  {cells}
+                </View>
+              );
+            }
+            return (
+              <TouchableOpacity
+                key={ri}
+                activeOpacity={0.6}
+                onPress={() => onRowPress(r)}
+                style={[s.row, ri % 2 === 1 && s.rowAlt]}
+              >
+                {cells}
+              </TouchableOpacity>
+            );
+          })
         )}
       </View>
     </View>
@@ -155,6 +178,7 @@ export default function ReportsTab() {
   // Leaflet's own pan handling instead of letting the outer Screen ScrollView
   // claim them — otherwise only horizontal drags reach the map.
   const [mapTouched, setMapTouched] = useState(false);
+  const patrolMapRef = useRef<PatrolMapHandle>(null);
   const { from, to } = useMemo(() => computeRange(preset), [preset]);
 
   const isAppt = tab === 'visitors' || tab === 'contractors';
@@ -238,11 +262,24 @@ export default function ReportsTab() {
               onTouchEnd={() => setMapTouched(false)}
               onTouchCancel={() => setMapTouched(false)}
             >
-              <PatrolMap points={data.points} />
+              <PatrolMap ref={patrolMapRef} points={data.points} />
             </View>
           ) : null}
           {data.tables.map((t, i) => (
-            <ReportTable key={i} table={t} />
+            <ReportTable
+              key={i}
+              table={t}
+              onRowPress={
+                tab === 'patrols' && t.title === 'By Guard'
+                  ? (row) => {
+                      const guard = row.guard;
+                      if (typeof guard === 'string' && guard && guard !== '—') {
+                        patrolMapRef.current?.zoomToGuard(guard);
+                      }
+                    }
+                  : undefined
+              }
+            />
           ))}
           {data.watch.map((w, i) => (
             <WatchList key={i} watch={w} />
