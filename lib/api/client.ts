@@ -1,6 +1,7 @@
 import axios, { AxiosError } from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
+import { useAuthStore } from '@/lib/stores/authStore';
 
 const api = axios.create({ timeout: 30000 });
 
@@ -11,7 +12,19 @@ api.interceptors.request.use(async (config) => {
     // Mirrors the response interceptor's 401/403 recovery below - a
     // missing cookie is a dead end otherwise, the user just sees a raw
     // "No cookies found" error with no way forward short of force-quitting.
-    await AsyncStorage.multiRemove(['cookie']);
+    //
+    // Clearing AsyncStorage alone isn't enough: the root layout's auth-gate
+    // effect (app/_layout.tsx) decides whether to redirect based on
+    // authStore's in-memory `hasSession`, not on AsyncStorage directly. If
+    // this only clears storage, `hasSession` stays stale-true, and the
+    // moment router.replace('/login') lands on the login route, that same
+    // effect sees hasSession===true && segments[0]==='login' and bounces
+    // straight back — the screen blinks and lands back on the home tab
+    // instead of actually reaching the login screen, and every subsequent
+    // action repeats the same loop since the session was never really
+    // cleared. forgetDevice() resets both storage AND the in-memory state
+    // together, so the redirect actually sticks.
+    await useAuthStore.getState().forgetDevice();
     router.replace('/login');
     return Promise.reject(
       new Error(!baseURL ? 'No instance URL configured' : 'Session expired — please log in again'),
@@ -79,7 +92,11 @@ api.interceptors.response.use(
   },
   async (err: AxiosError) => {
     if (err.response?.status === 401 || err.response?.status === 403) {
-      await AsyncStorage.multiRemove(['cookie']);
+      // See the matching comment in the request interceptor above — must
+      // reset authStore's in-memory hasSession too, not just AsyncStorage,
+      // or the root layout's auth-gate effect races the redirect back to
+      // home instead of actually landing on login.
+      await useAuthStore.getState().forgetDevice();
       router.replace('/login');
     }
     if (__DEV__) {
