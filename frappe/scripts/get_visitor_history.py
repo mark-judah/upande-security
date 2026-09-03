@@ -76,6 +76,10 @@ try:
                 "vehicle_reg_no": vehicle_reg_no,
                 "vehicle_color": vehicle_color,
                 "last_visit_date": m.custom_check_in_time or m.scheduled_time,
+                # Always "id" - this lookup only ever queries by
+                # custom_id_number (see comment above), so a match here is
+                # always a unique-key match and is safe to lock on.
+                "matched_by": "id",
             }
 except Exception as e:
     frappe.log_error("get_visitor_history", str(e))

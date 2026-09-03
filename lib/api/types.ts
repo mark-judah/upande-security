@@ -16,6 +16,13 @@ export type VisitorAppointmentSearchResult = {
   vehicle_color?: string;
   name?: string;
   status?: string;
+  // Which field actually produced this match - 'id' (custom_id_number,
+  // exact) or 'appointment' (the Appointment doc's own name, exact) are
+  // genuinely unique keys; 'other' means the match came from a name/phone
+  // LIKE and may be the WRONG person (name is never unique - two visitors
+  // can both be "Peter"). Only 'id'/'appointment' matches are safe to
+  // auto-lock identity fields on.
+  matched_by?: 'id' | 'appointment' | 'other';
 };
 
 export type Appointment = {
@@ -60,6 +67,11 @@ export type VisitorHistoryResult = {
   vehicle_reg_no?: string;
   vehicle_color?: string;
   last_visit_date?: string;
+  // See VisitorAppointmentSearchResult.matched_by. get_visitor_history only
+  // ever queries by custom_id_number, so this is always 'id' when set by
+  // the server; left optional so a client-built synthetic history object
+  // (see gate.tsx) can pass through a less-certain 'other' explicitly.
+  matched_by?: 'id' | 'appointment' | 'other';
 };
 
 export type EmployeeResult = {

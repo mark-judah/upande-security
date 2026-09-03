@@ -240,10 +240,15 @@ export default function GateTab() {
   function onProceed(result: VisitorAppointmentSearchResult) {
     setSelectedAppointment(result);
     setIsWalkIn(false);
+    // Only lock on a genuinely unique match (ID number or the appointment's
+    // own doc name). A name/phone LIKE match ('other') can easily be the
+    // wrong person - names aren't unique ("Peter A" vs "Peter B") - so
+    // those fields stay editable in case the guard needs to correct them.
+    const uniqueMatch = result.matched_by === 'id' || result.matched_by === 'appointment';
     setLockedFields({
-      name: !!result.visitor_name,
-      id: !!result.id_no,
-      phone: !!result.phone_number,
+      name: uniqueMatch && !!result.visitor_name,
+      id: uniqueMatch && !!result.id_no,
+      phone: uniqueMatch && !!result.phone_number,
     });
     reset({
       customer_name: result.visitor_name ?? '',
@@ -266,10 +271,17 @@ export default function GateTab() {
     setShowVisitorResult(false);
     if (history?.found) {
       setRevisitInfo(history);
+      // fetchVisitorHistory's own lookups are always ID-keyed, so an
+      // undefined matched_by (the normal case for that path) is treated as
+      // safe. Only an explicit 'other' - a name/phone match passed through
+      // from the FoundResultCard "different visit" path above - withholds
+      // the lock, since that's the one route where "found" doesn't mean
+      // "the same, uniquely-identified person".
+      const uniqueMatch = history.matched_by !== 'other';
       setLockedFields({
-        name: !!history.visitor_name,
-        id: !!history.id_no,
-        phone: !!history.phone_number,
+        name: uniqueMatch && !!history.visitor_name,
+        id: uniqueMatch && !!history.id_no,
+        phone: uniqueMatch && !!history.phone_number,
       });
       reset({
         // Never fall back to the raw search query here - it's whatever the
@@ -598,6 +610,7 @@ export default function GateTab() {
                     transport_mode: visitorResult.transport_mode,
                     vehicle_reg_no: visitorResult.vehicle_reg_no,
                     vehicle_color: visitorResult.vehicle_color,
+                    matched_by: visitorResult.matched_by,
                   })
                 }
               />

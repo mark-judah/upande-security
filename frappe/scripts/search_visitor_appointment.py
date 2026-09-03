@@ -102,6 +102,24 @@ try:
                 if not vehicle_color:
                     vehicle_color = backfill("custom_vehicles_colour")
 
+            # Which field actually produced this match. Name is matched with
+            # a LIKE (partial, case-insensitive) and is NOT unique - two
+            # visitors can genuinely share a name ("Peter A" and "Peter B"),
+            # so a name-only match can easily surface the wrong person's
+            # appointment for a query that only looks like a hit. ID number
+            # is the one field guaranteed unique per person; an exact
+            # appointment-doc-name match (e.g. a QR/reference scan) is also
+            # unambiguous. Everything else - name, phone, or an ID that
+            # merely appears as a substring somewhere - counts as "other"
+            # and must never be trusted to auto-lock identity fields on the
+            # client (see gate.tsx onProceed/onRegisterAsWalkIn).
+            if r.custom_id_number and r.custom_id_number == query:
+                matched_by = "id"
+            elif r.name == query:
+                matched_by = "appointment"
+            else:
+                matched_by = "other"
+
             frappe.response["message"] = {
                 "has_appointment": True,
                 "name": r.name,
@@ -118,6 +136,7 @@ try:
                 "vehicle_color": vehicle_color,
                 "status": r.workflow_state or r.status or "",
                 "reporting_status": r.custom_reporting_status or "",
+                "matched_by": matched_by,
             }
 except Exception as e:
     frappe.log_error("search_visitor_appointment", str(e))
