@@ -108,6 +108,21 @@ export type StaffSearchMatch = {
 };
 export type StaffSearchResult = { matches: StaffSearchMatch[] };
 
+// Loose shape returned by getTodayAttendance/listTodayStaffAttendance —
+// callers (lib/api/attendance.ts) cast to the full Attendance type from
+// lib/api/types.ts, same pattern as createStaffAttendance/submitStaffAttendance.
+export type GateAttendanceRow = {
+  name: string;
+  employee: string;
+  employee_name?: string;
+  department?: string;
+  in_time?: string;
+  out_time?: string;
+  status?: string;
+  attendance_date?: string;
+  custom_temp_exit_time?: string;
+};
+
 // Staff Vehicle Sticker scan — a durable badge assigned to one employee at a
 // time (see search_staff_vehicle_sticker), scanned once to resolve straight
 // to that employee instead of the guard typing a name/ID. Always resolves to
@@ -1231,6 +1246,21 @@ export const api = {
   // Staff currently checked in via this app specifically (custom_gate_app_entry=1),
   // not the general Attendance list — feeds the gate checkout picker.
   listCheckedInStaff: () => call<{ staff: CheckedInStaffRow[] }>('list_checked_in_staff'),
+  // Both of these replace what used to be raw /api/resource/Attendance REST
+  // calls from the client — Attendance's own DocPerm only grants read to
+  // System Manager/HR User/HR Manager/the Employee role, none of which a
+  // Gate Guard without an HR-linked Employee record (most external/
+  // outsourced guards) ever has, so those calls threw a genuine 403 the
+  // moment a staff match was picked — looked like a dead session, forced a
+  // full logout. Server-side, permission-unchecked via frappe.get_all
+  // (not get_list), matching list_checked_in_staff's existing pattern.
+  // Return shape is intentionally loose here (not the full Attendance type
+  // from lib/api/types.ts, which this file never imports) — callers cast,
+  // same as createStaffAttendance/submitStaffAttendance above.
+  getTodayAttendance: (employee: string) =>
+    call<{ attendance: GateAttendanceRow | null }>('get_today_attendance', { employee }),
+  listTodayStaffAttendance: () =>
+    call<{ attendance: GateAttendanceRow[] }>('list_today_staff_attendance'),
 
   // Temp exit ("step out" / "return") — shared by the visitor/contractor
   // Inside list and the staff gate panel.
