@@ -50,7 +50,7 @@ try:
         # anything, is ignored for this reason.
         scheduled_time = str(frappe.utils.add_to_date(frappe.utils.now_datetime(), minutes=15))
 
-        host_rec = frappe.db.get_value("Employee", host, ["name", "user_id", "employee_name"], as_dict=True)
+        host_rec = frappe.db.get_value("Employee", host, ["name", "user_id", "employee_name", "company"], as_dict=True)
         if not host_rec:
             frappe.response["message"] = {"error": "Host " + host + " not found"}
         else:
@@ -110,14 +110,26 @@ try:
             if host_user_id:
                 recipient_users.append(host_user_id)
 
+            # Scoped to this host's own company via User Permission, same
+            # pattern get_security_head_contact.py uses for Security Head -
+            # an unscoped "anyone with role=Secretary" query also matches
+            # every dev/admin test account (they're typically granted every
+            # role in the system, Secretary included), so every walk-in
+            # notification was silently CC'ing Upande's own dev team
+            # alongside - or sometimes instead of - the real host/secretary.
             try:
-                sec_rows = frappe.db.sql(
-                    "SELECT DISTINCT parent FROM `tabHas Role` WHERE role = 'Secretary' AND parent NOT IN ('Administrator', 'Guest')",
-                    as_dict=False,
-                )
-                for row in sec_rows:
-                    if row and row[0] and row[0] not in recipient_users:
-                        recipient_users.append(row[0])
+                if host_rec.company:
+                    sec_rows = frappe.db.sql(
+                        "SELECT DISTINCT up.user FROM `tabUser Permission` up "
+                        "JOIN `tabHas Role` hr ON hr.parent = up.user AND hr.role = 'Secretary' "
+                        "WHERE up.allow = 'Company' AND up.for_value = %s "
+                        "AND up.user NOT IN ('Administrator', 'Guest')",
+                        (host_rec.company,),
+                        as_dict=False,
+                    )
+                    for row in sec_rows:
+                        if row and row[0] and row[0] not in recipient_users:
+                            recipient_users.append(row[0])
             except Exception:
                 pass
 
