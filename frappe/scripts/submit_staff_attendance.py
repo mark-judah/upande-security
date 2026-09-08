@@ -29,6 +29,14 @@ try:
             }
         else:
             doc = frappe.get_doc("Attendance", name)
+            # Gate Guards (the actual users of this app) have create_staff_
+            # attendance's insert(ignore_permissions=True) to thank for the
+            # draft existing at all, but the Attendance DocPerm table never
+            # grants their role "submit" - only System Manager/HR User/HR
+            # Manager can. Every check-in from a plain Gate Guard hit
+            # PermissionError here, silently caught below and soft-failed,
+            # leaving the already-committed draft at docstatus=0 forever.
+            doc.flags.ignore_permissions = True
             doc.submit()
             frappe.db.commit()
             frappe.response["message"] = {
