@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -27,6 +27,15 @@ export default function Login() {
   const [submitting, setSubmitting] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
+  // Guards against the async storage pre-fill below (useEffect on mount)
+  // landing AFTER the user has already started typing and silently
+  // overwriting their edit back to the previously stored URL/email —
+  // exactly the "wrong URL still logs in" bug: the field looked like it had
+  // the typed value, but the delayed setUrl() clobbered it right before
+  // submit read the state.
+  const urlTouched = useRef(false);
+  const emailTouched = useRef(false);
+
   const login = useAuthStore((s) => s.login);
   const hydrate = useAuthStore((s) => s.hydrate);
   const unlock = useAuthStore((s) => s.unlock);
@@ -46,8 +55,10 @@ export default function Login() {
         storage.get(StorageKeys.cookie),
         storage.get(StorageKeys.biometricEnabled),
       ]);
-      if (emailBackup) setEmail(emailBackup);
-      if (instanceUrlStored) setUrl(instanceUrlStored.replace(/^https?:\/\//i, ''));
+      if (emailBackup && !emailTouched.current) setEmail(emailBackup);
+      if (instanceUrlStored && !urlTouched.current) {
+        setUrl(instanceUrlStored.replace(/^https?:\/\//i, ''));
+      }
       setBioAvailable(!!cookie && bioFlag === '1' && Biometric.isModuleAvailable());
     })();
   }, []);
@@ -107,14 +118,20 @@ export default function Login() {
         <Field
           label="Instance URL"
           value={url}
-          onChange={setUrl}
+          onChange={(v) => {
+            urlTouched.current = true;
+            setUrl(v);
+          }}
           placeholder="kaitet.upande.com"
           keyboardType="url"
         />
         <Field
           label="Email"
           value={email}
-          onChange={setEmail}
+          onChange={(v) => {
+            emailTouched.current = true;
+            setEmail(v);
+          }}
           keyboardType="email-address"
         />
         <View style={s.pwWrap}>
