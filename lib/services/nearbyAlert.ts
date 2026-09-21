@@ -1,6 +1,7 @@
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import { getNotifications } from './pushToken';
+import { handleIncomingVisitorApprovedPush } from './visitorApprovedAlert';
 
 /**
  * Nearby-guard SOS alert receipt.
@@ -40,7 +41,12 @@ let _handledResetTimer: ReturnType<typeof setTimeout> | null = null;
  * window.
  */
 export function handleIncomingPush(data: unknown): void {
-  if (!isSosAlertPayload(data)) return;
+  if (!isSosAlertPayload(data)) {
+    // Not an sos_alert push - visitor_approved is the only other kind this
+    // app sends right now; hand off there instead of dropping it silently.
+    handleIncomingVisitorApprovedPush(data);
+    return;
+  }
 
   // Cheap de-dupe: the same push can reach us via both the foreground
   // "received" listener and the "response" (tap) listener.

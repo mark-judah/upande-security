@@ -34,6 +34,8 @@ export function getNotifications(): NotificationsModule | null {
 
 /** Must match the server's push payload `channelId: 'sos-alerts'`. */
 export const SOS_CHANNEL_ID = 'sos-alerts';
+/** Must match visitor_approved_alert.py's VISITOR_APPROVED_CHANNEL_ID. */
+export const VISITOR_APPROVED_CHANNEL_ID = 'visitor-approved';
 
 let _channelReady = false;
 async function ensureAndroidChannel(Notifications: NotificationsModule): Promise<void> {
@@ -48,9 +50,18 @@ async function ensureAndroidChannel(Notifications: NotificationsModule): Promise
       lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
       bypassDnd: true,
     });
+    // Deliberately calmer than sos-alerts - this is routine gate-duty
+    // information, not an emergency that should bypass Do Not Disturb.
+    await Notifications.setNotificationChannelAsync(VISITOR_APPROVED_CHANNEL_ID, {
+      name: 'Visitor Approved',
+      importance: Notifications.AndroidImportance.HIGH,
+      sound: 'default',
+      lightColor: '#22C55E',
+      lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+    });
     _channelReady = true;
   } catch (e) {
-    if (__DEV__) console.warn('[pushToken] failed to create sos-alerts channel:', e);
+    if (__DEV__) console.warn('[pushToken] failed to create notification channels:', e);
   }
 }
 
