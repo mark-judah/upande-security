@@ -25,6 +25,7 @@ import { initPatrolDb } from '@/lib/services/patrolDb';
 import { useSosWatcher } from '@/lib/hooks/useSosWatcher';
 import { useNearbyGuardAlerts } from '@/lib/hooks/useNearbyGuardAlerts';
 import { useLocationPing } from '@/lib/hooks/useLocationPing';
+import { useScheduledAppUpdate } from '@/lib/hooks/useScheduledAppUpdate';
 import { useIsApprover } from '@/lib/hooks/usePendingApprovals';
 import { useHasCommandCenterAccess } from '@/lib/hooks/useSessionInfo';
 import '@/lib/services/patrolTracking';
@@ -94,6 +95,7 @@ export default function RootLayout() {
   useSosWatcher();
   useNearbyGuardAlerts();
   useLocationPing();
+  useScheduledAppUpdate();
 
   useEffect(() => {
     if (fontsLoaded && hydrated) {
