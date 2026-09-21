@@ -61,6 +61,9 @@ export type ShiftRow = {
 
 export type ShiftDashboardSummary = {
   total_assignments: number;
+  /** Per-shift-type counts, e.g. { Day: 64, First: 164, ... } - covers all
+   * five ShiftType values, not just Day/Night. */
+  shift_type_counts: Partial<Record<ShiftType, number>>;
   day_shift_count: number;
   night_shift_count: number;
   farms_covered: number;

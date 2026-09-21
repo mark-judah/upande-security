@@ -15,6 +15,7 @@ import type {
   ShiftPeriod,
   ShiftRow,
   ShiftStatus,
+  ShiftType,
 } from '@/lib/services/securityDashboard';
 import { fmtDateTime } from '@/lib/utils/date';
 import { borderRadius, COLORS, fontFamily, fontSize, spacing } from '@/src/core/theme';
@@ -48,11 +49,20 @@ function statusPillStyle(status: ShiftStatus | string): { bg: string; fg: string
   }
 }
 
+// Same order the backend's SHIFT_TYPE_ORDER uses - Day/Night is the
+// original farm-wide 12h split, First/Second/Third is Chepsito-style 8h
+// rosters (now also seen on other farms), so every type that actually has
+// assignments gets its own tile instead of only Day/Night being visible.
+const SHIFT_TYPE_ORDER: ShiftType[] = ['Day', 'Night', 'First', 'Second', 'Third'];
+
 function SummaryGrid({ summary }: { summary: ShiftDashboardSummary | undefined }) {
   if (!summary) return null;
+  const shiftTypeTiles = SHIFT_TYPE_ORDER
+    .filter((st) => (summary.shift_type_counts?.[st] ?? 0) > 0)
+    .map((st) => ({ label: st, value: summary.shift_type_counts![st]! }));
   const tiles: { label: string; value: number | string }[] = [
     { label: 'Assignments', value: summary.total_assignments },
-    { label: 'Day / Night', value: `${summary.day_shift_count} / ${summary.night_shift_count}` },
+    ...shiftTypeTiles,
     { label: 'Farms covered', value: `${summary.farms_covered}/${summary.farms_total}` },
     { label: 'Unfilled slots', value: summary.unfilled_slots },
     { label: 'Guards on rotation', value: summary.guards_on_rotation },
