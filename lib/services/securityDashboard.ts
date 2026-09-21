@@ -32,7 +32,7 @@ const WHITELISTED_METHOD_PATH =
 export type ShiftPeriod = 'today' | 'last_7_days' | 'last_30_days' | 'custom';
 
 export type ShiftGuardType = 'Internal Guard' | 'External Guard';
-export type ShiftType = 'Day' | 'Night';
+export type ShiftType = 'Day' | 'Night' | 'First' | 'Second' | 'Third';
 export type ShiftStatus = 'Scheduled' | 'Active' | 'Ended' | 'Cancelled';
 
 export type FarmColor = { bg: string; text: string };

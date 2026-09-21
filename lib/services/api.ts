@@ -632,7 +632,7 @@ export type FilePatrolReportResult = {
 export type CurrentShift = {
   name: string;
   farm: string;
-  shift_type: 'Day' | 'Night';
+  shift_type: 'Day' | 'Night' | 'First' | 'Second' | 'Third';
   start_date: string;
   end_date: string;
   status: 'Scheduled' | 'Active' | 'Ended' | 'Cancelled';
