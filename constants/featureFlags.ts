@@ -1,5 +1,5 @@
-// Disabled again 2026-08-31 per request. Server-side support is still there
-// (doctype, custom_visitor_badge / custom_host_received_time on Appointment,
-// badge-related server scripts) - this only turns the client-side
-// requirement/UI back off. See git history for the prior on/off reasoning.
-export const VISITOR_BADGE_ENABLED = false;
+// Re-enabled 2026-09-22 per request - badge stock is printed and ready
+// (225 fresh Kaitet Ltd./Karen Roses badges, auto-numbered per farm) and
+// the client-side issuance UI/gating was already fully built, just
+// switched off. See git history for the prior on/off reasoning.
+export const VISITOR_BADGE_ENABLED = true;
