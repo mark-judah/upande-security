@@ -2,6 +2,7 @@ import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import { getNotifications } from './pushToken';
 import { handleIncomingVisitorApprovedPush } from './visitorApprovedAlert';
+import { addNotification } from './notificationCenter';
 
 /**
  * Nearby-guard SOS alert receipt.
@@ -31,6 +32,73 @@ function isSosAlertPayload(data: unknown): data is SosAlertPushData {
   return !!data && typeof data === 'object' && (data as { type?: unknown }).type === 'sos_alert';
 }
 
+/**
+ * Best-effort title/body for the notification-center history, covering
+ * every payload shape this app currently sends (and a generic fallback for
+ * anything unrecognized) so `recordIncomingPush` can log EVERY push,
+ * regardless of type.
+ */
+function describeForHistory(data: Record<string, unknown>): { type: string; title: string; body: string } {
+  const type = typeof data.type === 'string' && data.type ? data.type : 'notification';
+  const str = (v: unknown, fallback = ''): string => (typeof v === 'string' && v ? v : fallback);
+
+  switch (type) {
+    case 'sos_alert':
+      return {
+        type,
+        title: 'SOS Alert',
+        body: `${str(data.guard_name, 'A guard')} needs help nearby`,
+      };
+    case 'visitor_approved':
+      return {
+        type,
+        title: 'Visitor approved',
+        body: `${str(data.visitor_name, 'Visitor')} approved by host`,
+      };
+    case 'appointment_status':
+      return {
+        type,
+        title: 'Appointment update',
+        body: `${str(data.visitor_name, 'Visitor')} — ${str(data.workflow_state, 'status updated')}`,
+      };
+    case 'announcement':
+      return {
+        type,
+        title: str(data.title, 'Announcement'),
+        body: str(data.body),
+      };
+    default:
+      return { type, title: 'Notification', body: '' };
+  }
+}
+
+let _lastRecordedKey: string | null = null;
+let _lastRecordedAt = 0;
+
+/**
+ * Records every incoming push into the local notification-center history
+ * (lib/services/notificationCenter.ts) so the bell icon has something to
+ * show, independent of whatever per-type routing happens afterwards.
+ * Best-effort and de-duplicated for a short window - the same push can
+ * reach this module via both the foreground "received" listener and the
+ * "response" (tap) listener.
+ */
+function recordIncomingPush(data: unknown): void {
+  if (!data || typeof data !== 'object') return;
+  const record = data as Record<string, unknown>;
+  try {
+    const key = JSON.stringify(record);
+    const now = Date.now();
+    if (_lastRecordedKey === key && now - _lastRecordedAt < 3000) return;
+    _lastRecordedKey = key;
+    _lastRecordedAt = now;
+    const { type, title, body } = describeForHistory(record);
+    addNotification({ type, title, body }).catch(() => {});
+  } catch {
+    // never let history-recording break push handling
+  }
+}
+
 let _handled = false;
 let _handledResetTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -41,6 +109,10 @@ let _handledResetTimer: ReturnType<typeof setTimeout> | null = null;
  * window.
  */
 export function handleIncomingPush(data: unknown): void {
+  // Log every push into the on-device notification-center history first,
+  // regardless of type, before any per-type routing below.
+  recordIncomingPush(data);
+
   if (!isSosAlertPayload(data)) {
     // Not an sos_alert push - visitor_approved is the only other kind this
     // app sends right now; hand off there instead of dropping it silently.

@@ -1,5 +1,6 @@
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
+import { handleIncomingAppointmentStatusPush } from './appointmentStatusAlert';
 
 /**
  * Visitor-approved gate alert receipt.
@@ -34,9 +35,15 @@ let _handledResetTimer: ReturnType<typeof setTimeout> | null = null;
  * Safe to call multiple times for the same push (foreground listener + tap
  * response can both fire) - de-duplicated for a short window, same as
  * nearbyAlert.ts's handleIncomingPush.
+ *
+ * Not a visitor_approved push? Hands off to appointmentStatusAlert.ts
+ * instead of dropping it silently.
  */
 export function handleIncomingVisitorApprovedPush(data: unknown): void {
-  if (!isVisitorApprovedPayload(data)) return;
+  if (!isVisitorApprovedPayload(data)) {
+    handleIncomingAppointmentStatusPush(data);
+    return;
+  }
 
   if (_handled) return;
   _handled = true;

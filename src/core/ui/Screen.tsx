@@ -15,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { COLORS, fontFamily, fontSize, spacing } from '@/src/core/theme';
 import { Button } from './Button';
 import { SideMenu } from './SideMenu';
+import { NotificationBell } from './NotificationBell';
 
 type Props = {
   title?: string;
@@ -123,8 +124,7 @@ export function Screen({
             <View style={s.menuBtn} />
           )}
           <Text style={s.title} numberOfLines={1}>{title}</Text>
-          {/* Symmetric spacer keeps the title centred */}
-          <View style={s.menuBtn} />
+          <NotificationBell />
         </View>
       ) : null}
       {!hideMenu ? <SideMenu visible={menuOpen} onClose={() => setMenuOpen(false)} /> : null}

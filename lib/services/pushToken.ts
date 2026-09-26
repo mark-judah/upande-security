@@ -34,7 +34,13 @@ export function getNotifications(): NotificationsModule | null {
 
 /** Must match the server's push payload `channelId: 'sos-alerts'`. */
 export const SOS_CHANNEL_ID = 'sos-alerts';
-/** Must match visitor_approved_alert.py's VISITOR_APPROVED_CHANNEL_ID. */
+/**
+ * Must match visitor_approved_alert.py's VISITOR_APPROVED_CHANNEL_ID.
+ * notifications.py's appointment_status and announcement pushes
+ * deliberately reuse this same channel too (see that file's docstring) -
+ * there is no separate 'appointment-status'/'announcements' channel, so
+ * don't add one here without also changing the server to actually target it.
+ */
 export const VISITOR_APPROVED_CHANNEL_ID = 'visitor-approved';
 
 let _channelReady = false;
