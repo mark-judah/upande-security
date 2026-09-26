@@ -205,6 +205,18 @@ export async function getLatestPatrolGpsPoint(
   };
 }
 
+// Every patrol_tag that still has un-synced points, not just the current
+// active one - lets the sync layer keep draining a patrol that was stopped
+// (or went stale) before its backlog finished uploading, instead of
+// silently orphaning it the moment active_patrol moves on to a new tag.
+export async function getAllPendingPatrolTags(): Promise<string[]> {
+  const db = await getDb();
+  const rows = await db.getAllAsync<{ patrol_tag: string }>(
+    `SELECT DISTINCT patrol_tag FROM patrol_gps_queue WHERE synced = 0`,
+  );
+  return rows.map((r) => r.patrol_tag);
+}
+
 export async function getPatrolGpsQueueCount(
   patrolTag: string,
 ): Promise<{ pending: number; total: number }> {

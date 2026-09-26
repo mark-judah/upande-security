@@ -2,6 +2,7 @@ import { AppState, type AppStateStatus, type NativeEventSubscription } from 'rea
 import {
   deleteSyncedPatrolGpsPoints,
   getActivePatrol,
+  getAllPendingPatrolTags,
   getPatrolGpsQueueCount,
   getPendingPatrolGpsPoints,
   markPatrolGpsPointsSynced,
@@ -164,6 +165,35 @@ export async function flushAllPatrolPending(
   return { uploaded: totalUploaded, pending: lastPending };
 }
 
+let _sweepRunning = false;
+
+// Drains every patrol_tag that still has pending points, not just the
+// current active one. Covers a patrol that was stopped (or auto-cleared as
+// stale) before its full backlog finished uploading - stopping/starting a
+// new patrol switches active_patrol to a new tag, and nothing else ever
+// looks at the old one again unless something sweeps for it. Safe to call
+// often: flushAllPatrolPending is itself a no-op once a tag's queue is
+// empty, and this whole sweep short-circuits if a previous call is still
+// in flight.
+export async function flushAnyPendingPatrols(): Promise<void> {
+  if (_sweepRunning) return;
+  _sweepRunning = true;
+  try {
+    const tags = await getAllPendingPatrolTags();
+    for (const tag of tags) {
+      try {
+        await flushAllPatrolPending(tag);
+      } catch {
+        // move on to the next tag - one bad tag shouldn't block the rest
+      }
+    }
+  } catch {
+    // ignore - next sweep will retry
+  } finally {
+    _sweepRunning = false;
+  }
+}
+
 export function ensurePatrolSyncRunning(patrolTag: string): void {
   if (_interval && _patrolTag === patrolTag) return;
   startPatrolSync(patrolTag);
@@ -186,3 +216,18 @@ export function stopPatrolSync(): void {
   }
   _patrolTag = null;
 }
+
+const ORPHAN_SWEEP_INTERVAL_MS = 120_000;
+
+// Runs independently of any single active patrol - covers points left
+// behind by a stop/stale-clear that happened before this JS instance ever
+// loaded (an OTA reload, a crash, the app being killed and relaunched).
+// Fires once immediately on module load, then on the same cadence as the
+// per-patrol sync loop.
+flushAnyPendingPatrols().catch(() => {});
+setInterval(() => {
+  flushAnyPendingPatrols().catch(() => {});
+}, ORPHAN_SWEEP_INTERVAL_MS);
+AppState.addEventListener('change', (state: AppStateStatus) => {
+  if (state === 'active') flushAnyPendingPatrols().catch(() => {});
+});

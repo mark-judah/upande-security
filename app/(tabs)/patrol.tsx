@@ -23,7 +23,7 @@ import {
   startPatrolForegroundPolling,
   startPatrolTrackingWatchdog,
 } from '@/lib/services/patrolTracking';
-import { startPatrolSync } from '@/lib/services/patrolGpsSync';
+import { startPatrolSync, flushAllPatrolPending } from '@/lib/services/patrolGpsSync';
 import { generatePatrolTag, sanitizeGuardCode } from '@/lib/services/patrolHelpers';
 import { toFrappeDateTime, fmtDateTime } from '@/lib/utils/date';
 import { useFeedback } from '@/lib/hooks/useFeedback';
@@ -61,6 +61,14 @@ export default function PatrolHome() {
                 text: 'Stop it',
                 style: 'destructive',
                 onPress: async () => {
+                  // Best-effort drain before dropping the tag — anything left
+                  // over still isn't lost: flushAnyPendingPatrols
+                  // (patrolGpsSync.ts) sweeps every patrol_tag with pending
+                  // points in the background, not just the active one.
+                  await Promise.race([
+                    flushAllPatrolPending(active.patrolTag),
+                    new Promise((resolve) => setTimeout(resolve, 15000)),
+                  ]);
                   await clearActivePatrol();
                   setReady(true);
                 },

@@ -22,6 +22,7 @@ import {
 import {
   subscribePatrolSyncStatus,
   syncPatrolQueueNow,
+  flushAllPatrolPending,
   stopPatrolSync,
   ensurePatrolSyncRunning,
   type PatrolSyncStatus,
@@ -110,9 +111,9 @@ export default function ActivePatrol() {
     if (!patrolTag) return;
     setStopping(true);
     try {
-      await Promise.race([
-        syncPatrolQueueNow(patrolTag),
-        new Promise((resolve) => setTimeout(resolve, 5000)),
+      const flushed = await Promise.race([
+        flushAllPatrolPending(patrolTag),
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), 15000)),
       ]);
 
       stopPatrolSync();
@@ -121,11 +122,18 @@ export default function ActivePatrol() {
       await stopPatrolLocationUpdates();
 
       // No server notification on stop — the client is the source of truth.
-      // Any points still queued will keep uploading until they flush, then the
-      // local queue is empty and nothing else happens server-side.
+      // Whatever didn't finish flushing above stays queued under this tag —
+      // it's not lost: flushAnyPendingPatrols (patrolGpsSync.ts) sweeps every
+      // patrol_tag with pending points, not just the active one, so this
+      // stopped patrol keeps draining in the background even after
+      // active_patrol moves on to a new tag.
       const endedAt = toFrappeDateTime();
       await markPatrolStopped(endedAt);
       await clearActivePatrol();
+
+      if (flushed && flushed.pending > 0) {
+        feedback.error(`${flushed.pending} points still queued — they'll keep uploading in the background.`);
+      }
 
       router.replace('/patrol');
     } catch (e) {
