@@ -6,6 +6,7 @@ import {
   getLatestPatrolGpsPoint,
   type PatrolGpsPoint,
 } from './patrolDb';
+import { ensurePatrolSyncRunning } from './patrolGpsSync';
 import { haversineMeters, formatCapturedAt } from '@/lib/utils/haversine';
 
 export const PATROL_LOCATION_TASK = 'patrol-location-task';
@@ -283,12 +284,26 @@ export function stopPatrolTrackingWatchdog(): void {
   _watchdogBusy = false;
 }
 
-// Restore active patrol cache on module load (helps when task fires before a screen mounts).
+// Restore + actually resume an in-progress patrol on module load - covers
+// every kind of fresh JS start (OTA reload, crash recovery, OS-killed and
+// relaunched), not just "task fires before a screen mounts". Previously
+// this only cached _activePatrol in memory, which does nothing if the
+// underlying OS-level location subscription itself was torn down - a
+// reload mid-patrol left the app looking normal while silently never
+// capturing another point. startPatrolLocationUpdates() already no-ops
+// safely if tracking somehow survived (hasStartedLocationUpdatesAsync
+// check inside it), so calling it unconditionally here is safe.
 (async () => {
   try {
     const stored = await getActivePatrol();
     if (stored && !stored.stoppedAt) {
       _activePatrol = { patrolTag: stored.patrolTag, guard: stored.guard };
+      await startPatrolLocationUpdates(stored.patrolTag, stored.guard);
+      // Capture alone isn't enough - the 2-minute upload loop has the same
+      // "only ever started from patrol-active.tsx's mount" gap, so anything
+      // captured here would just accumulate locally until someone happens
+      // to reopen that screen.
+      ensurePatrolSyncRunning(stored.patrolTag);
     }
   } catch {
     // ignore — DB init may not have run yet

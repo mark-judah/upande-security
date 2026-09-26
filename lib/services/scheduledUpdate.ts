@@ -1,6 +1,7 @@
 import { AppState, type AppStateStatus, type NativeEventSubscription } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Updates from 'expo-updates';
+import { getActivePatrol } from '@/lib/services/patrolDb';
 
 /**
  * Automatic OTA update check + apply, once a day, inside a fixed off-hours
@@ -72,12 +73,30 @@ async function tick(): Promise<void> {
 
     console.log('[scheduledUpdate] update available — fetching');
     const fetched = await Updates.fetchUpdateAsync();
-    await markRanToday(now);
 
-    if (fetched.isNew) {
-      console.log('[scheduledUpdate] fetched a new update — reloading now');
-      await Updates.reloadAsync();
+    if (!fetched.isNew) {
+      await markRanToday(now);
+      return;
     }
+
+    // reloadAsync() tears down the JS runtime - a guard mid-patrol has an
+    // OS-level background location task and a JS-side sync loop that are
+    // both only ever (re)started from the patrol screen mounting, not from
+    // any always-on recovery path. A reload here would silently orphan both
+    // with zero visible error, while the app still looks completely normal.
+    // So: don't mark ranToday and don't reload while a patrol is active -
+    // this fetched bundle just sits ready, and every 5-minute tick (and
+    // every AppState "active" transition) re-checks until either the patrol
+    // ends inside today's window or the window closes and we retry tomorrow.
+    const active = await getActivePatrol().catch(() => null);
+    if (active && !active.stoppedAt) {
+      console.log('[scheduledUpdate] update fetched but a patrol is active — deferring reload');
+      return;
+    }
+
+    console.log('[scheduledUpdate] fetched a new update — reloading now');
+    await markRanToday(now);
+    await Updates.reloadAsync();
   } catch (e) {
     console.warn('[scheduledUpdate] check/apply failed — will retry within the same window:', e);
   } finally {
