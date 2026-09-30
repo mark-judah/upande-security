@@ -50,6 +50,31 @@ export type SecurityHeadContact = {
   farm: string;
 };
 
+// Per-instance feature flags — this app now deploys to multiple separate
+// client instances, and not every instance wants every feature. Server-
+// resolved in get_session_info.py (backed by a per-site config doctype);
+// all keys are booleans that default `true` server-side. Treat a missing
+// key (or a missing `features` object entirely, e.g. a stale cached
+// session from before this shipped) as `true` client-side too — fail open,
+// never let a stale session silently blank out a feature nobody actually
+// turned off.
+export type SecurityFeatureFlags = {
+  feature_visitor_approval_workflow: boolean;
+  feature_contractor_checkin: boolean;
+  feature_sos_alert: boolean;
+  feature_patrol_geofence_alerts: boolean;
+  feature_watchlist: boolean;
+  feature_asset_scanning: boolean;
+  feature_gate_dispatch: boolean;
+  feature_gate_receiving: boolean;
+  feature_vehicle_stickers: boolean;
+  feature_visitor_badges: boolean;
+  feature_supplier_badges: boolean;
+  feature_command_center: boolean;
+  feature_security_alerts: boolean;
+  feature_visitor_sms_otp: boolean;
+};
+
 export type SessionInfo = {
   user: string;
   full_name: string;
@@ -62,8 +87,14 @@ export type SessionInfo = {
   // System Manager by role, OR anyone listed in Security Ops Settings'
   // command_center_extra_users allowlist. Never re-derive this from
   // `roles` client-side — the allowlist-membership case has no signal the
-  // client can see on its own.
+  // client can see on its own. Also now gated server-side by
+  // feature_command_center — nothing extra needed client-side for that.
   has_command_center_access: boolean;
+  // Optional: absent entirely on an older cached session predating this
+  // field. See useFeatureFlag() in lib/hooks/useSessionInfo.ts for the
+  // fail-open read pattern every caller should use instead of reading this
+  // directly.
+  features?: Partial<SecurityFeatureFlags>;
   employee:
     | {
         name?: string;

@@ -4,7 +4,8 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { AppState, type AppStateStatus } from 'react-native';
+import { QueryClient, QueryClientProvider, focusManager } from '@tanstack/react-query';
 import {
   useFonts,
   DMSans_400Regular,
@@ -90,6 +91,32 @@ export default function RootLayout() {
 
   useEffect(() => {
     initPatrolDb().catch(() => {});
+  }, []);
+
+  // React Query's focus-triggered refetching (refetchOnWindowFocus and
+  // friends) does nothing on React Native out of the box - it's wired to
+  // the browser's visibility API by default, which doesn't exist here.
+  // Without this, a query like useSessionInfo() (which is how Security Ops
+  // Settings' feature flags reach the app) only ever refetches on cold
+  // start or a remount past its staleTime; backgrounding/foregrounding the
+  // app - by far the most common thing a guard actually does - never
+  // triggers anything. This is React Query's own documented React Native
+  // recipe: treat AppState "active" as focused, everything else as not.
+  // Registered inside a mounted component's effect, not at module scope -
+  // AppState.addEventListener throws if the native module hasn't resolved
+  // yet (real risk this early, especially timing-sensitive under an EAS
+  // Update OTA re-evaluating JS against an already-running native side),
+  // and every other native-module touch in this file is already wrapped
+  // this same way (see SplashScreen.preventAutoHideAsync().catch() above).
+  useEffect(() => {
+    try {
+      const subscription = AppState.addEventListener('change', (status: AppStateStatus) => {
+        focusManager.setFocused(status === 'active');
+      });
+      return () => subscription.remove();
+    } catch {
+      return undefined;
+    }
   }, []);
 
   useSosWatcher();

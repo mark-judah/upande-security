@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { api } from '@/lib/services/api';
+import { api, type SecurityFeatureFlags } from '@/lib/services/api';
 
 /** Current user, roles, and linked Employee/Security Guard record — mainly
  * used here for the logged-in guard's own farm (employee.custom_farm), the
@@ -22,4 +22,15 @@ export function useSessionInfo() {
 export function useHasCommandCenterAccess(): boolean {
   const { data } = useSessionInfo();
   return Boolean(data?.has_command_center_access);
+}
+
+/** Per-instance feature flag read — the single source of truth every screen
+ *  should use instead of reading `sessionInfo.data?.features` directly.
+ *  Fails open: a flag that's missing (older cached session, or a key added
+ *  server-side after this client shipped) reads as enabled, matching the
+ *  backend's own "default true" philosophy. Only an explicit `false` hides
+ *  the corresponding entry point. */
+export function useFeatureFlag(flag: keyof SecurityFeatureFlags): boolean {
+  const { data } = useSessionInfo();
+  return data?.features?.[flag] !== false;
 }

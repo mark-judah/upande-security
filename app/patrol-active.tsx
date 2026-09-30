@@ -29,6 +29,7 @@ import {
 } from '@/lib/services/patrolGpsSync';
 import { toFrappeDateTime } from '@/lib/utils/date';
 import { useFeedback } from '@/lib/hooks/useFeedback';
+import { useFeatureFlag } from '@/lib/hooks/useSessionInfo';
 import { Screen } from '@/src/core/ui/Screen';
 import { Button } from '@/src/core/ui/Button';
 import { Card } from '@/src/core/ui/Card';
@@ -46,6 +47,7 @@ function formatElapsed(ms: number): string {
 
 export default function ActivePatrol() {
   const feedback = useFeedback();
+  const assetScanningEnabled = useFeatureFlag('feature_asset_scanning');
   const [patrolTag, setPatrolTag] = useState<string | null>(null);
   const [startedAt, setStartedAt] = useState<string | null>(null);
   const [elapsedMs, setElapsedMs] = useState(0);
@@ -215,13 +217,15 @@ export default function ActivePatrol() {
         style={s.fileReportBtn}
       />
 
-      <Button
-        label="SCAN ASSETS"
-        iconLeft="qr-code-outline"
-        variant="outline"
-        onPress={() => router.push('/asset-scan')}
-        style={s.fileReportBtn}
-      />
+      {assetScanningEnabled ? (
+        <Button
+          label="SCAN ASSETS"
+          iconLeft="qr-code-outline"
+          variant="outline"
+          onPress={() => router.push('/asset-scan')}
+          style={s.fileReportBtn}
+        />
+      ) : null}
 
       <Button
         label="STOP PATROL"

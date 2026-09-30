@@ -7,6 +7,9 @@ import { borderRadius, COLORS, fontFamily, fontSize, spacing } from '@/src/core/
 type Props = {
   selected: CheckInType;
   onSelect: (t: CheckInType) => void;
+  /** Check-in types to fully omit from the grid (per-instance feature flags
+   *  turned off) — not rendered at all, not just disabled. */
+  hiddenTypes?: CheckInType[];
 };
 
 type TileMeta = {
@@ -26,10 +29,13 @@ const TILES: TileMeta[] = [
   { type: CheckInType.Visitor,        label: 'Visitor',    hint: 'Walk-in or scheduled appointment', icon: 'person-outline' },
 ];
 
-export function HeaderSelectors({ selected, onSelect }: Props) {
+export function HeaderSelectors({ selected, onSelect, hiddenTypes }: Props) {
+  const tiles = hiddenTypes?.length
+    ? TILES.filter((t) => !hiddenTypes.includes(t.type))
+    : TILES;
   return (
     <View style={s.grid}>
-      {TILES.map((t) => {
+      {tiles.map((t) => {
         const isSelected = selected === t.type;
         return (
           <Pressable

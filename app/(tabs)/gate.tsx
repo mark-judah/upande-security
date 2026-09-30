@@ -40,7 +40,7 @@ import type { ContractorPersonnelInput } from '@/lib/services/api';
 import { createGateTimesheet, submitGateTimesheet } from '@/lib/api/timesheets';
 import type { ActiveVehicleEntry } from '@/lib/stores/vehicleStore';
 import { useFeedback } from '@/lib/hooks/useFeedback';
-import { useSessionInfo } from '@/lib/hooks/useSessionInfo';
+import { useSessionInfo, useFeatureFlag } from '@/lib/hooks/useSessionInfo';
 import { GatePicker } from '@/components/gate/GatePicker';
 import { useGateStore } from '@/lib/stores/gateStore';
 import { useVehicleStore } from '@/lib/stores/vehicleStore';
@@ -107,6 +107,17 @@ export default function GateTab() {
   const [visitorEntryGate, setVisitorEntryGate] = useState<string | null>(null);
   const sessionInfo = useSessionInfo();
   const ownFarm = sessionInfo.data?.employee?.custom_farm ?? null;
+  // Per-instance feature flags — hide the corresponding chip/panel entirely
+  // (not just disable) when an instance doesn't want that feature.
+  const contractorCheckinEnabled = useFeatureFlag('feature_contractor_checkin');
+  const gateDispatchEnabled = useFeatureFlag('feature_gate_dispatch');
+  const gateReceivingEnabled = useFeatureFlag('feature_gate_receiving');
+  const visitorBadgesEnabled = useFeatureFlag('feature_visitor_badges');
+  const hiddenCheckInTypes: CheckInType[] = [
+    ...(contractorCheckinEnabled ? [] : [CheckInType.Contractor]),
+    ...(gateDispatchEnabled ? [] : [CheckInType.Dispatch]),
+    ...(gateReceivingEnabled ? [] : [CheckInType.Receiving]),
+  ];
 
   const feedback = useFeedback();
 
@@ -571,7 +582,11 @@ export default function GateTab() {
         refreshControl={<RefreshControl refreshing={updateBusy} onRefresh={onCheckForUpdates} />}
       >
         <View style={s.card}>
-          <HeaderSelectors selected={selectedType} onSelect={onTypeSelect} />
+          <HeaderSelectors
+            selected={selectedType}
+            onSelect={onTypeSelect}
+            hiddenTypes={hiddenCheckInTypes}
+          />
 
           {selectedType === CheckInType.Visitor ||
           selectedType === CheckInType.Contractor ? (
@@ -707,6 +722,7 @@ export default function GateTab() {
             // still waiting on the host to approve.
             const showBadgePanel =
               VISITOR_BADGE_ENABLED &&
+              visitorBadgesEnabled &&
               visitorState != null &&
               (CHECK_IN_ALLOWED_FROM.includes(visitorState) ||
                 visitorState === 'Visitor Checked In' ||
@@ -716,9 +732,16 @@ export default function GateTab() {
             // guard can check the visitor in. This is purely a client-side
             // gate — check_in_visitor itself is unchanged, so guards still
             // on an older build are completely unaffected. Gated behind
-            // VISITOR_BADGE_ENABLED — see constants/featureFlags.ts.
+            // VISITOR_BADGE_ENABLED (constants/featureFlags.ts) and the
+            // per-instance feature_visitor_badges flag — an instance with
+            // badges off entirely has no way to issue one, so it can't also
+            // require one to check in.
             const checkInBlockedReason =
-              VISITOR_BADGE_ENABLED && visitorState && CHECK_IN_ALLOWED_FROM.includes(visitorState) && !hasBadge
+              VISITOR_BADGE_ENABLED &&
+              visitorBadgesEnabled &&
+              visitorState &&
+              CHECK_IN_ALLOWED_FROM.includes(visitorState) &&
+              !hasBadge
                 ? 'Issue a visitor badge before checking them in.'
                 : undefined;
 

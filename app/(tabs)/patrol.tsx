@@ -29,6 +29,7 @@ import { toFrappeDateTime, fmtDateTime } from '@/lib/utils/date';
 import { useFeedback } from '@/lib/hooks/useFeedback';
 import { useMyShift } from '@/lib/hooks/useMyShift';
 import { useCheckInShift } from '@/lib/hooks/useCheckInShift';
+import { useFeatureFlag } from '@/lib/hooks/useSessionInfo';
 import { Screen } from '@/src/core/ui/Screen';
 import { Button } from '@/src/core/ui/Button';
 import { Card } from '@/src/core/ui/Card';
@@ -39,6 +40,7 @@ const STALE_THRESHOLD_MS = 14 * 60 * 60 * 1000;
 export default function PatrolHome() {
   const userEmail = useAuthStore((s) => s.user?.email);
   const feedback = useFeedback();
+  const assetScanningEnabled = useFeatureFlag('feature_asset_scanning');
   const [ready, setReady] = useState(false);
   const [starting, setStarting] = useState(false);
   const [perms, setPerms] = useState<{ foreground: boolean; background: boolean } | null>(null);
@@ -229,13 +231,15 @@ export default function PatrolHome() {
         style={s.fileReportBtn}
       />
 
-      <Button
-        label="SCAN ASSETS"
-        iconLeft="qr-code-outline"
-        variant="outline"
-        onPress={() => router.push('/asset-scan')}
-        style={s.fileReportBtn}
-      />
+      {assetScanningEnabled ? (
+        <Button
+          label="SCAN ASSETS"
+          iconLeft="qr-code-outline"
+          variant="outline"
+          onPress={() => router.push('/asset-scan')}
+          style={s.fileReportBtn}
+        />
+      ) : null}
     </Screen>
   );
 }

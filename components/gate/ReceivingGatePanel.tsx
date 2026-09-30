@@ -12,6 +12,7 @@ import { useReceivingSearch } from '@/lib/hooks/useReceivingSearch';
 import { useVerifyReceiving } from '@/lib/hooks/useVerifyReceiving';
 import { useVerifyReceivingBulk } from '@/lib/hooks/useVerifyReceivingBulk';
 import { useSupplierBadgeScan } from '@/lib/hooks/useSupplierBadgeScan';
+import { useFeatureFlag } from '@/lib/hooks/useSessionInfo';
 import { useGateStore } from '@/lib/stores/gateStore';
 import { extractReceivingReference } from '@/lib/utils/qr';
 import { useFeedback } from '@/lib/hooks/useFeedback';
@@ -28,6 +29,7 @@ import { COLORS, borderRadius, fontFamily, fontSize, spacing } from '@/src/core/
  * own search/decision state.
  */
 export function ReceivingGatePanel() {
+  const supplierBadgesEnabled = useFeatureFlag('feature_supplier_badges');
   const [query, setQuery] = useState('');
   const [found, setFound] = useState<ReceivingSearchHit | null>(null);
   const [notFoundQuery, setNotFoundQuery] = useState<string | null>(null);
@@ -320,7 +322,9 @@ export function ReceivingGatePanel() {
           value={query}
           onChangeText={setQuery}
           onSubmit={onManualSearch}
-          onScanSupplierBadge={() => router.push('/scan?intent=supplierBadge')}
+          onScanSupplierBadge={
+            supplierBadgesEnabled ? () => router.push('/scan?intent=supplierBadge') : undefined
+          }
           busy={search.isPending || badgeScan.isPending}
         />
       )}

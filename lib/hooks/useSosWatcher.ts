@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { Alert } from 'react-native';
 import { useAuthStore } from '@/lib/stores/authStore';
+import { useFeatureFlag } from '@/lib/hooks/useSessionInfo';
 import { startSosListener, stopSosListener } from '@/lib/services/sos';
 import {
   refreshEmergencyContact,
@@ -32,6 +33,11 @@ function callSummary(call: EmergencyCallResult): string {
  */
 export function useSosWatcher(): void {
   const hasSession = useAuthStore((s) => s.hasSession);
+  // This instance doesn't want the SOS feature — there is no dedicated
+  // on-screen button to hide (SOS triggers off rapid volume-button
+  // presses), so the equivalent of "hide the trigger" here is to never
+  // attach the volume listener at all.
+  const sosEnabled = useFeatureFlag('feature_sos_alert');
 
   // Resolve + cache this guard's actual Security Head number so an SOS never
   // waits on the network — callEmergencyNumber() only reads the cache. This
@@ -49,6 +55,8 @@ export function useSosWatcher(): void {
   }, [hasSession]);
 
   useEffect(() => {
+    if (!sosEnabled) return;
+
     // Ask for CALL_PHONE up front so an actual SOS doesn't stall on a
     // permission prompt. No-op on iOS.
     requestCallPermission().catch(() => {});
@@ -74,5 +82,5 @@ export function useSosWatcher(): void {
       );
     });
     return () => stopSosListener();
-  }, []);
+  }, [sosEnabled]);
 }
