@@ -26,6 +26,19 @@ function relativeTime(ts: number): string {
   return `${Math.floor(diffMs / day)}d ago`;
 }
 
+/** "Sep 29, 3:42 PM" — fallback row title for a push whose real title/body
+ *  never came through (nearbyAlert.ts's describeForHistory returns '' in
+ *  that case rather than a repeated generic word). Distinguishes otherwise-
+ *  identical rows from each other instead of every one reading the same. */
+function absoluteTime(ts: number): string {
+  return new Date(ts).toLocaleString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}
+
 /**
  * Small bell icon + unread dot for the Screen header's right-hand spacer
  * slot. Tapping opens a small anchored dropdown listing the last few
@@ -95,7 +108,11 @@ export function NotificationBell() {
                 ItemSeparatorComponent={() => <View style={s.sep} />}
                 renderItem={({ item }) => (
                   <View style={s.row}>
-                    <Text style={s.rowTitle} numberOfLines={1}>{item.title}</Text>
+                    <Text style={s.rowTitle} numberOfLines={1}>
+                      {item.title && item.title !== 'Notification'
+                        ? item.title
+                        : absoluteTime(item.receivedAt)}
+                    </Text>
                     {item.body ? (
                       <Text style={s.rowBody} numberOfLines={2}>{item.body}</Text>
                     ) : null}

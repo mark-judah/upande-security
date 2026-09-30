@@ -68,7 +68,12 @@ function describeForHistory(data: Record<string, unknown>): { type: string; titl
         body: str(data.body),
       };
     default:
-      return { type, title: 'Notification', body: '' };
+      // No recognized type and (checked by the caller) no real title/body
+      // came through either - leave title blank rather than repeating the
+      // literal word "Notification" for every one of these, which made a
+      // run of them look like duplicate spam. recordIncomingPush falls back
+      // to a date/time label instead when title ends up empty.
+      return { type, title: '', body: '' };
   }
 }
 
@@ -82,18 +87,38 @@ let _lastRecordedAt = 0;
  * Best-effort and de-duplicated for a short window - the same push can
  * reach this module via both the foreground "received" listener and the
  * "response" (tap) listener.
+ *
+ * Prefers the notification's own real `title`/`body` (what Expo/the OS
+ * actually delivered, set from the push message's own top-level fields by
+ * every sender in this app) over the per-`data.type` guess in
+ * describeForHistory. That guess is now only a fallback for a push whose
+ * title/body genuinely came through blank - previously it was used even
+ * when real title/body text was sitting right there unread, which is what
+ * produced a growing list of blank "Notification" entries whenever a
+ * push's `data.type` was missing or didn't match one of the four known
+ * cases (e.g. backend drift between this app version and whatever's
+ * actually deployed).
  */
-function recordIncomingPush(data: unknown): void {
-  if (!data || typeof data !== 'object') return;
-  const record = data as Record<string, unknown>;
+function recordIncomingPush(content: unknown): void {
+  if (!content || typeof content !== 'object') return;
+  const c = content as { title?: unknown; body?: unknown; data?: unknown };
+  const data = c.data && typeof c.data === 'object' ? (c.data as Record<string, unknown>) : {};
+  const realTitle = typeof c.title === 'string' ? c.title.trim() : '';
+  const realBody = typeof c.body === 'string' ? c.body.trim() : '';
+  if (!c.data && !realTitle && !realBody) return;
+
   try {
-    const key = JSON.stringify(record);
+    const key = JSON.stringify({ data, title: realTitle, body: realBody });
     const now = Date.now();
     if (_lastRecordedKey === key && now - _lastRecordedAt < 3000) return;
     _lastRecordedKey = key;
     _lastRecordedAt = now;
-    const { type, title, body } = describeForHistory(record);
-    addNotification({ type, title, body }).catch(() => {});
+    const fallback = describeForHistory(data);
+    addNotification({
+      type: fallback.type,
+      title: realTitle || fallback.title,
+      body: realBody || fallback.body,
+    }).catch(() => {});
   } catch {
     // never let history-recording break push handling
   }
@@ -103,15 +128,23 @@ let _handled = false;
 let _handledResetTimer: ReturnType<typeof setTimeout> | null = null;
 
 /**
- * Routes an incoming `sos_alert` push payload to the full-screen alert
- * screen. Safe to call multiple times for the same push (foreground
- * listener + tap response can both fire) — de-duplicated for a short
- * window.
+ * Routes an incoming push to the full-screen SOS alert screen (or hands off
+ * to the next handler in the chain) and records it in the notification-
+ * center history. Takes the notification's full `content` (title/body/data)
+ * rather than just `data`, so recordIncomingPush can use the real
+ * title/body text. Safe to call multiple times for the same push
+ * (foreground listener + tap response can both fire) — de-duplicated for a
+ * short window.
  */
-export function handleIncomingPush(data: unknown): void {
+export function handleIncomingPush(content: unknown): void {
   // Log every push into the on-device notification-center history first,
   // regardless of type, before any per-type routing below.
-  recordIncomingPush(data);
+  recordIncomingPush(content);
+
+  const data =
+    content && typeof content === 'object'
+      ? (content as { data?: unknown }).data
+      : undefined;
 
   if (!isSosAlertPayload(data)) {
     // Not an sos_alert push - visitor_approved is the only other kind this
@@ -179,12 +212,12 @@ export function attachNearbyAlertListeners(): () => void {
   try {
     subs.push(
       Notifications.addNotificationReceivedListener((event) => {
-        handleIncomingPush(event.request?.content?.data);
+        handleIncomingPush(event.request?.content);
       }),
     );
     subs.push(
       Notifications.addNotificationResponseReceivedListener((event) => {
-        handleIncomingPush(event.notification?.request?.content?.data);
+        handleIncomingPush(event.notification?.request?.content);
       }),
     );
   } catch (e) {
@@ -194,7 +227,7 @@ export function attachNearbyAlertListeners(): () => void {
   // Cold start: the app was fully killed and the user tapped the alert.
   try {
     const last = Notifications.getLastNotificationResponse();
-    if (last) handleIncomingPush(last.notification?.request?.content?.data);
+    if (last) handleIncomingPush(last.notification?.request?.content);
   } catch (e) {
     if (__DEV__) console.warn('[nearbyAlert] getLastNotificationResponse failed:', e);
   }
