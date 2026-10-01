@@ -9,7 +9,6 @@ import { audio } from '@/src/core/audio';
 import { COLORS, fontFamily, fontSize, spacing, borderRadius } from '@/src/core/theme';
 
 type Intent =
-  | 'ticket'
   | 'employee'
   | 'badge'
   | 'asset'
@@ -20,7 +19,7 @@ type Intent =
 
 export default function ScanModal() {
   const params = useLocalSearchParams<{ intent?: string }>();
-  const intent: Intent =
+  const intent: Intent | null =
     params.intent === 'employee'
       ? 'employee'
       : params.intent === 'badge'
@@ -35,11 +34,10 @@ export default function ScanModal() {
                 ? 'supplierBadge'
                 : params.intent === 'staffSticker'
                   ? 'staffSticker'
-                  : 'ticket';
+                  : null;
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
   const handledRef = useRef(false);
-  const setPendingScannedTicket = useGateStore((s) => s.setPendingScannedTicket);
   const setPendingScannedEmployee = useGateStore((s) => s.setPendingScannedEmployee);
   const setPendingScannedBadge = useGateStore((s) => s.setPendingScannedBadge);
   const setPendingScannedAsset = useGateStore((s) => s.setPendingScannedAsset);
@@ -103,8 +101,8 @@ export default function ScanModal() {
       setPendingScannedSupplierBadge(data);
     } else if (intent === 'staffSticker') {
       setPendingScannedStaffSticker(data);
-    } else {
-      setPendingScannedTicket(data);
+    } else if (__DEV__) {
+      console.warn('[scan.tsx] opened with no recognized intent param, ignoring scan');
     }
     setTimeout(() => {
       if (router.canDismiss()) router.dismiss();

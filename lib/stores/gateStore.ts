@@ -4,7 +4,6 @@ import type { ParsedIdCard } from '@/lib/utils/idCard';
 
 type GateState = {
   selectedType: CheckInType;
-  pendingScannedTicket: string | null;
   pendingScannedEmployee: string | null;
   pendingScannedIdCard: ParsedIdCard | null;
   pendingScannedBadge: string | null;
@@ -14,7 +13,6 @@ type GateState = {
   pendingScannedSupplierBadge: string | null;
   pendingScannedStaffSticker: string | null;
   setSelectedType: (t: CheckInType) => void;
-  setPendingScannedTicket: (v: string | null) => void;
   setPendingScannedEmployee: (v: string | null) => void;
   setPendingScannedIdCard: (v: ParsedIdCard | null) => void;
   setPendingScannedBadge: (v: string | null) => void;
@@ -27,7 +25,6 @@ type GateState = {
 
 export const useGateStore = create<GateState>((set) => ({
   selectedType: CheckInType.Visitor,
-  pendingScannedTicket: null,
   pendingScannedEmployee: null,
   pendingScannedIdCard: null,
   pendingScannedBadge: null,
@@ -37,7 +34,6 @@ export const useGateStore = create<GateState>((set) => ({
   pendingScannedSupplierBadge: null,
   pendingScannedStaffSticker: null,
   setSelectedType: (t) => set({ selectedType: t }),
-  setPendingScannedTicket: (v) => set({ pendingScannedTicket: v }),
   setPendingScannedEmployee: (v) => set({ pendingScannedEmployee: v }),
   setPendingScannedIdCard: (v) => set({ pendingScannedIdCard: v }),
   setPendingScannedBadge: (v) => set({ pendingScannedBadge: v }),

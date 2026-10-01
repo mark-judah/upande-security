@@ -20,9 +20,6 @@ import { DispatchGatePanel } from '@/components/gate/DispatchGatePanel';
 import { ReceivingGatePanel } from '@/components/gate/ReceivingGatePanel';
 import { CustomerBookingForm } from '@/components/gate/CustomerBookingForm';
 import { ContractorForm } from '@/components/gate/ContractorForm';
-import { VehicleScanAction } from '@/components/gate/VehicleScanAction';
-import { VehicleEntryDialog } from '@/components/gate/VehicleEntryDialog';
-import { VehicleInsideCard } from '@/components/gate/VehicleInsideCard';
 import { Loader } from '@/components/ui/Loader';
 import { Screen } from '@/src/core/ui/Screen';
 import { Alert as InfoAlert } from '@/src/core/ui/Card';
@@ -37,15 +34,10 @@ import { useAppointmentWorkflowState } from '@/lib/hooks/useAppointmentWorkflowS
 import { useCheckIn } from '@/lib/hooks/useCheckIn';
 import { api } from '@/lib/services/api';
 import type { ContractorPersonnelInput } from '@/lib/services/api';
-import { createGateTimesheet, submitGateTimesheet } from '@/lib/api/timesheets';
-import type { ActiveVehicleEntry } from '@/lib/stores/vehicleStore';
 import { useFeedback } from '@/lib/hooks/useFeedback';
 import { useSessionInfo, useFeatureFlag } from '@/lib/hooks/useSessionInfo';
 import { GatePicker } from '@/components/gate/GatePicker';
 import { useGateStore } from '@/lib/stores/gateStore';
-import { useVehicleStore } from '@/lib/stores/vehicleStore';
-import { fetchTractorDailyTask, markTractorTaskRowCompleted } from '@/lib/api/vehicles';
-import { extractTicketName } from '@/lib/utils/qr';
 import { toFrappeDateTime, fmtDateTime } from '@/lib/utils/date';
 import { CheckInType } from '@/constants/checkInTypes';
 import { VISITOR_BADGE_ENABLED } from '@/constants/featureFlags';
@@ -53,7 +45,6 @@ import type {
   VisitorAppointmentSearchResult,
   VisitorHistoryResult,
   ContractorSearchResult,
-  TractorDailyTask,
 } from '@/lib/api/types';
 import { COLORS, fontFamily, fontSize, spacing, borderRadius } from '@/src/core/theme';
 
@@ -109,12 +100,6 @@ export default function GateTab() {
 
   const [contractorResult, setContractorResult] = useState<ContractorSearchResult | null>(null);
 
-  const [loadingTicket, setLoadingTicket] = useState(false);
-  const [entryDialog, setEntryDialog] = useState<{
-    ticket: TractorDailyTask;
-    visible: boolean;
-  } | null>(null);
-  const [entryGate, setEntryGate] = useState<string | null>(null);
   // Which gate the guard is physically at — visitor/contractor entry-gate
   // picker is scoped to this (the guard's own farm), not the appointment's
   // farm, matching check_in_visitor.py's own custom_farmunit stamping.
@@ -135,12 +120,8 @@ export default function GateTab() {
 
   const feedback = useFeedback();
 
-  const pendingScanned = useGateStore((s) => s.pendingScannedTicket);
-  const setPendingScanned = useGateStore((s) => s.setPendingScannedTicket);
   const pendingScannedIdCard = useGateStore((s) => s.pendingScannedIdCard);
   const setPendingScannedIdCard = useGateStore((s) => s.setPendingScannedIdCard);
-
-  const vehicleStore = useVehicleStore();
 
   const form = useForm<VisitorFormValues>({ defaultValues: emptyVisitorForm });
   const {
@@ -165,8 +146,7 @@ export default function GateTab() {
     visitorSearch.isPending ||
     contractorSearch.isPending ||
     checkIn.isPending ||
-    vehicleBusy ||
-    loadingTicket;
+    vehicleBusy;
 
   function clearForm() {
     setSearchQuery('');
@@ -489,97 +469,6 @@ export default function GateTab() {
     workflowQuery.refetch();
   }
 
-  async function onWorkTicketScanned(raw: string) {
-    const name = extractTicketName(raw);
-    if (!name) return;
-    setLoadingTicket(true);
-    try {
-      const ticket = await fetchTractorDailyTask(name);
-      setEntryDialog({ ticket, visible: true });
-      setEntryGate(null);
-    } catch (e) {
-      feedback.error(e instanceof Error ? e.message : 'Ticket lookup failed');
-    } finally {
-      setLoadingTicket(false);
-    }
-  }
-
-  async function onConfirmVehicleEntry() {
-    if (!entryDialog?.ticket) return;
-    const ticket = entryDialog.ticket;
-    if (vehicleStore.entries.some((e) => e.ticketName === ticket.name)) {
-      feedback.warning('This ticket is already checked in');
-      setEntryDialog(null);
-      return;
-    }
-    const now = toFrappeDateTime();
-    setVehicleBusy(true);
-    try {
-      const timesheet = await createGateTimesheet({ ticket, entryTime: now, entryGate });
-      const firstTask = ticket.task?.[0];
-      vehicleStore.addEntry({
-        ticketName: ticket.name,
-        ticketData: ticket,
-        timesheetName: timesheet.name,
-        entryTime: now,
-        taskRowName: firstTask?.name,
-        description: firstTask?.description,
-      });
-      setEntryDialog(null);
-      feedback.success(`Timesheet ${timesheet.name} created`);
-    } catch (e) {
-      feedback.error(e instanceof Error ? e.message : 'Entry failed');
-    } finally {
-      setVehicleBusy(false);
-    }
-  }
-
-  async function onVehicleCheckOut(
-    entry: ActiveVehicleEntry,
-    completionNote: string,
-    exitGate: string | null,
-  ) {
-    if (!completionNote) {
-      feedback.warning('Completion note required');
-      return;
-    }
-    setVehicleBusy(true);
-    try {
-      await submitGateTimesheet({
-        name: entry.timesheetName,
-        exitTime: toFrappeDateTime(),
-        completionNote,
-        exitGate,
-      });
-      try {
-        await markTractorTaskRowCompleted(entry.ticketName, entry.taskRowName);
-      } catch (e) {
-        if (__DEV__) console.warn('[markTractorTaskRowCompleted]', e);
-        feedback.warning(
-          `Timesheet submitted but ticket task could not be marked completed: ${
-            e instanceof Error ? e.message : 'unknown error'
-          }`,
-        );
-      }
-      vehicleStore.removeEntry(entry.ticketName);
-      feedback.success(`Timesheet ${entry.timesheetName} submitted`);
-    } catch (e) {
-      feedback.error(e instanceof Error ? e.message : 'Exit failed');
-    } finally {
-      setVehicleBusy(false);
-    }
-  }
-
-  useEffect(() => {
-    if (pendingScanned) {
-      const ticket = pendingScanned;
-      setPendingScanned(null);
-      setSelectedType(CheckInType.CompanyVehicle);
-      onWorkTicketScanned(ticket);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pendingScanned]);
-
   useEffect(() => {
     if (pendingScannedIdCard) {
       const { name, idNumber } = pendingScannedIdCard;
@@ -814,22 +703,6 @@ export default function GateTab() {
             );
           })() : null}
 
-          {selectedType === CheckInType.CompanyVehicle ? (
-            <>
-              <VehicleScanAction
-                onPickTicket={onWorkTicketScanned}
-                disabled={loading}
-              />
-              {vehicleStore.entries.map((entry) => (
-                <VehicleInsideCard
-                  key={entry.ticketName}
-                  entry={entry}
-                  onCheckOut={onVehicleCheckOut}
-                  busy={vehicleBusy}
-                />
-              ))}
-            </>
-          ) : null}
         </View>
 
         {selectedType === CheckInType.Contractor && !contractorResult && !loading ? (
@@ -841,16 +714,6 @@ export default function GateTab() {
           </View>
         ) : null}
       </KeyboardAwareScrollView>
-
-      <VehicleEntryDialog
-        visible={entryDialog?.visible ?? false}
-        ticket={entryDialog?.ticket ?? null}
-        entryGate={entryGate}
-        onEntryGateChange={setEntryGate}
-        onCancel={() => setEntryDialog(null)}
-        onConfirm={onConfirmVehicleEntry}
-        busy={vehicleBusy}
-      />
 
       {loading ? <Loader /> : null}
     </Screen>

@@ -384,62 +384,6 @@ export type CheckInInput = {
   passengers?: number;
   entry_gate?: string;
 };
-export type VehicleTicketHit = {
-  name: string;
-  motor_vehicle: string;
-  farm: string;
-  operator: string;
-  custom_employee: string;
-  company: string;
-  date: string;
-  erp_task: string;
-  timesheet: string;
-  workflow_state: string;
-};
-
-export type VehicleTaskRow = {
-  name: string;
-  activity_type: string;
-  description: string;
-  from_time: string;
-  to_time: string;
-  hours: number;
-  completed: number;
-  task: string;
-  is_billable: number;
-};
-
-export type VehicleTicket = VehicleTicketHit & {
-  operator_name: string;
-  employee_name: string;
-  location: string;
-  custom_qr_code: string;
-  task: VehicleTaskRow[];
-};
-
-export type MarkTaskResult = {
-  ticket: string;
-  task_row: string | null;
-  completed: number;
-  message?: string;
-};
-
-export type CreateGateTimesheetResult = {
-  name: string;
-  ticket: string;
-  entry_time: string;
-  activity_type: string;
-  description: string;
-};
-export type SubmitGateTimesheetResult = {
-  name: string;
-  docstatus: number;
-  exit_time?: string;
-  hours?: number;
-  completion_note?: string;
-  message?: string;
-};
-
 export type IncidentSeverity = 'Low' | 'Medium' | 'High' | 'Critical';
 
 export type IncidentCategory = { name: string };
@@ -1246,29 +1190,6 @@ export const api = {
     call<IssueVisitorBadgeResult>('issue_visitor_badge', { name, badge_number }),
   createWalkIn: (input: CreateWalkInInput) =>
     call<CreateWalkInResult>('create_walk_in', input),
-
-  // Vehicle flow (Tractor Daily Task)
-  searchVehicleTickets: (query: string) =>
-    call<VehicleTicketHit[]>('search_vehicle_tickets', { query }),
-  getVehicleTicket: (name: string) => call<VehicleTicket>('get_vehicle_ticket', { name }),
-  markVehicleTaskCompleted: (ticket: string, task_row?: string) =>
-    call<MarkTaskResult>('mark_vehicle_task_completed', { ticket, task_row }),
-
-  // Gate timesheet (vehicle entry/exit lifecycle)
-  createGateTimesheet: (ticket: string, entry_time?: string, entry_gate?: string) =>
-    call<CreateGateTimesheetResult>('create_gate_timesheet', { ticket, entry_time, entry_gate }),
-  submitGateTimesheet: (
-    timesheet: string,
-    exit_time: string,
-    completion_note: string,
-    exit_gate?: string,
-  ) =>
-    call<SubmitGateTimesheetResult>('submit_gate_timesheet', {
-      timesheet,
-      exit_time,
-      completion_note,
-      exit_gate,
-    }),
 
   // Gate config — which gates a farm has (Security Ops Settings' Farm
   // Gates table), for the "which gate?" picker at entry/exit.

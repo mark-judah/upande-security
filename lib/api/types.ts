@@ -181,66 +181,6 @@ export type ContractorSearchResult = {
   contact_phone?: string;
 };
 
-export type TractorDailyTask = {
-  name: string;
-  motor_vehicle?: string;
-  farm?: string;
-  operator?: string;
-  custom_employee?: string;
-  company?: string;
-  erp_task?: string;
-  timesheet?: string;
-  task?: {
-    name?: string;
-    activity_type: string;
-    description?: string;
-    from_time?: string;
-    to_time?: string;
-    expected_hours?: number;
-    hours?: number;
-    completed?: 0 | 1;
-    is_billable?: 0 | 1;
-  }[];
-  custom_gate_entry_time?: string;
-  custom_gate_entry_farm?: string;
-  custom_gate_exit_time?: string;
-  custom_completion_note?: string;
-  custom_gate_status?: 'Inside' | 'Exited' | null;
-};
-
-export type TimesheetDetail = {
-  name?: string;
-  doctype?: 'Timesheet Detail';
-  activity_type: string;
-  from_time: string;
-  to_time: string;
-  hours: number;
-  expected_hours: number;
-  description?: string;
-  task?: string;
-  is_billable?: 0 | 1;
-  completed?: 0 | 1;
-};
-
-export type Timesheet = {
-  name: string;
-  doctype: 'Timesheet';
-  naming_series?: string;
-  title?: string;
-  company?: string;
-  employee: string;
-  employee_name?: string;
-  department?: string;
-  start_date: string;
-  end_date: string;
-  status?: string;
-  docstatus?: 0 | 1 | 2;
-  total_hours?: number;
-  total_billable_hours?: number;
-  custom_asset?: string;
-  time_logs: TimesheetDetail[];
-};
-
 export type DailySummary = {
   total_checked_in: number;
   total_checked_out: number;

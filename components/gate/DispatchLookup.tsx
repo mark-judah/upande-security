@@ -11,7 +11,7 @@ type Props = {
   busy?: boolean;
 };
 
-/** Scan or type a dispatch reference. Mirrors VehicleScanAction's layout. */
+/** Scan or type a dispatch reference. */
 export function DispatchLookup({ value, onChangeText, onSubmit, busy }: Props) {
   const [focused, setFocused] = useState(false);
 
