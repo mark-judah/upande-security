@@ -14,34 +14,34 @@ import { borderRadius, COLORS, fontFamily, fontSize, spacing } from '@/src/core/
 
 // Tapping a badge opens an inline issue/edit form via update_supplier_badge
 // — the same verb both issues a badge (supplier + company +
-// status="Active" on a currently "Unassigned" badge, one call) and edits
+// status="Issued" on a currently "Available" badge, one call) and edits
 // an already-assigned one. Supplier/Company are plain text inputs for now:
 // there's no search-as-you-type verb for Supplier yet (unlike Employee's
 // search_employees), and building one is out of scope here — see the
 // mobile-rn task notes.
+//
+// Status vocabulary (Available/Issued/Lost) matches Visitor Badge exactly
+// — see lib/services/api.ts's SupplierBadgeStatus.
 
-type FilterValue = 'Unassigned' | 'Active' | 'Suspended' | 'Lost' | '';
+type FilterValue = SupplierBadgeStatus | '';
 
 const FILTER_OPTS: { value: FilterValue; label: string }[] = [
   { value: '', label: 'All' },
-  { value: 'Unassigned', label: 'Unassigned' },
-  { value: 'Active', label: 'Active' },
-  { value: 'Suspended', label: 'Suspended' },
+  { value: 'Available', label: 'Available' },
+  { value: 'Issued', label: 'Issued' },
   { value: 'Lost', label: 'Lost' },
 ];
 
 const STATUS_OPTS: { value: SupplierBadgeStatus; label: string }[] = [
-  { value: 'Unassigned', label: 'Unassigned' },
-  { value: 'Active', label: 'Active' },
-  { value: 'Suspended', label: 'Suspended' },
+  { value: 'Available', label: 'Available' },
+  { value: 'Issued', label: 'Issued' },
   { value: 'Lost', label: 'Lost' },
 ];
 
 function statusTint(status: string): { backgroundColor: string; color: string } {
-  if (status === 'Active') return { backgroundColor: 'rgba(34,197,94,0.12)', color: '#166534' };
-  if (status === 'Suspended') return { backgroundColor: 'rgba(245,158,11,0.14)', color: '#92400E' };
+  if (status === 'Issued') return { backgroundColor: 'rgba(34,197,94,0.12)', color: '#166534' };
   if (status === 'Lost') return { backgroundColor: 'rgba(239,68,68,0.12)', color: COLORS.danger };
-  return { backgroundColor: COLORS.bgMuted, color: COLORS.textMuted }; // Unassigned
+  return { backgroundColor: COLORS.bgMuted, color: COLORS.textMuted }; // Available
 }
 
 function BadgeCard({ item }: { item: SupplierBadgeRow }) {
@@ -51,17 +51,17 @@ function BadgeCard({ item }: { item: SupplierBadgeRow }) {
   const [supplier, setSupplier] = useState(item.supplier || '');
   const [company, setCompany] = useState(item.company || '');
   const [status, setStatus] = useState<SupplierBadgeStatus>(
-    (item.status as SupplierBadgeStatus) || 'Unassigned',
+    (item.status as SupplierBadgeStatus) || 'Available',
   );
 
   const updateBadge = useUpdateSupplierBadge();
-  const isUnassigned = item.status === 'Unassigned';
+  const isAvailable = item.status === 'Available';
 
   useEffect(() => {
     if (!expanded) return;
     setSupplier(item.supplier || '');
     setCompany(item.company || '');
-    setStatus((item.status as SupplierBadgeStatus) || 'Unassigned');
+    setStatus((item.status as SupplierBadgeStatus) || 'Available');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [expanded, item.name]);
 
@@ -86,7 +86,7 @@ function BadgeCard({ item }: { item: SupplierBadgeRow }) {
           <Ionicons name="id-card-outline" size={18} color={COLORS.textMuted} />
           <Text style={s.badgeNumber} numberOfLines={1}>#{item.badge_number}</Text>
           <View style={[s.pill, { backgroundColor: tint.backgroundColor }]}>
-            <Text style={[s.pillText, { color: tint.color }]}>{item.status || 'Unassigned'}</Text>
+            <Text style={[s.pillText, { color: tint.color }]}>{item.status || 'Available'}</Text>
           </View>
           <Ionicons
             name={expanded ? 'chevron-up' : 'chevron-down'}
@@ -102,9 +102,9 @@ function BadgeCard({ item }: { item: SupplierBadgeRow }) {
         <View style={s.editForm}>
           <View style={s.divider} />
 
-          {isUnassigned ? (
+          {isAvailable ? (
             <Text style={s.issueHint}>
-              This badge is unassigned — set a supplier, company, and Active status to issue it.
+              This badge is available — set a supplier, company, and Issued status to issue it.
             </Text>
           ) : null}
 
@@ -139,7 +139,7 @@ function BadgeCard({ item }: { item: SupplierBadgeRow }) {
               style={{ flex: 1 }}
             />
             <Button
-              label={isUnassigned ? 'Issue badge' : 'Save'}
+              label={isAvailable ? 'Issue badge' : 'Save'}
               loading={updateBadge.isPending}
               disabled={updateBadge.isPending}
               onPress={onSave}

@@ -908,6 +908,18 @@ export type VerifyReceivingResult = {
   purchase_order: string;
   gate_verification_status: GateVerificationStatus;
   is_authorized: boolean;
+  supplier: string;
+  supplier_name: string;
+  /** Whether this supplier already has an Issued Supplier Badge - drives
+   *  the "Issue a badge for next time" prompt after a Verified decision. */
+  has_badge: boolean;
+};
+
+export type IssueSupplierBadgeForReceivingResult = {
+  badge_number: number;
+  company: string;
+  supplier: string;
+  supplier_name: string;
 };
 
 // Bulk verify — every PO the guard selected off one Supplier Badge scan,
@@ -994,7 +1006,7 @@ export type StickerRequestActionResult = { success: true; request: string };
 // --- Command Center: Supplier Badges (read-only for now — no
 // create/edit mutation endpoint exists yet) ---
 
-export type SupplierBadgeStatus = 'Unassigned' | 'Active' | 'Suspended' | 'Lost';
+export type SupplierBadgeStatus = 'Available' | 'Issued' | 'Lost';
 
 export type SupplierBadgeRow = {
   name: string;
@@ -1093,8 +1105,8 @@ export type UpdateIncidentResult = {
 };
 
 // --- Command Center: Supplier Badge edit/issue. Issuing a badge is this
-// same verb — set supplier + company + status="Active" on a currently
-// "Unassigned" badge in one call; there is no separate "issue" endpoint. ---
+// same verb — set supplier + company + status="Issued" on a currently
+// "Available" badge in one call; there is no separate "issue" endpoint. ---
 
 export type UpdateSupplierBadgeInput = {
   name: string;
@@ -1347,6 +1359,16 @@ export const api = {
     call<ConfirmReceivingDepartureResult>(
       'upande_security.api.gate_receiving.confirm_receiving_departure',
       { name },
+    ),
+  // Issues a Supplier Badge to the supplier behind an already-verified
+  // Gate Receiving Verification record, so a future delivery from the
+  // same supplier can be found by scanning the badge instead of typing
+  // the PO/name again. Released back to Available by
+  // confirmReceivingDeparture above.
+  issueSupplierBadgeForReceiving: (name: string, badge_number: string) =>
+    call<IssueSupplierBadgeForReceivingResult>(
+      'upande_security.api.gate_receiving.issue_supplier_badge_for_receiving',
+      { name, badge_number },
     ),
 
   // Customer appointment booking — book a future visit ahead of time

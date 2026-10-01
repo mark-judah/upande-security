@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import type {
@@ -12,6 +12,7 @@ import { useReceivingSearch } from '@/lib/hooks/useReceivingSearch';
 import { useVerifyReceiving } from '@/lib/hooks/useVerifyReceiving';
 import { useVerifyReceivingBulk } from '@/lib/hooks/useVerifyReceivingBulk';
 import { useSupplierBadgeScan } from '@/lib/hooks/useSupplierBadgeScan';
+import { useIssueSupplierBadgeForReceiving } from '@/lib/hooks/useIssueSupplierBadgeForReceiving';
 import { useFeatureFlag } from '@/lib/hooks/useSessionInfo';
 import { useGateStore } from '@/lib/stores/gateStore';
 import { extractReceivingReference } from '@/lib/utils/qr';
@@ -44,12 +45,19 @@ export function ReceivingGatePanel() {
   // bulk endpoint's per-reference results, shown as a standalone summary
   // (some selections can succeed and others fail independently).
   const [bulkResults, setBulkResults] = useState<VerifyReceivingBulkResult['results'] | null>(null);
+  // Local-only — the badge number the guard is keying in on the post-
+  // Verified prompt, and the result once issued (switches the prompt to a
+  // one-line confirmation instead of hiding it entirely, so a guard who
+  // glances back at the screen still sees what just happened).
+  const [badgeNumberInput, setBadgeNumberInput] = useState('');
+  const [issuedBadge, setIssuedBadge] = useState<{ badge_number: number } | null>(null);
 
   const feedback = useFeedback();
   const search = useReceivingSearch();
   const badgeScan = useSupplierBadgeScan();
   const verify = useVerifyReceiving();
   const verifyBulk = useVerifyReceivingBulk();
+  const issueBadge = useIssueSupplierBadgeForReceiving();
 
   const pendingScannedReceiving = useGateStore((s) => s.pendingScannedReceiving);
   const setPendingScannedReceiving = useGateStore((s) => s.setPendingScannedReceiving);
@@ -61,6 +69,8 @@ export function ReceivingGatePanel() {
     setFound(null);
     setNotFoundQuery(null);
     setVerified(null);
+    setBadgeNumberInput('');
+    setIssuedBadge(null);
     setBadgeMatches(null);
     setBadgeSupplierName(null);
     setBulkResults(null);
@@ -169,6 +179,21 @@ export function ReceivingGatePanel() {
     }
   }
 
+  async function onIssueBadge() {
+    if (!verified) return;
+    const badgeNumber = badgeNumberInput.trim();
+    if (!badgeNumber) {
+      feedback.warning('Enter a badge number');
+      return;
+    }
+    try {
+      const result = await issueBadge.mutateAsync({ name: verified.name, badgeNumber });
+      setIssuedBadge({ badge_number: result.badge_number });
+    } catch {
+      // feedback handled in the hook
+    }
+  }
+
   async function onDecideBulk(
     selected: ReceivingSearchHit[],
     status: GateVerificationStatus,
@@ -245,6 +270,81 @@ export function ReceivingGatePanel() {
               Recorded. Once this truck leaves after offloading, confirm it from the &quot;Awaiting
               departure&quot; list below — it doesn&apos;t have to be this session.
             </Text>
+          ) : null}
+          {verified.gate_verification_status === 'Verified' && supplierBadgesEnabled && !verified.has_badge ? (
+            issuedBadge ? (
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: spacing.md }}>
+                <Ionicons name="id-card" size={16} color={COLORS.success} />
+                <Text
+                  style={{
+                    marginLeft: spacing.xs,
+                    color: COLORS.success,
+                    fontFamily: fontFamily.semiBold,
+                    fontSize: fontSize.sm,
+                  }}
+                >
+                  Badge #{issuedBadge.badge_number} issued to {verified.supplier_name}
+                </Text>
+              </View>
+            ) : (
+              <View style={{ marginTop: spacing.md }}>
+                <Text
+                  style={{
+                    color: COLORS.textSecondary,
+                    fontSize: fontSize.sm,
+                    fontFamily: fontFamily.regular,
+                    marginBottom: spacing.sm,
+                  }}
+                >
+                  No badge on file for {verified.supplier_name}. Issue one so next time&apos;s delivery can
+                  be found by scanning it instead.
+                </Text>
+                <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+                  <TextInput
+                    value={badgeNumberInput}
+                    onChangeText={setBadgeNumberInput}
+                    placeholder="Badge #"
+                    placeholderTextColor={COLORS.textMuted}
+                    keyboardType="number-pad"
+                    editable={!issueBadge.isPending}
+                    style={{
+                      flex: 1,
+                      borderWidth: 1,
+                      borderColor: COLORS.border,
+                      borderRadius: borderRadius.md,
+                      paddingHorizontal: spacing.md,
+                      paddingVertical: 10,
+                      fontSize: fontSize.md,
+                      color: COLORS.text,
+                      backgroundColor: COLORS.surface,
+                    }}
+                  />
+                  <TouchableOpacity
+                    onPress={onIssueBadge}
+                    disabled={issueBadge.isPending}
+                    activeOpacity={0.8}
+                    accessibilityRole="button"
+                    style={{
+                      backgroundColor: COLORS.primary,
+                      opacity: issueBadge.isPending ? 0.6 : 1,
+                      borderRadius: borderRadius.md,
+                      paddingHorizontal: spacing.lg,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      minHeight: 44,
+                    }}
+                  >
+                    {issueBadge.isPending ? (
+                      <ActivityIndicator size="small" color={COLORS.textOnPrimary} />
+                    ) : (
+                      <Text style={{ color: COLORS.textOnPrimary, fontFamily: fontFamily.semiBold, fontSize: fontSize.sm }}>
+                        Issue Badge
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )
           ) : null}
           <TouchableOpacity
             onPress={reset}
