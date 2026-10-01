@@ -882,20 +882,6 @@ export type ReceivingSearchHit = {
 export type ReceivingSearchMiss = { found: false; error: string };
 export type ReceivingSearchResult = ReceivingSearchHit | ReceivingSearchMiss;
 
-// Supplier Badge scan — a durable badge assigned to one supplier at a time
-// (see upande_security.api.gate_receiving.search_receiving_by_supplier_badge).
-// Unlike a plain PO/supplier-name lookup, a badge can resolve to several
-// currently open POs at once — the guard picks which one matches the truck
-// actually at the gate.
-export type SupplierBadgeScanResult = {
-  found: boolean;
-  badge?: string;
-  supplier?: string;
-  supplier_name?: string;
-  matches: ReceivingSearchHit[];
-  error: string | null;
-};
-
 export type VerifyReceivingInput = {
   reference: string;
   gate_verification_status: GateVerificationStatus;
@@ -910,8 +896,8 @@ export type VerifyReceivingResult = {
   is_authorized: boolean;
   supplier: string;
   supplier_name: string;
-  /** Whether this supplier already has an Issued Supplier Badge - drives
-   *  the "Issue a badge for next time" prompt after a Verified decision. */
+  /** Whether this supplier already has an Issued Supplier Badge - hides
+   *  the issue-badge prompt after a Verified decision. */
   has_badge: boolean;
 };
 
@@ -920,23 +906,6 @@ export type IssueSupplierBadgeForReceivingResult = {
   company: string;
   supplier: string;
   supplier_name: string;
-};
-
-// Bulk verify — every PO the guard selected off one Supplier Badge scan,
-// released together against the one truck/driver at the gate. Each
-// reference still gets its own Gate Receiving Verification record and can
-// independently succeed or fail (a stale/cancelled PO among several
-// selected shouldn't block the rest) — hence a per-reference result union
-// rather than a single pass/fail for the whole call.
-export type VerifyReceivingBulkHit = {
-  name: string;
-  purchase_order: string;
-  gate_verification_status: GateVerificationStatus;
-  is_authorized: boolean;
-};
-export type VerifyReceivingBulkMiss = { reference: string; error: string };
-export type VerifyReceivingBulkResult = {
-  results: (VerifyReceivingBulkHit | VerifyReceivingBulkMiss)[];
 };
 
 export type ConfirmReceivingDepartureResult = {
@@ -1333,28 +1302,8 @@ export const api = {
     call<ReceivingSearchResult>('upande_security.api.gate_receiving.search_receiving_for_gate', {
       reference,
     }),
-  searchReceivingByBadge: (reference: string) =>
-    call<SupplierBadgeScanResult>(
-      'upande_security.api.gate_receiving.search_receiving_by_supplier_badge',
-      { reference },
-    ),
   verifyReceivingAtGate: (input: VerifyReceivingInput) =>
     call<VerifyReceivingResult>('upande_security.api.gate_receiving.verify_receiving_at_gate', input),
-  // Releases every PO the guard selected off one Supplier Badge scan (2+
-  // matches) in one action against a single shared vehicle/driver. Each
-  // PO still gets its own Gate Receiving Verification record and can
-  // independently succeed or fail.
-  verifyReceivingAtGateBulk: (input: {
-    references: string[];
-    gate_verification_status: GateVerificationStatus;
-    vehicle_no?: string;
-    driver_name?: string;
-    remarks?: string;
-  }) =>
-    call<VerifyReceivingBulkResult>(
-      'upande_security.api.gate_receiving.verify_receiving_at_gate_bulk',
-      input,
-    ),
   confirmReceivingDeparture: (name: string) =>
     call<ConfirmReceivingDepartureResult>(
       'upande_security.api.gate_receiving.confirm_receiving_departure',

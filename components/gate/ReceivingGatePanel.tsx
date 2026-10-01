@@ -1,17 +1,13 @@
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import type {
   ReceivingSearchHit,
   GateVerificationStatus,
   VerifyReceivingResult,
-  VerifyReceivingBulkResult,
 } from '@/lib/services/api';
 import { useReceivingSearch } from '@/lib/hooks/useReceivingSearch';
 import { useVerifyReceiving } from '@/lib/hooks/useVerifyReceiving';
-import { useVerifyReceivingBulk } from '@/lib/hooks/useVerifyReceivingBulk';
-import { useSupplierBadgeScan } from '@/lib/hooks/useSupplierBadgeScan';
 import { useIssueSupplierBadgeForReceiving } from '@/lib/hooks/useIssueSupplierBadgeForReceiving';
 import { useFeatureFlag } from '@/lib/hooks/useSessionInfo';
 import { useGateStore } from '@/lib/stores/gateStore';
@@ -19,8 +15,6 @@ import { extractReceivingReference } from '@/lib/utils/qr';
 import { useFeedback } from '@/lib/hooks/useFeedback';
 import { ReceivingLookup } from './ReceivingLookup';
 import { ReceivingResultCard } from './ReceivingResultCard';
-import { ReceivingBulkVerify } from './ReceivingBulkVerify';
-import { ReceivingBulkResultSummary } from './ReceivingBulkResultSummary';
 import { ReceivingAwaitingDeparture } from './ReceivingAwaitingDeparture';
 import { COLORS, borderRadius, fontFamily, fontSize, spacing } from '@/src/core/theme';
 
@@ -35,16 +29,6 @@ export function ReceivingGatePanel() {
   const [found, setFound] = useState<ReceivingSearchHit | null>(null);
   const [notFoundQuery, setNotFoundQuery] = useState<string | null>(null);
   const [verified, setVerified] = useState<VerifyReceivingResult | null>(null);
-  // Set only when a badge scan resolves to 2+ open POs for its supplier -
-  // the guard has to pick which delivery this is before falling into the
-  // normal found/verify flow, which then proceeds exactly as if that one
-  // PO had been searched for directly.
-  const [badgeMatches, setBadgeMatches] = useState<ReceivingSearchHit[] | null>(null);
-  const [badgeSupplierName, setBadgeSupplierName] = useState<string | null>(null);
-  // Set once the guard submits a multi-PO selection off badgeMatches — the
-  // bulk endpoint's per-reference results, shown as a standalone summary
-  // (some selections can succeed and others fail independently).
-  const [bulkResults, setBulkResults] = useState<VerifyReceivingBulkResult['results'] | null>(null);
   // Local-only — the badge number the guard is keying in on the post-
   // Verified prompt, and the result once issued (switches the prompt to a
   // one-line confirmation instead of hiding it entirely, so a guard who
@@ -54,15 +38,11 @@ export function ReceivingGatePanel() {
 
   const feedback = useFeedback();
   const search = useReceivingSearch();
-  const badgeScan = useSupplierBadgeScan();
   const verify = useVerifyReceiving();
-  const verifyBulk = useVerifyReceivingBulk();
   const issueBadge = useIssueSupplierBadgeForReceiving();
 
   const pendingScannedReceiving = useGateStore((s) => s.pendingScannedReceiving);
   const setPendingScannedReceiving = useGateStore((s) => s.setPendingScannedReceiving);
-  const pendingScannedSupplierBadge = useGateStore((s) => s.pendingScannedSupplierBadge);
-  const setPendingScannedSupplierBadge = useGateStore((s) => s.setPendingScannedSupplierBadge);
 
   function reset() {
     setQuery('');
@@ -71,16 +51,12 @@ export function ReceivingGatePanel() {
     setVerified(null);
     setBadgeNumberInput('');
     setIssuedBadge(null);
-    setBadgeMatches(null);
-    setBadgeSupplierName(null);
-    setBulkResults(null);
   }
 
   async function runSearch(reference: string) {
     setFound(null);
     setNotFoundQuery(null);
     setVerified(null);
-    setBulkResults(null);
     try {
       const result = await search.mutateAsync(reference);
       if (result.found) {
@@ -115,39 +91,6 @@ export function ReceivingGatePanel() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingScannedReceiving]);
-
-  async function runBadgeScan(reference: string) {
-    setFound(null);
-    setNotFoundQuery(null);
-    setVerified(null);
-    setBadgeMatches(null);
-    setBadgeSupplierName(null);
-    setBulkResults(null);
-    try {
-      const result = await badgeScan.mutateAsync(reference);
-      if (!result.found || result.matches.length === 0) {
-        setNotFoundQuery(result.supplier_name ? result.supplier_name : reference);
-        return;
-      }
-      if (result.matches.length === 1) {
-        setFound(result.matches[0]);
-        return;
-      }
-      setBadgeMatches(result.matches);
-      setBadgeSupplierName(result.supplier_name ?? null);
-    } catch (e) {
-      feedback.error(e instanceof Error ? e.message : 'Supplier badge scan failed');
-    }
-  }
-
-  useEffect(() => {
-    if (pendingScannedSupplierBadge) {
-      const reference = pendingScannedSupplierBadge;
-      setPendingScannedSupplierBadge(null);
-      runBadgeScan(reference);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pendingScannedSupplierBadge]);
 
   async function onDecide(
     status: GateVerificationStatus,
@@ -189,41 +132,6 @@ export function ReceivingGatePanel() {
     try {
       const result = await issueBadge.mutateAsync({ name: verified.name, badgeNumber });
       setIssuedBadge({ badge_number: result.badge_number });
-    } catch {
-      // feedback handled in the hook
-    }
-  }
-
-  async function onDecideBulk(
-    selected: ReceivingSearchHit[],
-    status: GateVerificationStatus,
-    vehicleNo: string,
-    driverName: string,
-    remarks: string,
-  ) {
-    if (selected.length === 0) return;
-    const supplierNameByReference: Record<string, string> = {};
-    for (const m of selected) {
-      supplierNameByReference[m.purchase_order] = m.supplier_name;
-    }
-    try {
-      const result = await verifyBulk.mutateAsync({
-        input: {
-          references: selected.map((m) => m.purchase_order),
-          gate_verification_status: status,
-          vehicle_no: vehicleNo || undefined,
-          driver_name: driverName || undefined,
-          remarks: remarks || undefined,
-        },
-        context: {
-          supplierNameByReference,
-          vehicle_no: vehicleNo,
-          driver_name: driverName,
-        },
-      });
-      setBadgeMatches(null);
-      setBadgeSupplierName(null);
-      setBulkResults(result.results);
     } catch {
       // feedback handled in the hook
     }
@@ -296,8 +204,8 @@ export function ReceivingGatePanel() {
                     marginBottom: spacing.sm,
                   }}
                 >
-                  No badge on file for {verified.supplier_name}. Issue one so next time&apos;s delivery can
-                  be found by scanning it instead.
+                  Issue {verified.supplier_name}&apos;s driver a badge for this delivery. It&apos;s
+                  returned to the pool when departure is confirmed below.
                 </Text>
                 <View style={{ flexDirection: 'row', gap: spacing.sm }}>
                   <TextInput
@@ -364,18 +272,8 @@ export function ReceivingGatePanel() {
             <Text style={{ color: COLORS.text, fontFamily: fontFamily.semiBold }}>Verify another supplier delivery</Text>
           </TouchableOpacity>
         </View>
-      ) : bulkResults ? (
-        <ReceivingBulkResultSummary results={bulkResults} onDone={reset} />
       ) : found ? (
         <ReceivingResultCard result={found} onDecide={onDecide} busy={verify.isPending} onReset={reset} />
-      ) : badgeMatches ? (
-        <ReceivingBulkVerify
-          matches={badgeMatches}
-          supplierName={badgeSupplierName}
-          onSubmit={onDecideBulk}
-          busy={verifyBulk.isPending}
-          onReset={reset}
-        />
       ) : notFoundQuery != null ? (
         <View
           style={{
@@ -422,10 +320,7 @@ export function ReceivingGatePanel() {
           value={query}
           onChangeText={setQuery}
           onSubmit={onManualSearch}
-          onScanSupplierBadge={
-            supplierBadgesEnabled ? () => router.push('/scan?intent=supplierBadge') : undefined
-          }
-          busy={search.isPending || badgeScan.isPending}
+          busy={search.isPending}
         />
       )}
 
