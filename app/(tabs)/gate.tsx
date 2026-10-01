@@ -61,6 +61,13 @@ import { COLORS, fontFamily, fontSize, spacing, borderRadius } from '@/src/core/
 const APP_VERSION = '1.0.0';
 const APP_NAME = 'Upande Security';
 
+// Not cryptographic - just needs to be unique enough per walk-in form-fill
+// to make a retried create_walk_in_notify call recognizable as "the same
+// attempt" server-side. See walkInIdempotencyKeyRef below.
+function generateIdempotencyKey(): string {
+  return Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
+}
+
 export default function GateTab() {
   const userEmail = useAuthStore((s) => s.user?.email ?? '');
   const [updateBusy, setUpdateBusy] = useState(false);
@@ -82,6 +89,13 @@ export default function GateTab() {
   // never collected one), that keystroke itself made the value non-empty,
   // which immediately re-locked the field after a single character.
   const [lockedFields, setLockedFields] = useState<{ name?: boolean; id?: boolean; phone?: boolean }>({});
+  // One idempotency key per walk-in form-fill, generated when the form
+  // opens (onRegisterAsWalkIn) and resent unchanged on every retry of
+  // onNotifyWalkIn - a ref, not state, because onNotifyWalkIn needs to
+  // read/write it synchronously within the same call, not wait on a
+  // re-render. Cleared (set back to null) on success and whenever the
+  // walk-in form is abandoned, so the NEXT walk-in always gets a fresh one.
+  const walkInIdempotencyKeyRef = useRef<string | null>(null);
   // Guards the background fetchVisitorHistory() call below against a race
   // with a second, later onManualSearch() call: search_visitor_appointment
   // resolving fast re-enables the search bar (isPending only tracks that
@@ -163,6 +177,7 @@ export default function GateTab() {
     setRevisitInfo(null);
     setContractorResult(null);
     setVisitorEntryGate(null);
+    walkInIdempotencyKeyRef.current = null;
     reset(emptyVisitorForm);
     Keyboard.dismiss();
   }
@@ -280,6 +295,7 @@ export default function GateTab() {
     setIsWalkIn(true);
     setSelectedAppointment(null);
     setShowVisitorResult(false);
+    walkInIdempotencyKeyRef.current = generateIdempotencyKey();
     if (history?.found) {
       setRevisitInfo(history);
       // fetchVisitorHistory's own lookups are always ID-keyed, so an
@@ -370,6 +386,13 @@ export default function GateTab() {
       return;
     }
     const phone = values.customer_phone_number.trim();
+    // Lazily generated here too, in case this ever gets called without
+    // having gone through onRegisterAsWalkIn first — never send the
+    // request with no key at all.
+    if (!walkInIdempotencyKeyRef.current) {
+      walkInIdempotencyKeyRef.current = generateIdempotencyKey();
+    }
+    const idempotencyKey = walkInIdempotencyKeyRef.current;
     setVehicleBusy(true);
     try {
       const result = await api.createWalkInAndNotify({
@@ -384,7 +407,11 @@ export default function GateTab() {
         organization: values.customer_organization,
         passengers: values.custom_number_of_passengers,
         scheduled_time: toFrappeDateTime(),
+        idempotency_key: idempotencyKey,
       });
+      // Success — this attempt is done, the NEXT walk-in (for anyone) must
+      // get its own fresh key rather than ever reusing this one.
+      walkInIdempotencyKeyRef.current = null;
       // Collapse the walk-in form and let ActionButtons handle the rest via polling
       setSelectedAppointment({
         has_appointment: true,
@@ -397,6 +424,11 @@ export default function GateTab() {
       setIsWalkIn(false);
       feedback.success('Host notified — waiting for approval');
     } catch (e) {
+      // Deliberately leave walkInIdempotencyKeyRef untouched on error — a
+      // retry of this same attempt (same guard, same form, tapping SAVE
+      // again) must resend the same key so the server can recognize it,
+      // in case this failure was just the response getting lost after the
+      // create actually went through.
       feedback.error(e instanceof Error ? e.message : 'Failed to notify host');
     } finally {
       setVehicleBusy(false);
@@ -675,6 +707,7 @@ export default function GateTab() {
                 setRevisitInfo(null);
                 setLockedFields({});
                 setVisitorEntryGate(null);
+                walkInIdempotencyKeyRef.current = null;
                 reset(emptyVisitorForm);
               }}
               onSave={onNotifyWalkIn}

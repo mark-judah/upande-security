@@ -336,6 +336,10 @@ export type CreateWalkInNotifyResult = {
   host_id: string;
   workflow_state: string;
   notified: number;
+  /** True when this call matched an idempotency_key from an earlier
+   * attempt — the server returned the existing Appointment instead of
+   * creating a new one. */
+  duplicate_suppressed?: boolean;
 };
 
 export type ContractorPersonnelInput = {
@@ -558,6 +562,11 @@ export type CreateWalkInInput = {
   organization?: string;
   passengers?: number;
   scheduled_time?: string;
+  /** One key per form-fill, resent unchanged on every retry of the same
+   * submission — lets the server recognize "this exact attempt already
+   * landed" (e.g. a timeout where the create actually succeeded) instead
+   * of inserting a duplicate Appointment. See useWalkInIdempotencyKey. */
+  idempotency_key?: string;
 };
 
 export type PendingApprovalRow = {
