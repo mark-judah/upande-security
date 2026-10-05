@@ -119,7 +119,9 @@ export default function RootLayout() {
     }
   }, []);
 
-  useSosWatcher();
+  // useSosWatcher is NOT called here - it reads a feature flag, which is a
+  // useQuery-backed hook, so it has to run inside QueryClientProvider. See
+  // <SosWatcher /> below. The other three touch no React Query.
   useNearbyGuardAlerts();
   useLocationPing();
   useScheduledAppUpdate();
@@ -182,6 +184,7 @@ export default function RootLayout() {
              *  this provider, has mounted). Hence the separate component
              *  below rather than computing drawerItems up here like
              *  isApprover (a plain Zustand read, no provider needed). */}
+            <SosWatcher />
             <AppDrawerItems isApprover={isApprover}>
               <StatusBar style="dark" />
               <Stack screenOptions={{ headerShown: false }}>
@@ -211,6 +214,16 @@ export default function RootLayout() {
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );
+}
+
+/** Rendered inside QueryClientProvider for the same reason AppDrawerItems is:
+ *  useSosWatcher reads the feature_sos_alert flag through useSessionInfo,
+ *  which is useQuery-backed. Called from RootLayout's own body it throws
+ *  "No QueryClient set" during the root render - a crash on launch, before
+ *  any screen appears, rather than a broken SOS button. */
+function SosWatcher() {
+  useSosWatcher();
+  return null;
 }
 
 /** Rendered inside QueryClientProvider so useHasCommandCenterAccess() (which
