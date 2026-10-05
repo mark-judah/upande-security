@@ -14,6 +14,7 @@ type Intent =
   | 'asset'
   | 'dispatch'
   | 'receiving'
+  | 'vehicle'
   | 'staffSticker';
 
 export default function ScanModal() {
@@ -29,9 +30,11 @@ export default function ScanModal() {
             ? 'dispatch'
             : params.intent === 'receiving'
               ? 'receiving'
-              : params.intent === 'staffSticker'
-                ? 'staffSticker'
-                : null;
+              : params.intent === 'vehicle'
+                ? 'vehicle'
+                : params.intent === 'staffSticker'
+                  ? 'staffSticker'
+                  : null;
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
   const handledRef = useRef(false);
@@ -40,6 +43,7 @@ export default function ScanModal() {
   const setPendingScannedAsset = useGateStore((s) => s.setPendingScannedAsset);
   const setPendingScannedDispatch = useGateStore((s) => s.setPendingScannedDispatch);
   const setPendingScannedReceiving = useGateStore((s) => s.setPendingScannedReceiving);
+  const setPendingScannedVehicle = useGateStore((s) => s.setPendingScannedVehicle);
   const setPendingScannedStaffSticker = useGateStore((s) => s.setPendingScannedStaffSticker);
 
   if (!permission) {
@@ -93,6 +97,8 @@ export default function ScanModal() {
       setPendingScannedDispatch(data);
     } else if (intent === 'receiving') {
       setPendingScannedReceiving(data);
+    } else if (intent === 'vehicle') {
+      setPendingScannedVehicle(data);
     } else if (intent === 'staffSticker') {
       setPendingScannedStaffSticker(data);
     } else if (__DEV__) {
@@ -125,9 +131,11 @@ export default function ScanModal() {
                   ? 'Scan the dispatch document QR / barcode'
                   : intent === 'receiving'
                     ? 'Scan the receiving/PO document QR / barcode'
-                    : intent === 'staffSticker'
-                      ? 'Scan the vehicle/motorcycle sticker'
-                      : 'Position QR code in the frame'}
+                    : intent === 'vehicle'
+                      ? "Scan the vehicle's number plate / serial"
+                      : intent === 'staffSticker'
+                        ? 'Scan the vehicle/motorcycle sticker'
+                        : 'Position QR code in the frame'}
         </Text>
       </View>
     </View>

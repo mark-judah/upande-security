@@ -10,6 +10,7 @@ type GateState = {
   pendingScannedAsset: string | null;
   pendingScannedDispatch: string | null;
   pendingScannedReceiving: string | null;
+  pendingScannedVehicle: string | null;
   pendingScannedStaffSticker: string | null;
   setSelectedType: (t: CheckInType) => void;
   setPendingScannedEmployee: (v: string | null) => void;
@@ -18,6 +19,7 @@ type GateState = {
   setPendingScannedAsset: (v: string | null) => void;
   setPendingScannedDispatch: (v: string | null) => void;
   setPendingScannedReceiving: (v: string | null) => void;
+  setPendingScannedVehicle: (v: string | null) => void;
   setPendingScannedStaffSticker: (v: string | null) => void;
 };
 
@@ -29,6 +31,7 @@ export const useGateStore = create<GateState>((set) => ({
   pendingScannedAsset: null,
   pendingScannedDispatch: null,
   pendingScannedReceiving: null,
+  pendingScannedVehicle: null,
   pendingScannedStaffSticker: null,
   setSelectedType: (t) => set({ selectedType: t }),
   setPendingScannedEmployee: (v) => set({ pendingScannedEmployee: v }),
@@ -37,5 +40,6 @@ export const useGateStore = create<GateState>((set) => ({
   setPendingScannedAsset: (v) => set({ pendingScannedAsset: v }),
   setPendingScannedDispatch: (v) => set({ pendingScannedDispatch: v }),
   setPendingScannedReceiving: (v) => set({ pendingScannedReceiving: v }),
+  setPendingScannedVehicle: (v) => set({ pendingScannedVehicle: v }),
   setPendingScannedStaffSticker: (v) => set({ pendingScannedStaffSticker: v }),
 }));

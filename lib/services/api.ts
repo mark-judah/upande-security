@@ -73,6 +73,7 @@ export type SecurityFeatureFlags = {
   feature_command_center: boolean;
   feature_security_alerts: boolean;
   feature_visitor_sms_otp: boolean;
+  feature_vehicle_gate_tracking: boolean;
 };
 
 export type SessionInfo = {
@@ -908,6 +909,65 @@ export type IssueSupplierBadgeForReceivingResult = {
   supplier_name: string;
 };
 
+// --- Gate Vehicle Verification (company vehicles/tractors checked at the
+// gate against whichever task doctype Security Ops Settings' Vehicle Task
+// Sources points at — see upande_security.api.gate_vehicle).
+//
+// One record per LEG of a trip, not per gate event: an Exit scan opens a
+// leg, and the later Entry scan — different gate, different guard, possibly
+// hours later — closes that same leg. A round trip is therefore two legs,
+// each showing its departure and arrival side by side. ---
+
+export type VehicleTaskLeg = {
+  name: string;
+  from_farm: string | null;
+  to_farm: string | null;
+  task_description: string | null;
+  gate_exit_time: string | null;
+  gate_exit_verified_by: string | null;
+  gate_exit_status: string | null;
+  gate_entry_time: string | null;
+  gate_entry_verified_by: string | null;
+  gate_entry_status: string | null;
+  creation: string;
+};
+
+export type VehicleTaskSearchHit = {
+  found: true;
+  reference_doctype: string;
+  reference_name: string;
+  vehicle_no: string;
+  task_description: string | null;
+  source_status: string | null;
+  is_authorized: boolean;
+  recent_legs: VehicleTaskLeg[];
+};
+export type VehicleTaskSearchMiss = { found: false; error: string };
+export type VehicleTaskSearchResult = VehicleTaskSearchHit | VehicleTaskSearchMiss;
+
+export type VehicleMovementType = 'Exit' | 'Entry';
+
+export type VerifyVehicleTaskInput = {
+  reference: string;
+  movement_type: VehicleMovementType;
+  gate_verification_status: GateVerificationStatus;
+  remarks?: string;
+};
+
+export type VerifyVehicleTaskResult = {
+  name: string;
+  reference_name: string;
+  farm: string;
+  movement_type: VehicleMovementType;
+  gate_verification_status: GateVerificationStatus;
+  is_authorized: boolean;
+  /** Entry closed an open leg opened by an earlier Exit scan. */
+  leg_complete: boolean;
+  /** Entry with no Exit on file anywhere — recorded as its own leg rather
+   *  than dropped, since an unlogged departure is itself worth knowing. */
+  unmatched_entry: boolean;
+};
+
 export type ConfirmReceivingDepartureResult = {
   name: string;
   gate_departure_time: string;
@@ -1318,6 +1378,21 @@ export const api = {
     call<IssueSupplierBadgeForReceivingResult>(
       'upande_security.api.gate_receiving.issue_supplier_badge_for_receiving',
       { name, badge_number },
+    ),
+
+  // Gate Vehicle Verification — company vehicles/tractors checked against
+  // their task document. Same full-dotted-path requirement as the dispatch
+  // and receiving verbs above: api/gate_vehicle.py is a plain module, not a
+  // Server Script.
+  searchVehicleTaskForGate: (reference: string) =>
+    call<VehicleTaskSearchResult>(
+      'upande_security.api.gate_vehicle.search_vehicle_task_for_gate',
+      { reference },
+    ),
+  verifyVehicleTaskAtGate: (input: VerifyVehicleTaskInput) =>
+    call<VerifyVehicleTaskResult>(
+      'upande_security.api.gate_vehicle.verify_vehicle_task_at_gate',
+      input,
     ),
 
   // Customer appointment booking — book a future visit ahead of time

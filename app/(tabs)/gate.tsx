@@ -17,6 +17,7 @@ import { IssueVisitorBadge } from '@/components/gate/IssueVisitorBadge';
 import { CHECK_IN_ALLOWED_FROM, type WorkflowState } from '@/constants/workflowStates';
 import { StaffCheckInPanel } from '@/components/gate/StaffCheckInPanel';
 import { DispatchGatePanel } from '@/components/gate/DispatchGatePanel';
+import { VehicleGatePanel } from '@/components/gate/VehicleGatePanel';
 import { ReceivingGatePanel } from '@/components/gate/ReceivingGatePanel';
 import { CustomerBookingForm } from '@/components/gate/CustomerBookingForm';
 import { ContractorForm } from '@/components/gate/ContractorForm';
@@ -111,11 +112,13 @@ export default function GateTab() {
   const contractorCheckinEnabled = useFeatureFlag('feature_contractor_checkin');
   const gateDispatchEnabled = useFeatureFlag('feature_gate_dispatch');
   const gateReceivingEnabled = useFeatureFlag('feature_gate_receiving');
+  const vehicleGateEnabled = useFeatureFlag('feature_vehicle_gate_tracking');
   const visitorBadgesEnabled = useFeatureFlag('feature_visitor_badges');
   const hiddenCheckInTypes: CheckInType[] = [
     ...(contractorCheckinEnabled ? [] : [CheckInType.Contractor]),
     ...(gateDispatchEnabled ? [] : [CheckInType.Dispatch]),
     ...(gateReceivingEnabled ? [] : [CheckInType.Receiving]),
+    ...(vehicleGateEnabled ? [] : [CheckInType.Vehicle]),
   ];
 
   const feedback = useFeedback();
@@ -558,6 +561,8 @@ export default function GateTab() {
           {selectedType === CheckInType.Staff ? <StaffCheckInPanel /> : null}
 
           {selectedType === CheckInType.Dispatch ? <DispatchGatePanel /> : null}
+
+          {selectedType === CheckInType.Vehicle ? <VehicleGatePanel /> : null}
 
           {selectedType === CheckInType.Receiving ? <ReceivingGatePanel /> : null}
 
