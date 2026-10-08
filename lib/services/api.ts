@@ -74,6 +74,53 @@ export type SecurityFeatureFlags = {
   feature_security_alerts: boolean;
   feature_visitor_sms_otp: boolean;
   feature_vehicle_gate_tracking: boolean;
+  feature_passenger_names: boolean;
+  feature_carried_items: boolean;
+};
+
+// Passenger names + carried items for one visit (upande_security
+// api/gate_belongings.py). Gated by feature_passenger_names /
+// feature_carried_items; both lists come back empty when a flag is off.
+export type VisitPassenger = {
+  name?: string;
+  full_name: string;
+  id_number?: string;
+  phone?: string;
+};
+
+export type CarriedItemExitStatus = 'Inside' | 'Left with owner' | 'Not seen leaving';
+
+export type VisitCarriedItem = {
+  name?: string;
+  carried_by: string;
+  item: string;
+  qty?: number;
+  serial_notes?: string;
+  exit_status?: CarriedItemExitStatus;
+  exit_time?: string | null;
+  exit_checked_by?: string | null;
+};
+
+export type VisitPeopleAndItems = {
+  appointment: string;
+  visitor_name: string;
+  checked_out: boolean;
+  passengers: VisitPassenger[];
+  items: VisitCarriedItem[];
+  // Everyone an item may be assigned to: visitor, passengers, contractor personnel.
+  people: string[];
+};
+
+export type SaveVisitPeopleAndItemsInput = {
+  appointment: string;
+  // Leave a list out to keep what is already saved for it.
+  passengers?: VisitPassenger[];
+  items?: VisitCarriedItem[];
+};
+
+export type CheckOutItemsResult = {
+  appointment: string;
+  not_seen_leaving: string[];
 };
 
 export type SessionInfo = {
@@ -1224,6 +1271,18 @@ export const api = {
     }
     return call<CreateContractorNotifyResult>('create_contractor_notify', body);
   },
+  // Passengers + carried items (whitelisted Python, not a server script).
+  getVisitPeopleAndItems: (appointment: string) =>
+    call<VisitPeopleAndItems>('upande_security.api.gate_belongings.get_visit_people_and_items', {
+      appointment,
+    }),
+  saveVisitPeopleAndItems: (input: SaveVisitPeopleAndItemsInput) =>
+    call<VisitPeopleAndItems>('upande_security.api.gate_belongings.save_visit_people_and_items', input),
+  checkOutItems: (appointment: string, items_out: string[]) =>
+    call<CheckOutItemsResult>('upande_security.api.gate_belongings.check_out_items', {
+      appointment,
+      items_out,
+    }),
   checkInVisitor: (input: CheckInInput) => call<CheckInResult>('check_in_visitor', input),
   checkOutVisitor: (name: string, exit_gate?: string) =>
     call<CheckOutResult>('check_out_visitor', { name, exit_gate }),

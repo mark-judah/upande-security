@@ -27,6 +27,9 @@ type Props = {
   // matched. Everything else (transport, plate, passengers, purpose, host)
   // stays editable regardless.
   lockedFields?: { name?: boolean; id?: boolean; phone?: boolean };
+  // True when passenger names are recorded (feature_passenger_names) - the
+  // count then comes from the names, so the free-typed count is hidden.
+  hidePassengerCount?: boolean;
 };
 
 export function VisitorForm({
@@ -38,6 +41,7 @@ export function VisitorForm({
   watchHostName,
   onScanId,
   lockedFields,
+  hidePassengerCount,
 }: Props) {
   // Only Vehicle keeps the full plate + colour + passengers group - a
   // Motorcycle has no colour/passengers worth capturing, just the plate,
@@ -203,20 +207,22 @@ export function VisitorForm({
               />
             )}
           />
-          <Controller
-            control={control}
-            name="custom_number_of_passengers"
-            render={({ field: { onChange, value, onBlur } }) => (
-              <FormInput
-                label="Number of Passengers (excl. driver)"
-                value={value != null ? String(value) : ''}
-                onChangeText={(t) => onChange(t ? parseInt(t, 10) || 0 : undefined)}
-                onBlur={onBlur}
-                keyboardType="number-pad"
-                error={errors.custom_number_of_passengers?.message}
-              />
-            )}
-          />
+          {hidePassengerCount ? null : (
+            <Controller
+              control={control}
+              name="custom_number_of_passengers"
+              render={({ field: { onChange, value, onBlur } }) => (
+                <FormInput
+                  label="Number of Passengers (excl. driver)"
+                  value={value != null ? String(value) : ''}
+                  onChangeText={(t) => onChange(t ? parseInt(t, 10) || 0 : undefined)}
+                  onBlur={onBlur}
+                  keyboardType="number-pad"
+                  error={errors.custom_number_of_passengers?.message}
+                />
+              )}
+            />
+          )}
         </>
       ) : null}
 

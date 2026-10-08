@@ -34,7 +34,17 @@ import { useContractorSearch } from '@/lib/hooks/useContractorSearch';
 import { useAppointmentWorkflowState } from '@/lib/hooks/useAppointmentWorkflowState';
 import { useCheckIn } from '@/lib/hooks/useCheckIn';
 import { api } from '@/lib/services/api';
-import type { ContractorPersonnelInput } from '@/lib/services/api';
+import type { ContractorPersonnelInput, SaveVisitPeopleAndItemsInput, VisitCarriedItem } from '@/lib/services/api';
+import {
+  PassengersItemsSection,
+  PASSENGER_TRANSPORT_MODES,
+  itemDraftsFrom,
+  passengerDraftsFrom,
+  toItemPayload,
+  toPassengerPayload,
+  type ItemDraft,
+  type PassengerDraft,
+} from '@/components/gate/PassengersItemsSection';
 import { useFeedback } from '@/lib/hooks/useFeedback';
 import { useSessionInfo, useFeatureFlag } from '@/lib/hooks/useSessionInfo';
 import { GatePicker } from '@/components/gate/GatePicker';
@@ -114,6 +124,8 @@ export default function GateTab() {
   const gateReceivingEnabled = useFeatureFlag('feature_gate_receiving');
   const vehicleGateEnabled = useFeatureFlag('feature_vehicle_gate_tracking');
   const visitorBadgesEnabled = useFeatureFlag('feature_visitor_badges');
+  const passengerNamesEnabled = useFeatureFlag('feature_passenger_names');
+  const carriedItemsEnabled = useFeatureFlag('feature_carried_items');
   const hiddenCheckInTypes: CheckInType[] = [
     ...(contractorCheckinEnabled ? [] : [CheckInType.Contractor]),
     ...(gateDispatchEnabled ? [] : [CheckInType.Dispatch]),
@@ -138,6 +150,15 @@ export default function GateTab() {
   const watchTransport = watch('custom_mode_of_transport');
   const watchHostId = watch('custom_meet_with');
   const watchHostName = watch('host_name');
+  const watchCustomerName = watch('customer_name');
+
+  // Passenger names + carried items for the visitor currently on the form.
+  // hadSavedBelongings: the server already holds some for this visit, so an
+  // emptied list still has to be sent (to clear it) rather than skipped.
+  const [passengerDrafts, setPassengerDrafts] = useState<PassengerDraft[]>([]);
+  const [itemDrafts, setItemDrafts] = useState<ItemDraft[]>([]);
+  const [hadSavedBelongings, setHadSavedBelongings] = useState(false);
+  const showPassengerNames = passengerNamesEnabled && PASSENGER_TRANSPORT_MODES.includes(watchTransport);
 
   const visitorSearch = useVisitorSearch();
   const contractorSearch = useContractorSearch();
@@ -162,7 +183,42 @@ export default function GateTab() {
     setVisitorEntryGate(null);
     walkInIdempotencyKeyRef.current = null;
     reset(emptyVisitorForm);
+    resetBelongings();
     Keyboard.dismiss();
+  }
+
+  function resetBelongings() {
+    setPassengerDrafts([]);
+    setItemDrafts([]);
+    setHadSavedBelongings(false);
+  }
+
+  // Prefill from whatever is already saved for this visit (e.g. a walk-in
+  // reopened from search). Best-effort - an empty form is a fine fallback.
+  async function loadBelongings(appointment: string) {
+    if (!passengerNamesEnabled && !carriedItemsEnabled) return;
+    try {
+      const saved = await api.getVisitPeopleAndItems(appointment);
+      setPassengerDrafts(passengerDraftsFrom(saved.passengers));
+      setItemDrafts(itemDraftsFrom(saved.items));
+      setHadSavedBelongings(saved.passengers.length > 0 || saved.items.length > 0);
+    } catch {
+      // keep the form empty
+    }
+  }
+
+  // Send passengers / items for an appointment. Skipped when there is
+  // nothing to record and nothing saved before. Throws on failure.
+  async function saveBelongings(appointment: string) {
+    const passengers = showPassengerNames ? toPassengerPayload(passengerDrafts) : [];
+    const items = toItemPayload(itemDrafts);
+    if (!passengers.length && !items.length && !hadSavedBelongings) return;
+    const input: SaveVisitPeopleAndItemsInput = { appointment };
+    if (passengerNamesEnabled) input.passengers = passengers;
+    if (carriedItemsEnabled) input.items = items;
+    if (!input.passengers && !input.items) return;
+    await api.saveVisitPeopleAndItems(input);
+    setHadSavedBelongings(true);
   }
 
   async function onCheckForUpdates() {
@@ -223,6 +279,7 @@ export default function GateTab() {
     setRevisitInfo(null);
     setLockedFields({});
     setVisitorEntryGate(null);
+    resetBelongings();
 
     try {
       if (selectedType === CheckInType.Visitor) {
@@ -249,6 +306,8 @@ export default function GateTab() {
   function onProceed(result: VisitorAppointmentSearchResult) {
     setSelectedAppointment(result);
     setIsWalkIn(false);
+    resetBelongings();
+    if (result.name) loadBelongings(result.name);
     // Only lock on a genuinely unique match (ID number or the appointment's
     // own doc name). A name/phone LIKE match ('other') can easily be the
     // wrong person - names aren't unique ("Peter A" vs "Peter B") - so
@@ -276,6 +335,7 @@ export default function GateTab() {
 
   function onRegisterAsWalkIn(history?: VisitorHistoryResult) {
     setIsWalkIn(true);
+    resetBelongings();
     setSelectedAppointment(null);
     setShowVisitorResult(false);
     walkInIdempotencyKeyRef.current = generateIdempotencyKey();
@@ -343,6 +403,12 @@ export default function GateTab() {
   async function onVisitorCheckIn() {
     if (!selectedAppointment?.name) return;
     const values = getValues();
+    try {
+      await saveBelongings(selectedAppointment.name);
+    } catch (e) {
+      feedback.error('Passengers / items not saved — ' + (e instanceof Error ? e.message : String(e)));
+      return;
+    }
     await checkIn.mutateAsync({
       name: selectedAppointment.name,
       custom_mode_of_transport: values.custom_mode_of_transport,
@@ -388,13 +454,21 @@ export default function GateTab() {
         plate: values.custom_vehicles_number_plate,
         colour: values.custom_vehicles_colour,
         organization: values.customer_organization,
-        passengers: values.custom_number_of_passengers,
+        passengers: showPassengerNames
+          ? toPassengerPayload(passengerDrafts).length
+          : values.custom_number_of_passengers,
         scheduled_time: toFrappeDateTime(),
         idempotency_key: idempotencyKey,
       });
       // Success — this attempt is done, the NEXT walk-in (for anyone) must
       // get its own fresh key rather than ever reusing this one.
       walkInIdempotencyKeyRef.current = null;
+      try {
+        await saveBelongings(result.name);
+      } catch (e) {
+        // The visit itself exists; the guard can fix the lists before CHECK IN.
+        feedback.warning('Host notified, but passengers / items were not saved — ' + (e instanceof Error ? e.message : String(e)));
+      }
       // Collapse the walk-in form and let ActionButtons handle the rest via polling
       setSelectedAppointment({
         has_appointment: true,
@@ -426,6 +500,7 @@ export default function GateTab() {
     scopeOfWork?: string;
     expectedExit?: string;
     personnel?: ContractorPersonnelInput[];
+    items?: VisitCarriedItem[];
   }) {
     if (!contractorResult) return;
     setVehicleBusy(true);
@@ -444,6 +519,13 @@ export default function GateTab() {
         expected_exit: input.expectedExit,
         personnel: input.personnel,
       });
+      if (carriedItemsEnabled && input.items?.length) {
+        try {
+          await api.saveVisitPeopleAndItems({ appointment: result.name, items: input.items });
+        } catch (e) {
+          feedback.warning('Host notified, but carried items were not saved — ' + (e instanceof Error ? e.message : String(e)));
+        }
+      }
       // Collapse the contractor form and hand off to the shared ActionButtons,
       // which polls the workflow and surfaces CHECK IN once the host approves.
       setSelectedAppointment({
@@ -573,6 +655,7 @@ export default function GateTab() {
               result={contractorResult}
               onNotify={onContractorNotify}
               busy={vehicleBusy}
+              showItems={carriedItemsEnabled}
             />
           ) : null}
 
@@ -603,6 +686,7 @@ export default function GateTab() {
                 setVisitorEntryGate(null);
                 walkInIdempotencyKeyRef.current = null;
                 reset(emptyVisitorForm);
+                resetBelongings();
               }}
               onSave={onNotifyWalkIn}
               saving={vehicleBusy}
@@ -625,6 +709,17 @@ export default function GateTab() {
                 watchHostName={watchHostName}
                 onScanId={() => router.push('/scan-id')}
                 lockedFields={lockedFields}
+                hidePassengerCount={passengerNamesEnabled}
+              />
+              <PassengersItemsSection
+                visitorName={watchCustomerName ?? ''}
+                showPassengers={showPassengerNames}
+                showItems={carriedItemsEnabled}
+                passengers={passengerDrafts}
+                onPassengersChange={setPassengerDrafts}
+                items={itemDrafts}
+                onItemsChange={setItemDrafts}
+                busy={vehicleBusy}
               />
               <GatePicker
                 farm={ownFarm}
@@ -682,6 +777,17 @@ export default function GateTab() {
                   watchHostId={watchHostId}
                   watchHostName={watchHostName}
                   lockedFields={lockedFields}
+                  hidePassengerCount={passengerNamesEnabled}
+                />
+                <PassengersItemsSection
+                  visitorName={watchCustomerName ?? ''}
+                  showPassengers={showPassengerNames}
+                  showItems={carriedItemsEnabled}
+                  passengers={passengerDrafts}
+                  onPassengersChange={setPassengerDrafts}
+                  items={itemDrafts}
+                  onItemsChange={setItemDrafts}
+                  busy={vehicleBusy || checkIn.isPending}
                 />
                 <GatePicker
                   farm={ownFarm}

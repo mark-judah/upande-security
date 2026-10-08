@@ -5,6 +5,7 @@ import { Screen } from '@/src/core/ui/Screen';
 import { useApprovedAppointments } from '@/lib/hooks/useApprovedAppointments';
 import { useCheckIn } from '@/lib/hooks/useCheckIn';
 import { useCheckOut } from '@/lib/hooks/useCheckOut';
+import { useItemsAwareCheckOut } from '@/components/gate/CheckOutItemsSheet';
 import { fmtDateTime } from '@/lib/utils/date';
 import type { ApprovedAppointmentRow } from '@/lib/services/api';
 import { COLORS, fontFamily, fontSize, spacing, borderRadius } from '@/src/core/theme';
@@ -153,6 +154,7 @@ export default function ApprovedTab() {
   const { data, isFetching, isLoading, error, refetch } = useApprovedAppointments();
   const checkIn = useCheckIn();
   const checkOut = useCheckOut();
+  const itemsCheckOut = useItemsAwareCheckOut();
   const [activeName, setActiveName] = useState<string | null>(null);
 
   const items = data ?? [];
@@ -162,21 +164,7 @@ export default function ApprovedTab() {
   const onAction = (item: ApprovedAppointmentRow) => {
     if (checkIn.isPending || checkOut.isPending) return;
     if (item.workflow_state === 'Visitor Checked In') {
-      Alert.alert('Check out?', `Check out ${item.customer_name}?`, [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Check out',
-          style: 'destructive',
-          onPress: async () => {
-            setActiveName(item.name);
-            try {
-              await checkOut.mutateAsync(item.name);
-            } finally {
-              setActiveName(null);
-            }
-          },
-        },
-      ]);
+      itemsCheckOut.begin(item.name, item.customer_name, () => confirmPlainCheckOut(item));
     } else {
       Alert.alert('Check in?', `Check in ${item.customer_name}?`, [
         { text: 'Cancel', style: 'cancel' },
@@ -195,6 +183,24 @@ export default function ApprovedTab() {
     }
   };
 
+  const confirmPlainCheckOut = (item: ApprovedAppointmentRow) => {
+    Alert.alert('Check out?', `Check out ${item.customer_name}?`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Check out',
+        style: 'destructive',
+        onPress: async () => {
+          setActiveName(item.name);
+          try {
+            await checkOut.mutateAsync(item.name);
+          } finally {
+            setActiveName(null);
+          }
+        },
+      },
+    ]);
+  };
+
   return (
     <Screen
       title="Approved"
@@ -202,6 +208,7 @@ export default function ApprovedTab() {
         await refetch();
       }}
     >
+      {itemsCheckOut.sheet}
       <View style={s.pageHeaderRow}>
         <Text style={s.pageTitle}>Approved Visitors</Text>
         {isLoading || isFetching ? (
@@ -244,7 +251,10 @@ export default function ApprovedTab() {
           key={item.name}
           item={item}
           onAction={onAction}
-          busy={activeName === item.name && (checkIn.isPending || checkOut.isPending)}
+          busy={
+            (activeName === item.name && (checkIn.isPending || checkOut.isPending)) ||
+            itemsCheckOut.loadingName === item.name
+          }
         />
       ))}
     </Screen>

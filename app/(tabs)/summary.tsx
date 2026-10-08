@@ -4,6 +4,7 @@ import { useDailySummary } from '@/lib/hooks/useDailySummary';
 import { useCheckOut } from '@/lib/hooks/useCheckOut';
 import { useStaffAttendanceSummary } from '@/lib/hooks/useStaffAttendanceSummary';
 import { InsideCard } from '@/components/gate/InsideCard';
+import { useItemsAwareCheckOut } from '@/components/gate/CheckOutItemsSheet';
 import { ActivityRow } from '@/components/gate/ActivityRow';
 import { StaffAttendanceRow } from '@/components/gate/StaffAttendanceRow';
 import { fmtLongDate } from '@/lib/utils/date';
@@ -36,8 +37,14 @@ export default function SummaryTab() {
   const { data, isFetching, isLoading, refetch, error } = useDailySummary(today);
   const staffAttendance = useStaffAttendanceSummary();
   const checkOut = useCheckOut();
+  const itemsCheckOut = useItemsAwareCheckOut();
 
   function confirmCheckOut(name: string) {
+    const visitorName = data?.still_inside_list.find((a) => a.name === name)?.customer_name ?? 'visitor';
+    itemsCheckOut.begin(name, visitorName, () => confirmPlainCheckOut(name));
+  }
+
+  function confirmPlainCheckOut(name: string) {
     Alert.alert(
       'Check Out',
       'Mark this visitor as checked out?',
@@ -75,6 +82,7 @@ export default function SummaryTab() {
         await Promise.all([refetch(), staffAttendance.refetch()]);
       }}
     >
+      {itemsCheckOut.sheet}
       <Text style={s.pageTitle}>Gate Activity — {fmtLongDate(today)}</Text>
 
       {error ? (
@@ -129,7 +137,7 @@ export default function SummaryTab() {
                   key={a.name}
                   appointment={a}
                   onCheckOut={confirmCheckOut}
-                  busy={checkOut.isPending && checkOut.variables === a.name}
+                  busy={(checkOut.isPending && checkOut.variables === a.name) || itemsCheckOut.loadingName === a.name}
                 />
               ))}
             </View>

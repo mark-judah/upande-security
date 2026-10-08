@@ -10,6 +10,8 @@ import { toFrappeDateTime, fmtDateTime } from '@/lib/utils/date';
 import { formatKenyanPlate } from '@/lib/utils/plate';
 import { COLORS, spacing, borderRadius, fontSize } from '@/src/core/theme';
 import { TRANSPORT_MODES, TRANSPORT_MODE_ICONS, type TransportMode } from '@/constants/transportModes';
+import type { VisitCarriedItem } from '@/lib/services/api';
+import { PassengersItemsSection, toItemPayload, type ItemDraft } from './PassengersItemsSection';
 
 export type ContractorPersonnelInput = {
   full_name: string;
@@ -60,11 +62,15 @@ type Props = {
     scopeOfWork?: string;
     expectedExit?: string;
     personnel?: ContractorPersonnelInput[];
+    items?: VisitCarriedItem[];
   }) => void;
   busy?: boolean;
+  // feature_carried_items - items can belong to the company or to anyone
+  // on the personnel list.
+  showItems?: boolean;
 };
 
-export function ContractorForm({ result, onNotify, busy }: Props) {
+export function ContractorForm({ result, onNotify, busy, showItems }: Props) {
   const [passengers, setPassengers] = useState('');
   const [plate, setPlate] = useState('');
   const [hostId, setHostId] = useState<string | null>(null);
@@ -75,6 +81,7 @@ export function ContractorForm({ result, onNotify, busy }: Props) {
   const [showExitPicker, setShowExitPicker] = useState(false);
   const [exitPickerMode, setExitPickerMode] = useState<'date' | 'time'>('date');
   const [personnel, setPersonnel] = useState<PersonnelRow[]>([]);
+  const [itemDrafts, setItemDrafts] = useState<ItemDraft[]>([]);
   // Stable identity (useCallback with no deps — setPersonnel's updater form
   // never touches anything from this render) so PersonnelRowCard's
   // debounce effect can depend on it without the timer being torn down and
@@ -167,6 +174,7 @@ export function ContractorForm({ result, onNotify, busy }: Props) {
       scopeOfWork: scopeOfWork.trim() || undefined,
       expectedExit: expectedExit ? toFrappeDateTime(expectedExit) : undefined,
       personnel: validPersonnel.length > 0 ? validPersonnel : undefined,
+      items: showItems ? toItemPayload(itemDrafts) : undefined,
     });
   };
 
@@ -423,6 +431,22 @@ export function ContractorForm({ result, onNotify, busy }: Props) {
           </Text>
         </TouchableOpacity>
       </View>
+
+      {showItems ? (
+        <View style={{ marginTop: 14 }}>
+          <PassengersItemsSection
+            visitorName={result.contractor_name ?? ''}
+            extraPeople={personnel.map((p) => p.full_name)}
+            showPassengers={false}
+            showItems
+            passengers={[]}
+            onPassengersChange={() => {}}
+            items={itemDrafts}
+            onItemsChange={setItemDrafts}
+            busy={busy}
+          />
+        </View>
+      ) : null}
 
       <TouchableOpacity
         onPress={submit}
