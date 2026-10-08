@@ -28,7 +28,7 @@ import { useNearbyGuardAlerts } from '@/lib/hooks/useNearbyGuardAlerts';
 import { useLocationPing } from '@/lib/hooks/useLocationPing';
 import { useScheduledAppUpdate } from '@/lib/hooks/useScheduledAppUpdate';
 import { useIsApprover } from '@/lib/hooks/usePendingApprovals';
-import { useHasCommandCenterAccess } from '@/lib/hooks/useSessionInfo';
+import { useFeatureFlag, useHasCommandCenterAccess } from '@/lib/hooks/useSessionInfo';
 import '@/lib/services/patrolTracking';
 
 // Hold the native splash until fonts + auth hydrated.
@@ -236,7 +236,9 @@ function AppDrawerItems({
   children: ReactNode;
 }) {
   const hasCommandCenterAccess = useHasCommandCenterAccess();
-  let drawerItems = isApprover ? [...DRAWER_ITEMS, APPROVALS_DRAWER_ITEM] : DRAWER_ITEMS;
+  const approvalWorkflowEnabled = useFeatureFlag('feature_visitor_approval_workflow');
+  let drawerItems =
+    isApprover && approvalWorkflowEnabled ? [...DRAWER_ITEMS, APPROVALS_DRAWER_ITEM] : DRAWER_ITEMS;
   if (hasCommandCenterAccess) {
     drawerItems = [...drawerItems, COMMAND_CENTER_DRAWER_ITEM];
   }

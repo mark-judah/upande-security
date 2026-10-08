@@ -4,6 +4,7 @@ import { LiveTimer } from '@/components/ui/LiveTimer';
 import { fmtTime, getDuration } from '@/lib/utils/date';
 import { WORKFLOW_META } from '@/constants/workflowStates';
 import { useAppointmentTempExit } from '@/lib/hooks/useAppointmentTempExit';
+import { useFeatureFlag } from '@/lib/hooks/useSessionInfo';
 import type { Appointment } from '@/lib/api/types';
 import { COLORS, spacing, borderRadius, fontFamily, fontSize } from '@/src/core/theme';
 
@@ -49,6 +50,7 @@ export function InsideCard({ appointment: a, onCheckOut, busy }: Props) {
   const isContractor = a.custom_visitor_type === 'Contractor';
 
   const tempExit = useAppointmentTempExit();
+  const tempExitEnabled = useFeatureFlag('feature_gate_temp_exit');
   const steppedOut = Boolean(a.custom_temp_exit_time);
 
   async function handleTempExit() {
@@ -170,33 +172,35 @@ export function InsideCard({ appointment: a, onCheckOut, busy }: Props) {
       ) : null}
 
       <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm + 2 }}>
-        <TouchableOpacity
-          onPress={handleTempExit}
-          disabled={tempExit.isPending}
-          activeOpacity={0.8}
-          style={{
-            flex: 1,
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'center',
-            backgroundColor: steppedOut ? COLORS.success : COLORS.warn,
-            borderRadius: borderRadius.sm,
-            paddingVertical: spacing.sm + 2,
-            opacity: tempExit.isPending ? 0.6 : 1,
-            minHeight: 40,
-          }}
-        >
-          {tempExit.isPending ? (
-            <ActivityIndicator size="small" color={COLORS.textOnPrimary} />
-          ) : (
-            <>
-              <Ionicons name={steppedOut ? 'log-in-outline' : 'walk-outline'} size={16} color={COLORS.textOnPrimary} />
-              <Text style={{ color: COLORS.textOnPrimary, fontFamily: fontFamily.semiBold, marginLeft: spacing.sm - 2, fontSize: fontSize.sm }}>
-                {steppedOut ? 'CONFIRM RETURN' : 'STEP OUT'}
-              </Text>
-            </>
-          )}
-        </TouchableOpacity>
+        {tempExitEnabled ? (
+          <TouchableOpacity
+            onPress={handleTempExit}
+            disabled={tempExit.isPending}
+            activeOpacity={0.8}
+            style={{
+              flex: 1,
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: steppedOut ? COLORS.success : COLORS.warn,
+              borderRadius: borderRadius.sm,
+              paddingVertical: spacing.sm + 2,
+              opacity: tempExit.isPending ? 0.6 : 1,
+              minHeight: 40,
+            }}
+          >
+            {tempExit.isPending ? (
+              <ActivityIndicator size="small" color={COLORS.textOnPrimary} />
+            ) : (
+              <>
+                <Ionicons name={steppedOut ? 'log-in-outline' : 'walk-outline'} size={16} color={COLORS.textOnPrimary} />
+                <Text style={{ color: COLORS.textOnPrimary, fontFamily: fontFamily.semiBold, marginLeft: spacing.sm - 2, fontSize: fontSize.sm }}>
+                  {steppedOut ? 'CONFIRM RETURN' : 'STEP OUT'}
+                </Text>
+              </>
+            )}
+          </TouchableOpacity>
+        ) : null}
 
         {onCheckOut ? (
           <TouchableOpacity

@@ -74,6 +74,10 @@ export type SecurityFeatureFlags = {
   feature_security_alerts: boolean;
   feature_visitor_sms_otp: boolean;
   feature_vehicle_gate_tracking: boolean;
+  feature_staff_checkin: boolean;
+  feature_taxi_driver_checkout: boolean;
+  feature_gate_temp_exit: boolean;
+  feature_host_receipt_confirmation: boolean;
   feature_passenger_names: boolean;
   feature_carried_items: boolean;
 };

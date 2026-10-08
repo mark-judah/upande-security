@@ -14,7 +14,7 @@ import { VisitorForm } from '@/components/gate/VisitorForm';
 import { WalkInSection } from '@/components/gate/WalkInSection';
 import { ActionButtons } from '@/components/gate/ActionButtons';
 import { IssueVisitorBadge } from '@/components/gate/IssueVisitorBadge';
-import { CHECK_IN_ALLOWED_FROM, type WorkflowState } from '@/constants/workflowStates';
+import { canCheckInFrom, type WorkflowState } from '@/constants/workflowStates';
 import { StaffCheckInPanel } from '@/components/gate/StaffCheckInPanel';
 import { DispatchGatePanel } from '@/components/gate/DispatchGatePanel';
 import { VehicleGatePanel } from '@/components/gate/VehicleGatePanel';
@@ -126,12 +126,23 @@ export default function GateTab() {
   const visitorBadgesEnabled = useFeatureFlag('feature_visitor_badges');
   const passengerNamesEnabled = useFeatureFlag('feature_passenger_names');
   const carriedItemsEnabled = useFeatureFlag('feature_carried_items');
+  const staffCheckinEnabled = useFeatureFlag('feature_staff_checkin');
+  const approvalRequired = useFeatureFlag('feature_visitor_approval_workflow');
+  const hostReceiptEnabled = useFeatureFlag('feature_host_receipt_confirmation');
   const hiddenCheckInTypes: CheckInType[] = [
+    ...(staffCheckinEnabled ? [] : [CheckInType.Staff]),
     ...(contractorCheckinEnabled ? [] : [CheckInType.Contractor]),
     ...(gateDispatchEnabled ? [] : [CheckInType.Dispatch]),
     ...(gateReceivingEnabled ? [] : [CheckInType.Receiving]),
     ...(vehicleGateEnabled ? [] : [CheckInType.Vehicle]),
   ];
+
+  // A flag switched off mid-session (session info refetched) hides its chip;
+  // drop back to Visitor rather than leave that panel open with no chip.
+  const selectedTypeHidden = hiddenCheckInTypes.includes(selectedType);
+  useEffect(() => {
+    if (selectedTypeHidden) setSelectedType(CheckInType.Visitor);
+  }, [selectedTypeHidden]);
 
   const feedback = useFeedback();
 
@@ -668,6 +679,7 @@ export default function GateTab() {
                 label="Entry Gate"
               />
               <ActionButtons
+                approvalRequired={approvalRequired}
                 appointment={workflowQuery.data}
                 loading={workflowQuery.isLoading}
                 onNotifyHost={() => {}}
@@ -746,7 +758,7 @@ export default function GateTab() {
               VISITOR_BADGE_ENABLED &&
               visitorBadgesEnabled &&
               visitorState != null &&
-              (CHECK_IN_ALLOWED_FROM.includes(visitorState) ||
+              (canCheckInFrom(visitorState, approvalRequired) ||
                 visitorState === 'Visitor Checked In' ||
                 visitorState === 'Visitor Checked Out');
             const hasBadge = Boolean(wf?.custom_visitor_badge_number);
@@ -762,7 +774,7 @@ export default function GateTab() {
               VISITOR_BADGE_ENABLED &&
               visitorBadgesEnabled &&
               visitorState &&
-              CHECK_IN_ALLOWED_FROM.includes(visitorState) &&
+              canCheckInFrom(visitorState, approvalRequired) &&
               !hasBadge
                 ? 'Issue a visitor badge before checking them in.'
                 : undefined;
@@ -799,10 +811,11 @@ export default function GateTab() {
                   <IssueVisitorBadge
                     appointmentName={selectedAppointment.name}
                     currentBadge={wf?.custom_visitor_badge_number ?? undefined}
-                    hostReceivedAt={wf?.custom_host_received_time}
+                    hostReceivedAt={hostReceiptEnabled ? wf?.custom_host_received_time : undefined}
                   />
                 ) : null}
                 <ActionButtons
+                  approvalRequired={approvalRequired}
                   appointment={workflowQuery.data}
                   loading={workflowQuery.isLoading}
                   onNotifyHost={onNotifyHost}

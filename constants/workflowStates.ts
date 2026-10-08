@@ -63,6 +63,17 @@ export const TERMINAL_STATES: WorkflowState[] = [
 ];
 
 /**
+ * Whether the guard may check the visitor in from `state`. With the
+ * feature_visitor_approval_workflow flag off, check_in_visitor no longer
+ * requires host approval, so any non-final state is enough.
+ */
+export function canCheckInFrom(state: WorkflowState, approvalRequired: boolean): boolean {
+  if (CHECK_IN_ALLOWED_FROM.includes(state)) return true;
+  if (approvalRequired) return false;
+  return !TERMINAL_STATES.includes(state) && !CHECK_OUT_ALLOWED_FROM.includes(state);
+}
+
+/**
  * Maps Frappe role names → the workflow states they can act on + the
  * workflow action strings to use with apply_workflow.
  *

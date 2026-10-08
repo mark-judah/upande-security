@@ -3,7 +3,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { StatusChip } from '@/components/ui/StatusChip';
 import type { Appointment } from '@/lib/api/types';
 import type { WorkflowState } from '@/constants/workflowStates';
-import { CHECK_IN_ALLOWED_FROM, TERMINAL_STATES } from '@/constants/workflowStates';
+import { TERMINAL_STATES, canCheckInFrom } from '@/constants/workflowStates';
 import { COLORS, spacing, borderRadius, fontSize } from '@/src/core/theme';
 
 type Props = {
@@ -14,6 +14,8 @@ type Props = {
   busy?: boolean;
   /** When set, CHECK IN is disabled and this message is shown instead of the button being active. Visitor flow only — issuing a physical badge before letting someone in. */
   checkInBlockedReason?: string;
+  /** feature_visitor_approval_workflow - when false, CHECK IN is offered without waiting for the host. */
+  approvalRequired?: boolean;
 };
 
 function resolveState(a: Appointment): WorkflowState {
@@ -29,6 +31,7 @@ export function ActionButtons({
   onCheckIn,
   busy,
   checkInBlockedReason,
+  approvalRequired = true,
 }: Props) {
   if (loading || !appointment) {
     return (
@@ -50,7 +53,7 @@ export function ActionButtons({
   }
 
   // ── Host approved → CHECK IN ────────────────────────────────────
-  if (CHECK_IN_ALLOWED_FROM.includes(state)) {
+  if (canCheckInFrom(state, approvalRequired)) {
     const blocked = Boolean(checkInBlockedReason);
     return (
       <View style={{ marginVertical: spacing.sm }}>
@@ -72,7 +75,11 @@ export function ActionButtons({
             color={blocked ? COLORS.warn : COLORS.primary}
           />
           <Text style={{ color: COLORS.text, fontSize: fontSize.sm, marginLeft: spacing.sm, flex: 1, fontWeight: '600' }}>
-            {blocked ? checkInBlockedReason : 'Visit approved — check the visitor in.'}
+            {blocked
+              ? checkInBlockedReason
+              : approvalRequired
+                ? 'Visit approved — check the visitor in.'
+                : 'No host approval needed — check the visitor in.'}
           </Text>
         </View>
         <TouchableOpacity

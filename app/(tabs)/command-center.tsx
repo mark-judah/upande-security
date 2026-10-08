@@ -2,6 +2,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Screen } from '@/src/core/ui/Screen';
+import { useFeatureFlag } from '@/lib/hooks/useSessionInfo';
 import { borderRadius, COLORS, fontFamily, fontSize, spacing } from '@/src/core/theme';
 
 // Sub-screens are top-level Stack routes (app/command-center-*.tsx),
@@ -54,13 +55,18 @@ const ENTRIES: {
 ];
 
 export default function CommandCenterScreen() {
+  const stickersEnabled = useFeatureFlag('feature_vehicle_stickers');
+  const supplierBadgesEnabled = useFeatureFlag('feature_supplier_badges');
+  const entries = ENTRIES.filter(
+    (e) => (e.key !== 'stickers' || stickersEnabled) && (e.key !== 'badges' || supplierBadgesEnabled),
+  );
   return (
     <Screen title="Command Center">
       <Text style={s.intro}>
         Admin-facing tools for shift planning, incident oversight, and gate approvals.
       </Text>
 
-      {ENTRIES.map((entry) => (
+      {entries.map((entry) => (
         <Pressable
           key={entry.key}
           onPress={() => router.push(entry.route)}

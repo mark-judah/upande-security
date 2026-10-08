@@ -3,6 +3,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useDailySummary } from '@/lib/hooks/useDailySummary';
 import { useCheckOut } from '@/lib/hooks/useCheckOut';
 import { useStaffAttendanceSummary } from '@/lib/hooks/useStaffAttendanceSummary';
+import { useFeatureFlag } from '@/lib/hooks/useSessionInfo';
 import { InsideCard } from '@/components/gate/InsideCard';
 import { useItemsAwareCheckOut } from '@/components/gate/CheckOutItemsSheet';
 import { ActivityRow } from '@/components/gate/ActivityRow';
@@ -35,7 +36,8 @@ function StatCard({
 export default function SummaryTab() {
   const today = new Date();
   const { data, isFetching, isLoading, refetch, error } = useDailySummary(today);
-  const staffAttendance = useStaffAttendanceSummary();
+  const staffCheckinEnabled = useFeatureFlag('feature_staff_checkin');
+  const staffAttendance = useStaffAttendanceSummary(staffCheckinEnabled);
   const checkOut = useCheckOut();
   const itemsCheckOut = useItemsAwareCheckOut();
 
@@ -79,7 +81,7 @@ export default function SummaryTab() {
     <Screen
       title="Summary"
       onRefresh={async () => {
-        await Promise.all([refetch(), staffAttendance.refetch()]);
+        await Promise.all([refetch(), staffCheckinEnabled ? staffAttendance.refetch() : null]);
       }}
     >
       {itemsCheckOut.sheet}
@@ -143,7 +145,7 @@ export default function SummaryTab() {
             </View>
           ) : null}
 
-          {staffAttendance.error ? (
+          {staffCheckinEnabled && staffAttendance.error ? (
             <View style={s.errorBox}>
               <Text style={s.errorText}>
                 {staffAttendance.error instanceof Error
@@ -153,7 +155,7 @@ export default function SummaryTab() {
             </View>
           ) : null}
 
-          {staffAttendance.data && staffAttendance.data.length > 0 ? (
+          {staffCheckinEnabled && staffAttendance.data && staffAttendance.data.length > 0 ? (
             <View style={{ marginBottom: spacing.lg }}>
               <View style={s.sectionHeader}>
                 <Ionicons name="id-card-outline" size={18} color={COLORS.textOnPrimary} />

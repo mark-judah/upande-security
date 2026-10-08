@@ -5,7 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { COLORS, fontFamily, fontSize } from '@/src/core/theme';
 import { AnimatedTabIcon } from '@/src/core/ui/AnimatedTabIcon';
 import { useIsApprover } from '@/lib/hooks/usePendingApprovals';
-import { useHasCommandCenterAccess } from '@/lib/hooks/useSessionInfo';
+import { useFeatureFlag, useHasCommandCenterAccess } from '@/lib/hooks/useSessionInfo';
 
 type TabIconPair = {
   outline: keyof typeof Ionicons.glyphMap;
@@ -25,7 +25,10 @@ const ICONS: Record<string, TabIconPair> = {
 
 export default function TabsLayout() {
   const insets = useSafeAreaInsets();
+  // Approvals only exists while hosts approve visits (feature_visitor_approval_workflow).
   const isApprover = useIsApprover();
+  const approvalWorkflowEnabled = useFeatureFlag('feature_visitor_approval_workflow');
+  const showApprovals = isApprover && approvalWorkflowEnabled;
   const hasCommandCenterAccess = useHasCommandCenterAccess();
 
   return (
@@ -75,7 +78,7 @@ export default function TabsLayout() {
       {/* Role-gated — only Secretary / Department Head see this in the drawer. */}
       <Tabs.Screen
         name="approvals"
-        options={{ title: 'Approvals', href: isApprover ? undefined : null }}
+        options={{ title: 'Approvals', href: showApprovals ? undefined : null }}
       />
       {/* Role-gated — Security Head / System Manager, or anyone allow-listed
        *  in Security Ops Settings (has_command_center_access). Drawer-only,

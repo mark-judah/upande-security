@@ -8,6 +8,7 @@ import { useStaffAttendance } from '@/lib/hooks/useStaffAttendance';
 import { useStaffCheckOut } from '@/lib/hooks/useStaffCheckOut';
 import { useStaffTempExit } from '@/lib/hooks/useStaffTempExit';
 import { useStaffStickerScan } from '@/lib/hooks/useStaffStickerScan';
+import { useFeatureFlag } from '@/lib/hooks/useSessionInfo';
 import { useGateStore } from '@/lib/stores/gateStore';
 import { extractEmployeeId } from '@/lib/utils/qr';
 import { fmtTime, getDuration } from '@/lib/utils/date';
@@ -33,6 +34,8 @@ export function StaffCheckInPanel() {
   const pendingStaffSticker = useGateStore((s) => s.pendingScannedStaffSticker);
   const setPendingStaffSticker = useGateStore((s) => s.setPendingScannedStaffSticker);
   const stickerScan = useStaffStickerScan();
+  const stickersEnabled = useFeatureFlag('feature_vehicle_stickers');
+  const tempExitEnabled = useFeatureFlag('feature_gate_temp_exit');
 
   useEffect(() => {
     if (pendingEmployee) {
@@ -298,35 +301,37 @@ export function StaffCheckInPanel() {
           </Text>
         </TouchableOpacity>
 
-        <TouchableOpacity
-          onPress={() => router.push('/scan?intent=staffSticker')}
-          activeOpacity={0.8}
-          accessibilityRole="button"
-          style={{
-            borderWidth: 1,
-            borderColor: COLORS.primary,
-            paddingVertical: 14,
-            borderRadius: borderRadius.lg,
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'center',
-            minHeight: 48,
-            marginTop: spacing.sm,
-          }}
-        >
-          <Ionicons name="car-sport-outline" size={20} color={COLORS.primary} />
-          <Text
+        {stickersEnabled ? (
+          <TouchableOpacity
+            onPress={() => router.push('/scan?intent=staffSticker')}
+            activeOpacity={0.8}
+            accessibilityRole="button"
             style={{
-              color: COLORS.primary,
-              fontFamily: fontFamily.bold,
-              marginLeft: spacing.sm,
-              fontSize: fontSize.sm,
-              letterSpacing: 0.5,
+              borderWidth: 1,
+              borderColor: COLORS.primary,
+              paddingVertical: 14,
+              borderRadius: borderRadius.lg,
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              minHeight: 48,
+              marginTop: spacing.sm,
             }}
           >
-            SCAN VEHICLE STICKER
-          </Text>
-        </TouchableOpacity>
+            <Ionicons name="car-sport-outline" size={20} color={COLORS.primary} />
+            <Text
+              style={{
+                color: COLORS.primary,
+                fontFamily: fontFamily.bold,
+                marginLeft: spacing.sm,
+                fontSize: fontSize.sm,
+                letterSpacing: 0.5,
+              }}
+            >
+              SCAN VEHICLE STICKER
+            </Text>
+          </TouchableOpacity>
+        ) : null}
 
         <Text style={{ textAlign: 'center', color: COLORS.textMuted, marginVertical: 10, fontSize: fontSize.xs, fontFamily: fontFamily.regular }}>
           Or enter employee ID manually
@@ -549,28 +554,30 @@ export function StaffCheckInPanel() {
           ) : null}
 
           <View style={{ flexDirection: 'row', gap: 8, marginTop: 14 }}>
-            <TouchableOpacity
-              onPress={onTempExit}
-              disabled={tempExit.isPending}
-              activeOpacity={0.8}
-              accessibilityRole="button"
-              style={{
-                flex: 1,
-                backgroundColor: steppedOut ? COLORS.success : COLORS.warn,
-                opacity: tempExit.isPending ? 0.6 : 1,
-                borderRadius: borderRadius.md,
-                paddingVertical: spacing.lg,
-                minHeight: 52,
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexDirection: 'row',
-              }}
-            >
-              <Ionicons name={steppedOut ? 'log-in-outline' : 'walk-outline'} size={18} color={COLORS.textOnPrimary} />
-              <Text style={{ color: COLORS.textOnPrimary, fontFamily: fontFamily.semiBold, marginLeft: 6, letterSpacing: 0.5, fontSize: fontSize.sm }}>
-                {steppedOut ? 'RETURN' : 'STEP OUT'}
-              </Text>
-            </TouchableOpacity>
+            {tempExitEnabled ? (
+              <TouchableOpacity
+                onPress={onTempExit}
+                disabled={tempExit.isPending}
+                activeOpacity={0.8}
+                accessibilityRole="button"
+                style={{
+                  flex: 1,
+                  backgroundColor: steppedOut ? COLORS.success : COLORS.warn,
+                  opacity: tempExit.isPending ? 0.6 : 1,
+                  borderRadius: borderRadius.md,
+                  paddingVertical: spacing.lg,
+                  minHeight: 52,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexDirection: 'row',
+                }}
+              >
+                <Ionicons name={steppedOut ? 'log-in-outline' : 'walk-outline'} size={18} color={COLORS.textOnPrimary} />
+                <Text style={{ color: COLORS.textOnPrimary, fontFamily: fontFamily.semiBold, marginLeft: 6, letterSpacing: 0.5, fontSize: fontSize.sm }}>
+                  {steppedOut ? 'RETURN' : 'STEP OUT'}
+                </Text>
+              </TouchableOpacity>
+            ) : null}
 
             <TouchableOpacity
               onPress={onCheckOut}

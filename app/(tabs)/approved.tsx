@@ -54,6 +54,7 @@ function ApprovedCard({
   // that reached Approved by Host would land on the same badge gate as a
   // Visitor. Gated behind VISITOR_BADGE_ENABLED — see constants/featureFlags.ts.
   const visitorBadgesEnabled = useFeatureFlag('feature_visitor_badges');
+  const hostReceiptEnabled = useFeatureFlag('feature_host_receipt_confirmation');
   const requiresBadge =
     VISITOR_BADGE_ENABLED && visitorBadgesEnabled && item.custom_visitor_type !== 'Contractor';
   // Same client-side gate as the Gate tab: a visitor badge must be issued
@@ -131,7 +132,7 @@ function ApprovedCard({
           <IssueVisitorBadge
             appointmentName={item.name}
             currentBadge={item.custom_visitor_badge_number ?? undefined}
-            hostReceivedAt={item.custom_host_received_time}
+            hostReceivedAt={hostReceiptEnabled ? item.custom_host_received_time : undefined}
           />
         ) : null}
 
