@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { Alert } from 'react-native';
+import { Alert, AppState } from 'react-native';
 import { useAuthStore } from '@/lib/stores/authStore';
 import { useFeatureFlag } from '@/lib/hooks/useSessionInfo';
 import { startSosListener, stopSosListener } from '@/lib/services/sos';
@@ -52,6 +52,17 @@ export function useSosWatcher(): void {
   useEffect(() => {
     if (!hasSession) return;
     refreshEmergencyContact().catch(() => {});
+    // Gate phones stay logged in for days, so a login-time fetch alone keeps
+    // dialling the old number long after Security Ops Settings is changed.
+    // Re-fetch whenever the app returns to the foreground, at most every
+    // 10 minutes.
+    let lastRefresh = Date.now();
+    const sub = AppState.addEventListener('change', (next) => {
+      if (next !== 'active' || Date.now() - lastRefresh < 10 * 60 * 1000) return;
+      lastRefresh = Date.now();
+      refreshEmergencyContact().catch(() => {});
+    });
+    return () => sub.remove();
   }, [hasSession]);
 
   useEffect(() => {

@@ -3,6 +3,7 @@ import { AppState, type AppStateStatus } from 'react-native';
 import { login as apiLogin, logout as apiLogout, fetchUserRoles } from '@/lib/api/auth';
 import { storage, StorageKeys } from '@/src/core/storage';
 import * as Biometric from '@/src/core/biometric';
+import { clearEmergencyContact } from '@/lib/utils/emergencyContactCache';
 
 type AuthState = {
   // Legacy shape — preserved for existing screens.
@@ -119,6 +120,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     // Soft logout — keeps cookie + biometric flag so the user can return via
     // biometric unlock. forgetDevice() is the hard variant.
     await apiLogout();
+    // The SOS number belongs to this login - the next guard on a shared gate
+    // phone gets their own on login.
+    await clearEmergencyContact();
     set({
       user: null,
       isAuthenticated: false,
@@ -138,6 +142,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       storage.remove(StorageKeys.cookie),
       storage.remove(StorageKeys.instanceUrl),
       storage.remove(StorageKeys.userRoles),
+      clearEmergencyContact(),
     ]);
     set({
       user: null,

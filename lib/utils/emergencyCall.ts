@@ -1,10 +1,15 @@
 import { Linking, PermissionsAndroid, Platform } from 'react-native';
 import * as IntentLauncher from 'expo-intent-launcher';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { isAxiosError } from 'axios';
 import { api } from '@/lib/services/api';
-
-const CACHED_CONTACT_KEY = 'emergency_contact_number';
-const CACHED_COMPANY_KEY = 'emergency_contact_company';
+import {
+  CACHED_COMPANY_KEY,
+  CACHED_CONTACT_KEY,
+  CACHED_OWNER_KEY,
+  clearEmergencyContact,
+  currentOwner,
+} from '@/lib/utils/emergencyContactCache';
 
 export type EmergencyCallResult =
   | { placed: true; method: 'auto' }
@@ -29,25 +34,36 @@ export async function refreshEmergencyContact(): Promise<void> {
   try {
     const contact = await api.getSecurityHeadContact();
     if (contact?.phone) {
-      await AsyncStorage.setItem(CACHED_CONTACT_KEY, contact.phone);
+      await AsyncStorage.multiSet([
+        [CACHED_CONTACT_KEY, contact.phone],
+        [CACHED_COMPANY_KEY, contact.company ?? ''],
+        [CACHED_OWNER_KEY, await currentOwner()],
+      ]);
+    } else {
+      await clearEmergencyContact();
     }
-    if (contact?.company) {
-      await AsyncStorage.setItem(CACHED_COMPANY_KEY, contact.company);
-    }
-  } catch {
-    // No Security Head/fallback configured for this company/farm yet
-    // (get_security_head_contact.py itself now falls back to a random
-    // guard's company when this login isn't linked to one, so a real
-    // error here means Security Ops Settings genuinely has nothing
-    // configured for any company), or offline — keep whatever was
-    // cached before.
+  } catch (e) {
+    // Offline or a transport failure: keep the last number - an SOS must
+    // still be able to dial something without a network.
+    if (isAxiosError(e)) return;
+    // The server answered, and said this login has no contact (no Security
+    // Head and no Fallback Contacts row for its company, or the login is not
+    // linked to a guard at all). Keeping the old number here is what left
+    // phones dialling stale numbers, so drop it: a blank dialer is the safer
+    // failure, see callEmergencyNumber.
+    await clearEmergencyContact();
   }
 }
 
-/** Null when no live contact has ever been cached — see callEmergencyNumber. */
+/** Null when nothing is cached for THIS site + login — see callEmergencyNumber. */
 async function resolveEmergencyNumber(): Promise<string | null> {
   try {
-    return await AsyncStorage.getItem(CACHED_CONTACT_KEY);
+    const [number, owner] = await Promise.all([
+      AsyncStorage.getItem(CACHED_CONTACT_KEY),
+      AsyncStorage.getItem(CACHED_OWNER_KEY),
+    ]);
+    if (!number || owner !== (await currentOwner())) return null;
+    return number;
   } catch {
     return null;
   }
