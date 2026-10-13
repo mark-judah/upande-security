@@ -13,6 +13,8 @@ import { useVerifyDispatchBulk } from '@/lib/hooks/useVerifyDispatchBulk';
 import { useGateStore } from '@/lib/stores/gateStore';
 import { extractDispatchReference } from '@/lib/utils/qr';
 import { useFeedback } from '@/lib/hooks/useFeedback';
+import { useSessionInfo } from '@/lib/hooks/useSessionInfo';
+import { GatePicker } from '@/components/gate/GatePicker';
 import { DispatchLookup } from './DispatchLookup';
 import { DispatchResultCard } from './DispatchResultCard';
 import { DispatchRelatedVerify } from './DispatchRelatedVerify';
@@ -62,6 +64,10 @@ export function DispatchGatePanel() {
   const [driverName, setDriverName] = useState('');
 
   const feedback = useFeedback();
+  const sessionInfo = useSessionInfo();
+  const ownFarm = sessionInfo.data?.checking_farm ?? sessionInfo.data?.employee?.custom_farm ?? null;
+  // Kept between checks - a guard normally works one gate for the shift.
+  const [gate, setGate] = useState<string | null>(null);
   const search = useDispatchSearch();
   const verify = useVerifyDispatch();
   const verifyBulk = useVerifyDispatchBulk();
@@ -155,6 +161,7 @@ export function DispatchGatePanel() {
           gate_arrival_time: gateArrivalTime || undefined,
           vehicle_no: vehicleNo.trim() || undefined,
           driver_name: driverName.trim() || undefined,
+          gate: gate ?? undefined,
         },
       });
       setFound(null);
@@ -185,6 +192,7 @@ export function DispatchGatePanel() {
         gate_arrival_time: gateArrivalTime || undefined,
         vehicle_no: vehicleNo.trim() || undefined,
         driver_name: driverName.trim() || undefined,
+        gate: gate ?? undefined,
       },
     });
   }
@@ -311,6 +319,7 @@ export function DispatchGatePanel() {
         </View>
       ) : found ? (
         <>
+          <GatePicker farm={ownFarm} value={gate} onChange={setGate} label="Gate" />
           <DispatchResultCard
             result={found}
             onDecide={onDecide}

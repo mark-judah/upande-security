@@ -11,6 +11,8 @@ import { useVehicleTaskSearch } from '@/lib/hooks/useVehicleTaskSearch';
 import { useVerifyVehicleTask } from '@/lib/hooks/useVerifyVehicleTask';
 import { useGateStore } from '@/lib/stores/gateStore';
 import { useFeedback } from '@/lib/hooks/useFeedback';
+import { useSessionInfo } from '@/lib/hooks/useSessionInfo';
+import { GatePicker } from '@/components/gate/GatePicker';
 import { VehicleTaskLookup } from './VehicleTaskLookup';
 import { VehicleTaskResultCard } from './VehicleTaskResultCard';
 import { COLORS, borderRadius, fontFamily, fontSize, spacing } from '@/src/core/theme';
@@ -32,6 +34,10 @@ export function VehicleGatePanel() {
   const [matchedRef, setMatchedRef] = useState('');
 
   const feedback = useFeedback();
+  const sessionInfo = useSessionInfo();
+  const ownFarm = sessionInfo.data?.checking_farm ?? sessionInfo.data?.employee?.custom_farm ?? null;
+  // Kept between checks - a guard normally works one gate for the shift.
+  const [gate, setGate] = useState<string | null>(null);
   const search = useVehicleTaskSearch();
   const verify = useVerifyVehicleTask();
 
@@ -95,6 +101,7 @@ export function VehicleGatePanel() {
           movement_type: movement,
           gate_verification_status: status,
           remarks: remarks || undefined,
+          gate: gate ?? undefined,
         },
       });
       setFound(null);
@@ -166,12 +173,15 @@ export function VehicleGatePanel() {
           </TouchableOpacity>
         </View>
       ) : found ? (
-        <VehicleTaskResultCard
-          result={found}
-          onDecide={onDecide}
-          busy={verify.isPending}
-          onReset={reset}
-        />
+        <>
+          <GatePicker farm={ownFarm} value={gate} onChange={setGate} label="Gate" />
+          <VehicleTaskResultCard
+            result={found}
+            onDecide={onDecide}
+            busy={verify.isPending}
+            onReset={reset}
+          />
+        </>
       ) : notFoundQuery != null ? (
         <View
           style={{

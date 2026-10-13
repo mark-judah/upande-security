@@ -116,7 +116,7 @@ export default function GateTab() {
   // farm, matching check_in_visitor.py's own custom_farmunit stamping.
   const [visitorEntryGate, setVisitorEntryGate] = useState<string | null>(null);
   const sessionInfo = useSessionInfo();
-  const ownFarm = sessionInfo.data?.employee?.custom_farm ?? null;
+  const ownFarm = sessionInfo.data?.checking_farm ?? sessionInfo.data?.employee?.custom_farm ?? null;
   // Per-instance feature flags — hide the corresponding chip/panel entirely
   // (not just disable) when an instance doesn't want that feature.
   const contractorCheckinEnabled = useFeatureFlag('feature_contractor_checkin');

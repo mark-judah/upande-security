@@ -9,7 +9,8 @@ import type {
 import { useReceivingSearch } from '@/lib/hooks/useReceivingSearch';
 import { useVerifyReceiving } from '@/lib/hooks/useVerifyReceiving';
 import { useIssueSupplierBadgeForReceiving } from '@/lib/hooks/useIssueSupplierBadgeForReceiving';
-import { useFeatureFlag } from '@/lib/hooks/useSessionInfo';
+import { useFeatureFlag, useSessionInfo } from '@/lib/hooks/useSessionInfo';
+import { GatePicker } from '@/components/gate/GatePicker';
 import { useGateStore } from '@/lib/stores/gateStore';
 import { extractReceivingReference } from '@/lib/utils/qr';
 import { useFeedback } from '@/lib/hooks/useFeedback';
@@ -37,6 +38,10 @@ export function ReceivingGatePanel() {
   const [issuedBadge, setIssuedBadge] = useState<{ badge_number: number } | null>(null);
 
   const feedback = useFeedback();
+  const sessionInfo = useSessionInfo();
+  const ownFarm = sessionInfo.data?.checking_farm ?? sessionInfo.data?.employee?.custom_farm ?? null;
+  // Kept between checks - a guard normally works one gate for the shift.
+  const [gate, setGate] = useState<string | null>(null);
   const search = useReceivingSearch();
   const verify = useVerifyReceiving();
   const issueBadge = useIssueSupplierBadgeForReceiving();
@@ -107,6 +112,7 @@ export function ReceivingGatePanel() {
           vehicle_no: vehicleNo || undefined,
           driver_name: driverName || undefined,
           remarks: remarks || undefined,
+          gate: gate ?? undefined,
         },
         context: {
           purchase_order: found.purchase_order,
@@ -273,7 +279,10 @@ export function ReceivingGatePanel() {
           </TouchableOpacity>
         </View>
       ) : found ? (
-        <ReceivingResultCard result={found} onDecide={onDecide} busy={verify.isPending} onReset={reset} />
+        <>
+          <GatePicker farm={ownFarm} value={gate} onChange={setGate} label="Gate" />
+          <ReceivingResultCard result={found} onDecide={onDecide} busy={verify.isPending} onReset={reset} />
+        </>
       ) : notFoundQuery != null ? (
         <View
           style={{

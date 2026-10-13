@@ -9,6 +9,7 @@ type Input = {
   gate_arrival_time?: string;
   vehicle_no?: string;
   driver_name?: string;
+  gate?: string;
 };
 
 /**

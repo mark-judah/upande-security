@@ -25,8 +25,10 @@ export function GatePicker({ farm, value, onChange, label = 'Gate' }: Props) {
   // Auto-select the only gate (or the main gate, since get_farm_gates
   // already sorts main-gate-first) as soon as it's known, so single-gate
   // farms never need the guard to make a choice.
+  // Also re-select when the current value is not one of this farm's gates -
+  // a gate kept from a different farm must not keep being sent.
   useEffect(() => {
-    if (!value && gates && gates.length >= 1) {
+    if (gates && gates.length >= 1 && (!value || !gates.some((g) => g.gate_name === value))) {
       onChange(gates[0].gate_name);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

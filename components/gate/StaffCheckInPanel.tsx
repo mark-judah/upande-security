@@ -44,7 +44,7 @@ export function StaffCheckInPanel() {
   const stickersEnabled = useFeatureFlag('feature_vehicle_stickers');
   const tempExitEnabled = useFeatureFlag('feature_gate_temp_exit');
   const sessionInfo = useSessionInfo();
-  const ownFarm = sessionInfo.data?.employee?.custom_farm ?? null;
+  const ownFarm = sessionInfo.data?.checking_farm ?? sessionInfo.data?.employee?.custom_farm ?? null;
 
   // One scanner for both: a staff badge (Employee QR) or a staff vehicle
   // sticker. An Employee URL is unambiguous; anything else is tried as a

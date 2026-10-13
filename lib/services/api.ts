@@ -147,6 +147,9 @@ export type SessionInfo = {
   // fail-open read pattern every caller should use instead of reading this
   // directly.
   features?: Partial<SecurityFeatureFlags>;
+  /** Farm whose gate this login checks at (Employee, else Security Guard).
+   * Absent on servers predating it - fall back to employee.custom_farm. */
+  checking_farm?: string | null;
   employee:
     | {
         name?: string;
@@ -859,6 +862,8 @@ export type VerifyDispatchInput = {
   reference: string;
   gate_verification_status: GateVerificationStatus;
   remarks?: string;
+  /** Gate picked by the guard; the server defaults to the farm's main gate. */
+  gate?: string;
   item_checks?: DispatchItemCheckInput[];
   /** ISO timestamp captured client-side the moment the guard's search
    * found a match — distinct from gate_exit_time, which the server stamps
@@ -940,6 +945,8 @@ export type VerifyReceivingInput = {
   vehicle_no?: string;
   driver_name?: string;
   remarks?: string;
+  /** Gate picked by the guard; the server defaults to the farm's main gate. */
+  gate?: string;
 };
 export type VerifyReceivingResult = {
   name: string;
@@ -1003,6 +1010,8 @@ export type VerifyVehicleTaskInput = {
   movement_type: VehicleMovementType;
   gate_verification_status: GateVerificationStatus;
   remarks?: string;
+  /** Gate picked by the guard; the server defaults to the farm's main gate. */
+  gate?: string;
 };
 
 export type VerifyVehicleTaskResult = {
@@ -1404,6 +1413,7 @@ export const api = {
     gate_arrival_time?: string;
     vehicle_no?: string;
     driver_name?: string;
+    gate?: string;
   }) =>
     call<VerifyDispatchBulkResult>(
       'upande_security.api.gate_dispatch.verify_dispatch_at_gate_bulk',
