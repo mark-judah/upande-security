@@ -2,12 +2,9 @@ import { Alert, View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useDailySummary } from '@/lib/hooks/useDailySummary';
 import { useCheckOut } from '@/lib/hooks/useCheckOut';
-import { useStaffAttendanceSummary } from '@/lib/hooks/useStaffAttendanceSummary';
-import { useFeatureFlag } from '@/lib/hooks/useSessionInfo';
 import { InsideCard } from '@/components/gate/InsideCard';
 import { useItemsAwareCheckOut } from '@/components/gate/CheckOutItemsSheet';
 import { ActivityRow } from '@/components/gate/ActivityRow';
-import { StaffAttendanceRow } from '@/components/gate/StaffAttendanceRow';
 import { fmtLongDate } from '@/lib/utils/date';
 import { COLORS, fontFamily, fontSize, spacing, borderRadius, shadow } from '@/src/core/theme';
 import { Button } from '@/src/core/ui/Button';
@@ -36,8 +33,6 @@ function StatCard({
 export default function SummaryTab() {
   const today = new Date();
   const { data, isFetching, isLoading, refetch, error } = useDailySummary(today);
-  const staffCheckinEnabled = useFeatureFlag('feature_staff_checkin');
-  const staffAttendance = useStaffAttendanceSummary(staffCheckinEnabled);
   const checkOut = useCheckOut();
   const itemsCheckOut = useItemsAwareCheckOut();
 
@@ -81,7 +76,7 @@ export default function SummaryTab() {
     <Screen
       title="Summary"
       onRefresh={async () => {
-        await Promise.all([refetch(), staffCheckinEnabled ? staffAttendance.refetch() : null]);
+        await refetch();
       }}
     >
       {itemsCheckOut.sheet}
@@ -145,29 +140,8 @@ export default function SummaryTab() {
             </View>
           ) : null}
 
-          {staffCheckinEnabled && staffAttendance.error ? (
-            <View style={s.errorBox}>
-              <Text style={s.errorText}>
-                {staffAttendance.error instanceof Error
-                  ? staffAttendance.error.message
-                  : 'Failed to load staff attendance'}
-              </Text>
-            </View>
-          ) : null}
-
-          {staffCheckinEnabled && staffAttendance.data && staffAttendance.data.length > 0 ? (
-            <View style={{ marginBottom: spacing.lg }}>
-              <View style={s.sectionHeader}>
-                <Ionicons name="id-card-outline" size={18} color={COLORS.textOnPrimary} />
-                <Text style={s.sectionHeaderText}>
-                  Staff Attendance Today ({staffAttendance.data.length})
-                </Text>
-              </View>
-              {staffAttendance.data.map((a) => (
-                <StaffAttendanceRow key={a.name} attendance={a} />
-              ))}
-            </View>
-          ) : null}
+          {/* No staff attendance list here on purpose - the app does not show who
+              is on site. Staff check-in/out happens from the Staff screen. */}
 
           {data.all.length > 0 ? (
             <View>

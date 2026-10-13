@@ -3,7 +3,6 @@ import { searchStaffEmployees } from '@/lib/api/staff';
 import { fetchTodayAttendance } from '@/lib/api/attendance';
 import type { StaffSearchMatch } from '@/lib/services/api';
 import { useFeedback } from '@/lib/hooks/useFeedback';
-import { useCheckedInStaff } from '@/lib/hooks/useCheckedInStaff';
 import { useStaffAttendance } from '@/lib/hooks/useStaffAttendance';
 import { useStaffCheckOut } from '@/lib/hooks/useStaffCheckOut';
 import { useStaffTempExit } from '@/lib/hooks/useStaffTempExit';
@@ -100,7 +99,6 @@ export function StaffCheckInPanel() {
   const attendance = useStaffAttendance();
   const checkOut = useStaffCheckOut(employeeId ?? undefined);
   const tempExit = useStaffTempExit(employeeId ?? undefined);
-  const checkedInStaff = useCheckedInStaff();
 
   const todayAttendanceQuery = useQuery({
     queryKey: ['staff-attendance-today', employeeId],
@@ -244,52 +242,11 @@ export function StaffCheckInPanel() {
         </View>
       );
     }
-    const checkedIn = checkedInStaff.data ?? [];
+    // No list of checked-in staff here on purpose: the gate screen should
+    // not show who is on site. A guard checks someone out by scanning their
+    // badge or sticker (or searching), which loads today's attendance.
     return (
       <View style={{ marginTop: spacing.sm }}>
-        {checkedIn.length > 0 ? (
-          <View style={{ marginBottom: spacing.md }}>
-            <Text
-              style={{
-                fontFamily: fontFamily.semiBold,
-                fontSize: fontSize.sm,
-                color: COLORS.textSecondary,
-                marginBottom: spacing.xs,
-              }}
-            >
-              Currently checked in ({checkedIn.length})
-            </Text>
-            {checkedIn.map((row) => (
-              <TouchableOpacity
-                key={row.name}
-                onPress={() => setEmployeeId(row.employee)}
-                activeOpacity={0.7}
-                accessibilityRole="button"
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  backgroundColor: COLORS.surfaceAlt,
-                  borderRadius: borderRadius.md,
-                  paddingHorizontal: spacing.md,
-                  paddingVertical: 10,
-                  marginBottom: 6,
-                }}
-              >
-                <View style={{ flex: 1 }}>
-                  <Text style={{ fontFamily: fontFamily.semiBold, fontSize: fontSize.sm, color: COLORS.text }}>
-                    {row.employee_name || row.employee}
-                  </Text>
-                  <Text style={{ fontFamily: fontFamily.regular, fontSize: fontSize.xs, color: COLORS.textMuted }}>
-                    {row.employee} · In {fmtTime(row.in_time)} · {getDuration(row.in_time)}
-                    {row.custom_temp_exit_time ? ' · Stepped out' : ''}
-                  </Text>
-                </View>
-                <Ionicons name="chevron-forward" size={18} color={COLORS.textMuted} />
-              </TouchableOpacity>
-            ))}
-          </View>
-        ) : null}
-
         <TouchableOpacity
           onPress={() => router.push('/scan?intent=employee')}
           disabled={resolvingScan}
