@@ -5,8 +5,9 @@ import type { Attendance, Employee } from './types';
 export async function createStaffAttendance(input: {
   employee: Employee;
   vehiclePlate?: string;
+  entryGate?: string;
 }): Promise<Attendance> {
-  const result = await api.createStaffAttendance(input.employee.name, input.vehiclePlate);
+  const result = await api.createStaffAttendance(input.employee.name, input.vehiclePlate, input.entryGate);
   return result as unknown as Attendance;
 }
 
@@ -49,12 +50,12 @@ export async function fetchTodayStaffAttendance(): Promise<Attendance[]> {
  * script since check-in submits the Attendance doc (docstatus=1) and plain
  * field updates on a submitted doc are otherwise blocked.
  */
-export async function checkOutStaffAttendance(attendanceName: string): Promise<{
+export async function checkOutStaffAttendance(attendanceName: string, exitGate?: string): Promise<{
   success: boolean;
   out_time: string;
   working_hours?: number;
 }> {
-  return api.checkOutStaffAttendance(attendanceName);
+  return api.checkOutStaffAttendance(attendanceName, exitGate);
 }
 
 /**

@@ -8,7 +8,8 @@ import { useStaffAttendance } from '@/lib/hooks/useStaffAttendance';
 import { useStaffCheckOut } from '@/lib/hooks/useStaffCheckOut';
 import { useStaffTempExit } from '@/lib/hooks/useStaffTempExit';
 import { useStaffStickerScan } from '@/lib/hooks/useStaffStickerScan';
-import { useFeatureFlag } from '@/lib/hooks/useSessionInfo';
+import { useFeatureFlag, useSessionInfo } from '@/lib/hooks/useSessionInfo';
+import { GatePicker } from '@/components/gate/GatePicker';
 import { useGateStore } from '@/lib/stores/gateStore';
 import { extractEmployeeId } from '@/lib/utils/qr';
 import { fmtTime, getDuration } from '@/lib/utils/date';
@@ -21,60 +22,73 @@ import { COLORS, spacing, borderRadius, fontFamily, fontSize } from '@/src/core/
 
 type StickerVehicleInfo = { vehicleType: string; plateNumber: string; color: string };
 
+// A badge QR names its Employee (.../app/employee/<id>, .../app/print/Employee/<id>).
+const EMPLOYEE_URL = /\/employee\//i;
+// search_staff_vehicle_sticker's answer for a code that is not a sticker at
+// all - as opposed to a real sticker that is suspended/lost/unassigned.
+const NOT_A_STICKER = /^No Staff Vehicle Sticker found/i;
+
 export function StaffCheckInPanel() {
   const [employeeId, setEmployeeId] = useState<string | null>(null);
   const [manualInput, setManualInput] = useState('');
   const [searching, setSearching] = useState(false);
   const [matches, setMatches] = useState<StaffSearchMatch[]>([]);
   const [stickerVehicleInfo, setStickerVehicleInfo] = useState<StickerVehicleInfo | null>(null);
+  const [resolvingScan, setResolvingScan] = useState(false);
+  const [entryGate, setEntryGate] = useState<string | null>(null);
+  const [exitGate, setExitGate] = useState<string | null>(null);
 
   const feedback = useFeedback();
   const pendingEmployee = useGateStore((s) => s.pendingScannedEmployee);
   const setPendingEmployee = useGateStore((s) => s.setPendingScannedEmployee);
-  const pendingStaffSticker = useGateStore((s) => s.pendingScannedStaffSticker);
-  const setPendingStaffSticker = useGateStore((s) => s.setPendingScannedStaffSticker);
   const stickerScan = useStaffStickerScan();
   const stickersEnabled = useFeatureFlag('feature_vehicle_stickers');
   const tempExitEnabled = useFeatureFlag('feature_gate_temp_exit');
+  const sessionInfo = useSessionInfo();
+  const ownFarm = sessionInfo.data?.employee?.custom_farm ?? null;
 
+  // One scanner for both: a staff badge (Employee QR) or a staff vehicle
+  // sticker. An Employee URL is unambiguous; anything else is tried as a
+  // sticker first, and only treated as a bare employee ID when the server
+  // says it is not a sticker at all.
   useEffect(() => {
-    if (pendingEmployee) {
-      const id = extractEmployeeId(pendingEmployee);
-      setPendingEmployee(null);
-      if (id) {
-        setMatches([]);
-        setStickerVehicleInfo(null);
-        setEmployeeId(id);
-      } else {
-        feedback.error('Could not read employee ID from badge');
-      }
+    if (!pendingEmployee) return;
+    const raw = pendingEmployee;
+    setPendingEmployee(null);
+    setMatches([]);
+    setStickerVehicleInfo(null);
+
+    function applyEmployeeId() {
+      const id = extractEmployeeId(raw);
+      if (id) setEmployeeId(id);
+      else feedback.error('Could not read an employee ID or sticker from that code');
     }
+
+    if (EMPLOYEE_URL.test(raw) || !stickersEnabled) {
+      applyEmployeeId();
+      return;
+    }
+    setResolvingScan(true);
+    stickerScan.mutate(raw.trim(), {
+      onSuccess: (result) => {
+        if (result.found) {
+          setStickerVehicleInfo({
+            vehicleType: result.vehicle_type,
+            plateNumber: result.plate_number,
+            color: result.color,
+          });
+          setEmployeeId(result.employee_id);
+        } else if (NOT_A_STICKER.test(result.error)) {
+          applyEmployeeId();
+        } else {
+          feedback.error(result.error);
+        }
+      },
+      onError: () => applyEmployeeId(),
+      onSettled: () => setResolvingScan(false),
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingEmployee]);
-
-  useEffect(() => {
-    if (pendingStaffSticker) {
-      const reference = pendingStaffSticker;
-      setPendingStaffSticker(null);
-      stickerScan.mutate(reference, {
-        onSuccess: (result) => {
-          if (result.found) {
-            setMatches([]);
-            setStickerVehicleInfo({
-              vehicleType: result.vehicle_type,
-              plateNumber: result.plate_number,
-              color: result.color,
-            });
-            setEmployeeId(result.employee_id);
-          } else {
-            feedback.error(result.error);
-          }
-        },
-        onError: (e) => feedback.error(e instanceof Error ? e.message : 'Sticker scan failed'),
-      });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pendingStaffSticker]);
 
   const employeeQuery = useQuery({
     queryKey: ['employee', employeeId],
@@ -104,6 +118,8 @@ export function StaffCheckInPanel() {
     setManualInput('');
     setMatches([]);
     setStickerVehicleInfo(null);
+    setEntryGate(null);
+    setExitGate(null);
   }
 
   function selectMatch(match: StaffSearchMatch) {
@@ -147,6 +163,7 @@ export function StaffCheckInPanel() {
       await attendance.mutateAsync({
         employee: employeeQuery.data,
         vehiclePlate: stickerVehicleInfo?.plateNumber,
+        entryGate: entryGate ?? undefined,
       });
     } catch {
       // feedback handled in the hook
@@ -156,7 +173,7 @@ export function StaffCheckInPanel() {
   async function onCheckOut() {
     if (!openAttendance) return;
     try {
-      await checkOut.mutateAsync(openAttendance.name);
+      await checkOut.mutateAsync({ name: openAttendance.name, exitGate: exitGate ?? undefined });
       reset();
     } catch {
       // feedback handled in the hook
@@ -275,6 +292,7 @@ export function StaffCheckInPanel() {
 
         <TouchableOpacity
           onPress={() => router.push('/scan?intent=employee')}
+          disabled={resolvingScan}
           activeOpacity={0.8}
           accessibilityRole="button"
           style={{
@@ -287,7 +305,11 @@ export function StaffCheckInPanel() {
             minHeight: 60,
           }}
         >
-          <Ionicons name="qr-code-outline" size={24} color={COLORS.textOnPrimary} />
+          {resolvingScan ? (
+            <ActivityIndicator color={COLORS.textOnPrimary} />
+          ) : (
+            <Ionicons name="qr-code-outline" size={24} color={COLORS.textOnPrimary} />
+          )}
           <Text
             style={{
               color: COLORS.textOnPrimary,
@@ -297,41 +319,10 @@ export function StaffCheckInPanel() {
               letterSpacing: 0.5,
             }}
           >
-            SCAN EMPLOYEE BADGE
+            {stickersEnabled ? 'SCAN BADGE OR STICKER' : 'SCAN EMPLOYEE BADGE'}
           </Text>
         </TouchableOpacity>
 
-        {stickersEnabled ? (
-          <TouchableOpacity
-            onPress={() => router.push('/scan?intent=staffSticker')}
-            activeOpacity={0.8}
-            accessibilityRole="button"
-            style={{
-              borderWidth: 1,
-              borderColor: COLORS.primary,
-              paddingVertical: 14,
-              borderRadius: borderRadius.lg,
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'center',
-              minHeight: 48,
-              marginTop: spacing.sm,
-            }}
-          >
-            <Ionicons name="car-sport-outline" size={20} color={COLORS.primary} />
-            <Text
-              style={{
-                color: COLORS.primary,
-                fontFamily: fontFamily.bold,
-                marginLeft: spacing.sm,
-                fontSize: fontSize.sm,
-                letterSpacing: 0.5,
-              }}
-            >
-              SCAN VEHICLE STICKER
-            </Text>
-          </TouchableOpacity>
-        ) : null}
 
         <Text style={{ textAlign: 'center', color: COLORS.textMuted, marginVertical: 10, fontSize: fontSize.xs, fontFamily: fontFamily.regular }}>
           Or enter employee ID manually
@@ -553,6 +544,8 @@ export function StaffCheckInPanel() {
             </View>
           ) : null}
 
+          <GatePicker farm={ownFarm} value={exitGate} onChange={setExitGate} label="Exit Gate" />
+
           <View style={{ flexDirection: 'row', gap: 8, marginTop: 14 }}>
             {tempExitEnabled ? (
               <TouchableOpacity
@@ -604,6 +597,8 @@ export function StaffCheckInPanel() {
           </View>
         </>
       ) : (
+        <>
+        <GatePicker farm={ownFarm} value={entryGate} onChange={setEntryGate} label="Entry Gate" />
         <TouchableOpacity
           onPress={onCheckIn}
           disabled={attendance.isPending}
@@ -626,6 +621,7 @@ export function StaffCheckInPanel() {
             CHECK IN
           </Text>
         </TouchableOpacity>
+        </>
       )}
 
       <TouchableOpacity

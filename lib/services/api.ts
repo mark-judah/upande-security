@@ -1301,15 +1301,16 @@ export const api = {
     call<FarmGate[]>('upande_security.api.gate_movement.get_farm_gates', { farm }),
 
   // Staff attendance
-  createStaffAttendance: (employee: string, vehiclePlate?: string) =>
+  createStaffAttendance: (employee: string, vehiclePlate?: string, entryGate?: string) =>
     call<StaffAttendanceResult>('create_staff_attendance', {
       employee,
       vehicle_plate: vehiclePlate,
+      entry_gate: entryGate,
     }),
   submitStaffAttendance: (name: string) =>
     call<StaffAttendanceResult>('submit_staff_attendance', { name }),
-  checkOutStaffAttendance: (attendance_name: string) =>
-    call<StaffCheckOutResult>('staff_gate_checkout', { attendance_name }),
+  checkOutStaffAttendance: (attendance_name: string, exit_gate?: string) =>
+    call<StaffCheckOutResult>('staff_gate_checkout', { attendance_name, exit_gate }),
   // Staff currently checked in via this app specifically (custom_gate_app_entry=1),
   // not the general Attendance list — feeds the gate checkout picker.
   listCheckedInStaff: () => call<{ staff: CheckedInStaffRow[] }>('list_checked_in_staff'),

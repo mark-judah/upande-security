@@ -122,7 +122,7 @@ export default function ScanModal() {
         <View style={s.frame} />
         <Text style={s.frameHint}>
           {intent === 'employee'
-            ? 'Scan employee badge'
+            ? 'Scan the staff badge or vehicle sticker'
             : intent === 'badge'
               ? 'Scan visitor badge QR'
               : intent === 'asset'
