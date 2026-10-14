@@ -27,6 +27,7 @@ import { useSosWatcher } from '@/lib/hooks/useSosWatcher';
 import { useNearbyGuardAlerts } from '@/lib/hooks/useNearbyGuardAlerts';
 import { useLocationPing } from '@/lib/hooks/useLocationPing';
 import { useScheduledAppUpdate } from '@/lib/hooks/useScheduledAppUpdate';
+import { useAppVersionReporting } from '@/lib/hooks/useAppVersionReporting';
 import { useIsApprover } from '@/lib/hooks/usePendingApprovals';
 import { useFeatureFlag, useHasCommandCenterAccess } from '@/lib/hooks/useSessionInfo';
 import '@/lib/services/patrolTracking';
@@ -125,6 +126,7 @@ export default function RootLayout() {
   useNearbyGuardAlerts();
   useLocationPing();
   useScheduledAppUpdate();
+  useAppVersionReporting();
 
   useEffect(() => {
     if (fontsLoaded && hydrated) {
