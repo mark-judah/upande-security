@@ -1,4 +1,5 @@
 import { fetchEmployee } from '@/lib/api/employees';
+import { useGateFarm } from '@/lib/hooks/useGateFarm';
 import { searchStaffEmployees } from '@/lib/api/staff';
 import { fetchTodayAttendance } from '@/lib/api/attendance';
 import type { StaffSearchMatch } from '@/lib/services/api';
@@ -7,7 +8,7 @@ import { useStaffAttendance } from '@/lib/hooks/useStaffAttendance';
 import { useStaffCheckOut } from '@/lib/hooks/useStaffCheckOut';
 import { useStaffTempExit } from '@/lib/hooks/useStaffTempExit';
 import { useStaffStickerScan } from '@/lib/hooks/useStaffStickerScan';
-import { useFeatureFlag, useSessionInfo } from '@/lib/hooks/useSessionInfo';
+import { useFeatureFlag } from '@/lib/hooks/useSessionInfo';
 import { GatePicker } from '@/components/gate/GatePicker';
 import { useGateStore } from '@/lib/stores/gateStore';
 import { extractEmployeeId } from '@/lib/utils/qr';
@@ -43,8 +44,7 @@ export function StaffCheckInPanel() {
   const stickerScan = useStaffStickerScan();
   const stickersEnabled = useFeatureFlag('feature_vehicle_stickers');
   const tempExitEnabled = useFeatureFlag('feature_gate_temp_exit');
-  const sessionInfo = useSessionInfo();
-  const ownFarm = sessionInfo.data?.checking_farm ?? sessionInfo.data?.employee?.custom_farm ?? null;
+  const ownFarm = useGateFarm().farm;
 
   // One scanner for both: a staff badge (Employee QR) or a staff vehicle
   // sticker. An Employee URL is unambiguous; anything else is tried as a

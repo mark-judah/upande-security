@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useGateFarm } from '@/lib/hooks/useGateFarm';
 import { Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type {
@@ -13,7 +14,6 @@ import { useVerifyDispatchBulk } from '@/lib/hooks/useVerifyDispatchBulk';
 import { useGateStore } from '@/lib/stores/gateStore';
 import { extractDispatchReference } from '@/lib/utils/qr';
 import { useFeedback } from '@/lib/hooks/useFeedback';
-import { useSessionInfo } from '@/lib/hooks/useSessionInfo';
 import { GatePicker } from '@/components/gate/GatePicker';
 import { DispatchLookup } from './DispatchLookup';
 import { DispatchResultCard } from './DispatchResultCard';
@@ -64,8 +64,7 @@ export function DispatchGatePanel() {
   const [driverName, setDriverName] = useState('');
 
   const feedback = useFeedback();
-  const sessionInfo = useSessionInfo();
-  const ownFarm = sessionInfo.data?.checking_farm ?? sessionInfo.data?.employee?.custom_farm ?? null;
+  const ownFarm = useGateFarm().farm;
   // Kept between checks - a guard normally works one gate for the shift.
   const [gate, setGate] = useState<string | null>(null);
   const search = useDispatchSearch();

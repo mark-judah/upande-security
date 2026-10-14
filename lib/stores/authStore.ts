@@ -4,6 +4,7 @@ import { login as apiLogin, logout as apiLogout, fetchUserRoles } from '@/lib/ap
 import { storage, StorageKeys } from '@/src/core/storage';
 import * as Biometric from '@/src/core/biometric';
 import { clearEmergencyContact } from '@/lib/utils/emergencyContactCache';
+import { useFarmStore } from '@/lib/stores/farmStore';
 
 type AuthState = {
   // Legacy shape — preserved for existing screens.
@@ -123,6 +124,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     // The SOS number belongs to this login - the next guard on a shared gate
     // phone gets their own on login.
     await clearEmergencyContact();
+    // A chosen farm belongs to this login, not the device.
+    await useFarmStore.getState().setFarm(null);
     set({
       user: null,
       isAuthenticated: false,
@@ -143,6 +146,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       storage.remove(StorageKeys.instanceUrl),
       storage.remove(StorageKeys.userRoles),
       clearEmergencyContact(),
+      useFarmStore.getState().setFarm(null),
     ]);
     set({
       user: null,

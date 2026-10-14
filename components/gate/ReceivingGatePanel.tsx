@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useGateFarm } from '@/lib/hooks/useGateFarm';
 import { ActivityIndicator, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type {
@@ -9,7 +10,7 @@ import type {
 import { useReceivingSearch } from '@/lib/hooks/useReceivingSearch';
 import { useVerifyReceiving } from '@/lib/hooks/useVerifyReceiving';
 import { useIssueSupplierBadgeForReceiving } from '@/lib/hooks/useIssueSupplierBadgeForReceiving';
-import { useFeatureFlag, useSessionInfo } from '@/lib/hooks/useSessionInfo';
+import { useFeatureFlag } from '@/lib/hooks/useSessionInfo';
 import { GatePicker } from '@/components/gate/GatePicker';
 import { useGateStore } from '@/lib/stores/gateStore';
 import { extractReceivingReference } from '@/lib/utils/qr';
@@ -38,8 +39,7 @@ export function ReceivingGatePanel() {
   const [issuedBadge, setIssuedBadge] = useState<{ badge_number: number } | null>(null);
 
   const feedback = useFeedback();
-  const sessionInfo = useSessionInfo();
-  const ownFarm = sessionInfo.data?.checking_farm ?? sessionInfo.data?.employee?.custom_farm ?? null;
+  const ownFarm = useGateFarm().farm;
   // Kept between checks - a guard normally works one gate for the shift.
   const [gate, setGate] = useState<string | null>(null);
   const search = useReceivingSearch();

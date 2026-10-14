@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
+import { FarmPicker } from '@/components/gate/FarmPicker';
+import { useGateFarm } from '@/lib/hooks/useGateFarm';
 import { View, Text, Platform, Keyboard, Pressable, ActivityIndicator, Alert, StyleSheet, RefreshControl } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { router } from 'expo-router';
@@ -46,7 +48,7 @@ import {
   type PassengerDraft,
 } from '@/components/gate/PassengersItemsSection';
 import { useFeedback } from '@/lib/hooks/useFeedback';
-import { useSessionInfo, useFeatureFlag } from '@/lib/hooks/useSessionInfo';
+import { useFeatureFlag } from '@/lib/hooks/useSessionInfo';
 import { GatePicker } from '@/components/gate/GatePicker';
 import { useGateStore } from '@/lib/stores/gateStore';
 import { toFrappeDateTime, fmtDateTime } from '@/lib/utils/date';
@@ -115,8 +117,7 @@ export default function GateTab() {
   // picker is scoped to this (the guard's own farm), not the appointment's
   // farm, matching check_in_visitor.py's own custom_farmunit stamping.
   const [visitorEntryGate, setVisitorEntryGate] = useState<string | null>(null);
-  const sessionInfo = useSessionInfo();
-  const ownFarm = sessionInfo.data?.checking_farm ?? sessionInfo.data?.employee?.custom_farm ?? null;
+  const ownFarm = useGateFarm().farm;
   // Per-instance feature flags — hide the corresponding chip/panel entirely
   // (not just disable) when an instance doesn't want that feature.
   const contractorCheckinEnabled = useFeatureFlag('feature_contractor_checkin');
@@ -599,6 +600,7 @@ export default function GateTab() {
         refreshControl={<RefreshControl refreshing={updateBusy} onRefresh={onCheckForUpdates} />}
       >
         <View style={s.card}>
+          <FarmPicker />
           <HeaderSelectors
             selected={selectedType}
             onSelect={onTypeSelect}

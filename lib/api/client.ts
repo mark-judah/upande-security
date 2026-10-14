@@ -2,6 +2,7 @@ import axios, { AxiosError } from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
 import { useAuthStore } from '@/lib/stores/authStore';
+import { useFarmStore } from '@/lib/stores/farmStore';
 
 const api = axios.create({ timeout: 30000 });
 
@@ -35,6 +36,20 @@ api.interceptors.request.use(async (config) => {
   config.headers.Cookie = cookie;
   config.headers['Content-Type'] = config.headers['Content-Type'] || 'application/json';
   config.headers['X-Frappe-CSRF-Token'] = 'token';
+
+  // The farm a guard with no linked farm chose on the Gate tab. Sent with
+  // every request; the server ignores it whenever the login has a farm.
+  const chosenFarm = useFarmStore.getState().farm;
+  if (chosenFarm) {
+    const data = config.data;
+    if (data && typeof data === 'object' && !Array.isArray(data) && !(data instanceof FormData)) {
+      config.data = { ...data, checking_farm: chosenFarm };
+    } else if (!data && (config.method ?? 'get').toLowerCase() === 'post') {
+      config.data = { checking_farm: chosenFarm };
+    } else if ((config.method ?? 'get').toLowerCase() === 'get') {
+      config.params = { ...(config.params ?? {}), checking_farm: chosenFarm };
+    }
+  }
 
   if (__DEV__) {
     const method = config.method?.toUpperCase() ?? 'GET';

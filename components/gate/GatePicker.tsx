@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { View, Text, ScrollView } from 'react-native';
 import { ChoiceChip } from '@/components/ui/ChoiceChip';
 import { useFarmGates } from '@/lib/hooks/useFarmGates';
+import { useGateFarm } from '@/lib/hooks/useGateFarm';
 import { COLORS, spacing, fontFamily, fontSize } from '@/src/core/theme';
 
 type Props = {
@@ -21,6 +22,9 @@ type Props = {
  */
 export function GatePicker({ farm, value, onChange, label = 'Gate' }: Props) {
   const { data: gates } = useFarmGates(farm);
+  // The guard's rostered (or changed-to) gate at this farm, if any.
+  const own = useGateFarm();
+  const postGate = own.farm === farm ? own.gate : null;
 
   // Auto-select the only gate (or the main gate, since get_farm_gates
   // already sorts main-gate-first) as soon as it's known, so single-gate
@@ -28,13 +32,20 @@ export function GatePicker({ farm, value, onChange, label = 'Gate' }: Props) {
   // Also re-select when the current value is not one of this farm's gates -
   // a gate kept from a different farm must not keep being sent.
   useEffect(() => {
-    if (gates && gates.length >= 1 && (!value || !gates.some((g) => g.gate_name === value))) {
+    if (!gates || gates.length < 1) return;
+    const post = postGate ? gates.find((g) => g.gate_name.toLowerCase() === postGate.toLowerCase()) : undefined;
+    if (post) {
+      if (value !== post.gate_name) onChange(post.gate_name);
+    } else if (!value || !gates.some((g) => g.gate_name === value)) {
       onChange(gates[0].gate_name);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gates]);
+  }, [gates, postGate]);
 
-  if (!gates || gates.length < 2) return null;
+  // At the guard's own post the gate is fixed (the server records it
+  // regardless) - the location bar shows it and is where it is changed.
+  const atPost = !!postGate && !!gates?.some((g) => g.gate_name.toLowerCase() === postGate.toLowerCase());
+  if (!gates || gates.length < 2 || atPost) return null;
 
   return (
     <View style={{ marginTop: spacing.sm }}>

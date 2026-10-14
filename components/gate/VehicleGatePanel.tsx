@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useGateFarm } from '@/lib/hooks/useGateFarm';
 import { Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type {
@@ -11,7 +12,6 @@ import { useVehicleTaskSearch } from '@/lib/hooks/useVehicleTaskSearch';
 import { useVerifyVehicleTask } from '@/lib/hooks/useVerifyVehicleTask';
 import { useGateStore } from '@/lib/stores/gateStore';
 import { useFeedback } from '@/lib/hooks/useFeedback';
-import { useSessionInfo } from '@/lib/hooks/useSessionInfo';
 import { GatePicker } from '@/components/gate/GatePicker';
 import { VehicleTaskLookup } from './VehicleTaskLookup';
 import { VehicleTaskResultCard } from './VehicleTaskResultCard';
@@ -34,8 +34,7 @@ export function VehicleGatePanel() {
   const [matchedRef, setMatchedRef] = useState('');
 
   const feedback = useFeedback();
-  const sessionInfo = useSessionInfo();
-  const ownFarm = sessionInfo.data?.checking_farm ?? sessionInfo.data?.employee?.custom_farm ?? null;
+  const ownFarm = useGateFarm().farm;
   // Kept between checks - a guard normally works one gate for the shift.
   const [gate, setGate] = useState<string | null>(null);
   const search = useVehicleTaskSearch();

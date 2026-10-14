@@ -127,6 +127,14 @@ export type CheckOutItemsResult = {
   not_seen_leaving: string[];
 };
 
+export type GuardLocation = {
+  rostered: { farm: string; gate: string | null } | null;
+  change: { name: string; farm: string; gate: string; reason: string; started_at: string } | null;
+  farm: string | null;
+  gate: string | null;
+  source: 'roster' | 'change' | 'record' | null;
+};
+
 export type SessionInfo = {
   user: string;
   full_name: string;
@@ -150,6 +158,9 @@ export type SessionInfo = {
   /** Farm whose gate this login checks at (Employee, else Security Guard).
    * Absent on servers predating it - fall back to employee.custom_farm. */
   checking_farm?: string | null;
+  /** Where this guard is posted: the roster, or an emergency location
+   * change on top of it. Absent on servers predating it. */
+  location?: GuardLocation | null;
   employee:
     | {
         name?: string;
@@ -1308,6 +1319,15 @@ export const api = {
   // Gates table), for the "which gate?" picker at entry/exit.
   getFarmGates: (farm: string) =>
     call<FarmGate[]>('upande_security.api.gate_movement.get_farm_gates', { farm }),
+  // Every farm with its gates - the farm picker for logins linked to no farm.
+  listGateFarms: () =>
+    call<{ farm: string; gates: FarmGate[] }[]>('upande_security.api.gate_movement.list_gate_farms'),
+  // Emergency switch away from the rostered post; logged and sent to the
+  // security heads server-side.
+  changeLocation: (farm: string, gate: string, reason: string) =>
+    call<GuardLocation>('upande_security.api.gate_movement.change_location', { farm, gate, reason }),
+  returnToRoster: () =>
+    call<GuardLocation>('upande_security.api.gate_movement.return_to_roster'),
 
   // Staff attendance
   createStaffAttendance: (employee: string, vehiclePlate?: string, entryGate?: string) =>
