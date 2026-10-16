@@ -10,6 +10,9 @@ import { useStaffTempExit } from '@/lib/hooks/useStaffTempExit';
 import { useStaffStickerScan } from '@/lib/hooks/useStaffStickerScan';
 import { useFeatureFlag } from '@/lib/hooks/useSessionInfo';
 import { GatePicker } from '@/components/gate/GatePicker';
+import { PassengersItemsSection, toItemPayload, type ItemDraft } from '@/components/gate/PassengersItemsSection';
+import { useItemsExitCheck } from '@/components/gate/CheckOutItemsSheet';
+import { api } from '@/lib/services/api';
 import { useGateStore } from '@/lib/stores/gateStore';
 import { extractEmployeeId } from '@/lib/utils/qr';
 import { fmtTime, getDuration } from '@/lib/utils/date';
@@ -37,6 +40,8 @@ export function StaffCheckInPanel() {
   const [resolvingScan, setResolvingScan] = useState(false);
   const [entryGate, setEntryGate] = useState<string | null>(null);
   const [exitGate, setExitGate] = useState<string | null>(null);
+  // What the staff member brings in, entered before CHECK IN.
+  const [itemDrafts, setItemDrafts] = useState<ItemDraft[]>([]);
 
   const feedback = useFeedback();
   const pendingEmployee = useGateStore((s) => s.pendingScannedEmployee);
@@ -44,6 +49,7 @@ export function StaffCheckInPanel() {
   const stickerScan = useStaffStickerScan();
   const stickersEnabled = useFeatureFlag('feature_vehicle_stickers');
   const tempExitEnabled = useFeatureFlag('feature_gate_temp_exit');
+  const itemsEnabled = useFeatureFlag('feature_carried_items');
   const ownFarm = useGateFarm().farm;
 
   // One scanner for both: a staff badge (Employee QR) or a staff vehicle
@@ -111,6 +117,24 @@ export function StaffCheckInPanel() {
   const isCheckedIn = Boolean(openAttendance?.in_time && !openAttendance?.out_time);
   const steppedOut = Boolean(openAttendance?.custom_temp_exit_time);
 
+  const itemsQuery = useQuery({
+    queryKey: ['staff-items', openAttendance?.name],
+    queryFn: () => api.getStaffItems(openAttendance!.name),
+    enabled: itemsEnabled && isCheckedIn && Boolean(openAttendance?.name),
+    retry: false,
+  });
+  const itemsInside = (itemsQuery.data?.items ?? []).filter((i) => !i.exit_status || i.exit_status === 'Inside');
+
+  // At check-out, items still inside get the same tick-off as a visitor's.
+  const exitCheck = useItemsExitCheck({
+    load: async (name) => (await api.getStaffItems(name)).items,
+    markOut: (name, ticked) => api.checkOutStaffItems(name, ticked),
+    finish: async (name) => {
+      await checkOut.mutateAsync({ name, exitGate: exitGate ?? undefined });
+      reset();
+    },
+  });
+
   function reset() {
     setEmployeeId(null);
     setManualInput('');
@@ -118,6 +142,7 @@ export function StaffCheckInPanel() {
     setStickerVehicleInfo(null);
     setEntryGate(null);
     setExitGate(null);
+    setItemDrafts([]);
   }
 
   function selectMatch(match: StaffSearchMatch) {
@@ -158,17 +183,31 @@ export function StaffCheckInPanel() {
       // today-attendance query below gets invalidated by the mutation and
       // refetches, flipping straight to the STEP OUT / CHECK OUT view
       // instead of bouncing back to search with no way to see it.
-      await attendance.mutateAsync({
+      const created = await attendance.mutateAsync({
         employee: employeeQuery.data,
         vehiclePlate: stickerVehicleInfo?.plateNumber,
         entryGate: entryGate ?? undefined,
       });
+      const items = toItemPayload(itemDrafts);
+      if (itemsEnabled && items.length) {
+        try {
+          await api.saveStaffItems(created.name, items);
+          setItemDrafts([]);
+        } catch (e) {
+          feedback.warning('Checked in, but the items were not saved — ' + (e instanceof Error ? e.message : String(e)));
+        }
+      }
     } catch {
       // feedback handled in the hook
     }
   }
 
-  async function onCheckOut() {
+  function onCheckOut() {
+    if (!openAttendance || !employeeQuery.data) return;
+    exitCheck.begin(openAttendance.name, employeeQuery.data.employee_name, plainCheckOut);
+  }
+
+  async function plainCheckOut() {
     if (!openAttendance) return;
     try {
       await checkOut.mutateAsync({ name: openAttendance.name, exitGate: exitGate ?? undefined });
@@ -481,6 +520,32 @@ export function StaffCheckInPanel() {
             </Text>
           </View>
 
+          {itemsInside.length ? (
+            <View
+              style={{
+                backgroundColor: COLORS.surfaceAlt,
+                borderRadius: borderRadius.md,
+                paddingHorizontal: spacing.md,
+                paddingVertical: 10,
+                marginTop: 8,
+              }}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+                <Ionicons name="bag-handle-outline" size={16} color={COLORS.textSecondary} />
+                <Text style={{ color: COLORS.textSecondary, fontSize: fontSize.sm, fontFamily: fontFamily.semiBold, marginLeft: 6 }}>
+                  Brought in
+                </Text>
+              </View>
+              {itemsInside.map((it) => (
+                <Text key={it.name} style={{ color: COLORS.text, fontSize: fontSize.sm, fontFamily: fontFamily.regular }}>
+                  • {it.item}
+                  {it.qty && it.qty > 1 ? ' ×' + String(it.qty) : ''}
+                  {it.serial_notes ? ' · ' + it.serial_notes : ''}
+                </Text>
+              ))}
+            </View>
+          ) : null}
+
           {steppedOut ? (
             <View
               style={{
@@ -531,13 +596,13 @@ export function StaffCheckInPanel() {
 
             <TouchableOpacity
               onPress={onCheckOut}
-              disabled={checkOut.isPending}
+              disabled={checkOut.isPending || exitCheck.busy || exitCheck.loadingName != null}
               activeOpacity={0.8}
               accessibilityRole="button"
               style={{
                 flex: 1,
                 backgroundColor: COLORS.danger,
-                opacity: checkOut.isPending ? 0.6 : 1,
+                opacity: checkOut.isPending || exitCheck.busy || exitCheck.loadingName != null ? 0.6 : 1,
                 borderRadius: borderRadius.md,
                 paddingVertical: spacing.lg,
                 minHeight: 52,
@@ -556,6 +621,16 @@ export function StaffCheckInPanel() {
       ) : (
         <>
         <GatePicker farm={ownFarm} value={entryGate} onChange={setEntryGate} label="Entry Gate" />
+        <PassengersItemsSection
+          visitorName={emp.employee_name}
+          showPassengers={false}
+          showItems={itemsEnabled}
+          passengers={[]}
+          onPassengersChange={() => {}}
+          items={itemDrafts}
+          onItemsChange={setItemDrafts}
+          busy={attendance.isPending}
+        />
         <TouchableOpacity
           onPress={onCheckIn}
           disabled={attendance.isPending}
@@ -591,6 +666,8 @@ export function StaffCheckInPanel() {
           Cancel · Scan another
         </Text>
       </TouchableOpacity>
+
+      {exitCheck.sheet}
     </View>
   );
 }

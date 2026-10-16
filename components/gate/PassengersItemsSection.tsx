@@ -194,32 +194,38 @@ export function PassengersItemsSection({
                     <Ionicons name="trash-outline" size={18} color={COLORS.danger} />
                   </TouchableOpacity>
                 </View>
-                <Text style={s.label}>Carried by</Text>
-                <View style={s.chips}>
-                  {people.map((person) => {
-                    const selected = person === owner;
-                    return (
-                      <TouchableOpacity
-                        key={person}
-                        onPress={() =>
-                          updateItem(it.key, { carried_by: person === visitorLabel ? '' : person })
-                        }
-                        disabled={busy}
-                        activeOpacity={0.8}
-                        accessibilityRole="radio"
-                        accessibilityState={{ selected }}
-                        style={[s.chip, selected ? s.chipSelected : null]}
-                      >
-                        <Text
-                          style={[s.chipText, selected ? s.chipTextSelected : null]}
-                          numberOfLines={1}
-                        >
-                          {person}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
+                {people.length > 1 ? (
+                  <>
+                    <Text style={s.label}>Carried by</Text>
+                    <View style={s.chips}>
+                      {people.map((person) => {
+                        const selected = person === owner;
+                        return (
+                          <TouchableOpacity
+                            key={person}
+                            onPress={() =>
+                              updateItem(it.key, {
+                                carried_by: person === visitorLabel ? '' : person,
+                              })
+                            }
+                            disabled={busy}
+                            activeOpacity={0.8}
+                            accessibilityRole="radio"
+                            accessibilityState={{ selected }}
+                            style={[s.chip, selected ? s.chipSelected : null]}
+                          >
+                            <Text
+                              style={[s.chipText, selected ? s.chipTextSelected : null]}
+                              numberOfLines={1}
+                            >
+                              {person}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  </>
+                ) : null}
                 {!people.includes(owner) ? (
                   <Text style={s.warn}>
                     {owner} is no longer on this visit - pick who carries this item.

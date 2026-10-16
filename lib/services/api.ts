@@ -127,6 +127,20 @@ export type CheckOutItemsResult = {
   not_seen_leaving: string[];
 };
 
+// Items a staff member brought in, on their staff gate record (Staff Gate
+// Movement or Attendance). carried_by is always the staff member.
+export type StaffItems = {
+  record: string;
+  employee_name: string;
+  checked_out: boolean;
+  items: VisitCarriedItem[];
+};
+
+export type CheckOutStaffItemsResult = {
+  record: string;
+  not_seen_leaving: string[];
+};
+
 export type GuardLocation = {
   rostered: { farm: string; gate: string | null } | null;
   change: { name: string; farm: string; gate: string; reason: string; started_at: string } | null;
@@ -1305,6 +1319,15 @@ export const api = {
   checkOutItems: (appointment: string, items_out: string[]) =>
     call<CheckOutItemsResult>('upande_security.api.gate_belongings.check_out_items', {
       appointment,
+      items_out,
+    }),
+  getStaffItems: (record: string) =>
+    call<StaffItems>('upande_security.api.gate_belongings.get_staff_items', { record }),
+  saveStaffItems: (record: string, items: VisitCarriedItem[]) =>
+    call<StaffItems>('upande_security.api.gate_belongings.save_staff_items', { record, items }),
+  checkOutStaffItems: (record: string, items_out: string[]) =>
+    call<CheckOutStaffItemsResult>('upande_security.api.gate_belongings.check_out_staff_items', {
+      record,
       items_out,
     }),
   checkInVisitor: (input: CheckInInput) => call<CheckInResult>('check_in_visitor', input),

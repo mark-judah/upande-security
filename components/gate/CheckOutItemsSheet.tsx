@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Alert, Modal, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Button } from '@/src/core/ui/Button';
@@ -8,7 +8,16 @@ import { useFeatureFlag } from '@/lib/hooks/useSessionInfo';
 import { useFeedback } from '@/lib/hooks/useFeedback';
 import { COLORS, spacing, borderRadius, fontFamily, fontSize } from '@/src/core/theme';
 
-type PendingCheckOut = { name: string; visitorName: string; items: VisitCarriedItem[] };
+type PendingCheckOut = { name: string; ownerName: string; items: VisitCarriedItem[] };
+
+type ExitCheck = {
+  // Items of this record still inside; [] skips the checklist.
+  load: (name: string) => Promise<VisitCarriedItem[]>;
+  // Record what was ticked; returns the items not seen leaving.
+  markOut: (name: string, ticked: string[]) => Promise<{ not_seen_leaving: string[] }>;
+  // The normal check-out. Reports its own failures.
+  finish: (name: string) => Promise<unknown>;
+};
 
 /**
  * Check-out that runs the carried-items exit check first.
@@ -21,23 +30,39 @@ type PendingCheckOut = { name: string; visitorName: string; items: VisitCarriedI
  * check-out confirmation - unchanged.
  */
 export function useItemsAwareCheckOut() {
-  const itemsEnabled = useFeatureFlag('feature_carried_items');
   const checkOut = useCheckOut();
+  const exit = useItemsExitCheck({
+    load: async (name) => (await api.getVisitPeopleAndItems(name)).items,
+    markOut: (name, ticked) => api.checkOutItems(name, ticked),
+    finish: (name) => checkOut.mutateAsync(name),
+  });
+  return { ...exit, busy: exit.busy || checkOut.isPending };
+}
+
+/**
+ * The same exit check for any gate record with carried items - visits
+ * above, staff in StaffCheckInPanel. The config is read at call time, so
+ * it may close over the screen's current state (e.g. the exit gate).
+ */
+export function useItemsExitCheck(config: ExitCheck) {
+  const itemsEnabled = useFeatureFlag('feature_carried_items');
   const feedback = useFeedback();
+  const configRef = useRef(config);
+  configRef.current = config;
   const [pending, setPending] = useState<PendingCheckOut | null>(null);
   const [ticked, setTicked] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [loadingName, setLoadingName] = useState<string | null>(null);
 
-  async function begin(name: string, visitorName: string, confirmPlain: () => void) {
+  async function begin(name: string, ownerName: string, confirmPlain: () => void) {
     if (itemsEnabled) {
       setLoadingName(name);
       try {
-        const data = await api.getVisitPeopleAndItems(name);
-        const inside = data.items.filter((i) => !i.exit_status || i.exit_status === 'Inside');
+        const items = await configRef.current.load(name);
+        const inside = items.filter((i) => !i.exit_status || i.exit_status === 'Inside');
         if (inside.length) {
           setTicked([]);
-          setPending({ name, visitorName, items: inside });
+          setPending({ name, ownerName, items: inside });
           return;
         }
       } catch {
@@ -53,15 +78,22 @@ export function useItemsAwareCheckOut() {
     if (!pending) return;
     setSaving(true);
     try {
-      const result = await api.checkOutItems(pending.name, ticked);
-      await checkOut.mutateAsync(pending.name);
+      let result: { not_seen_leaving: string[] };
+      try {
+        result = await configRef.current.markOut(pending.name, ticked);
+      } catch (e) {
+        feedback.error(e instanceof Error ? e.message : 'Could not record the items');
+        return;
+      }
+      try {
+        await configRef.current.finish(pending.name);
+      } catch {
+        return; // finish reports its own failure
+      }
       setPending(null);
       if (result.not_seen_leaving.length) {
         feedback.warning('Not seen leaving: ' + result.not_seen_leaving.join(', '));
       }
-    } catch (e) {
-      // useCheckOut already reports its own failures; this covers checkOutItems.
-      if (!checkOut.isError) feedback.error(e instanceof Error ? e.message : 'Check-out failed');
     } finally {
       setSaving(false);
     }
@@ -100,7 +132,7 @@ export function useItemsAwareCheckOut() {
           <View style={s.header}>
             <Ionicons name="bag-check-outline" size={22} color={COLORS.text} />
             <View style={{ flex: 1, marginLeft: spacing.sm }}>
-              <Text style={s.title}>Items leaving with {pending?.visitorName ?? 'visitor'}</Text>
+              <Text style={s.title}>Items leaving with {pending?.ownerName ?? 'visitor'}</Text>
               <Text style={s.subtitle}>Tick each item you see going out.</Text>
             </View>
           </View>
@@ -168,7 +200,7 @@ export function useItemsAwareCheckOut() {
     </Modal>
   );
 
-  return { begin, sheet, busy: saving || checkOut.isPending, loadingName };
+  return { begin, sheet, busy: saving, loadingName };
 }
 
 const s = {
