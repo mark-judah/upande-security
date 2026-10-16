@@ -21,7 +21,7 @@ import {
 } from '@/lib/services/patrolTracking';
 import {
   subscribePatrolSyncStatus,
-  syncPatrolQueueNow,
+  syncAllPatrolDataNow,
   flushAllPatrolPending,
   stopPatrolSync,
   ensurePatrolSyncRunning,
@@ -54,6 +54,7 @@ export default function ActivePatrol() {
   const [syncStatus, setSyncStatus] = useState<PatrolSyncStatus | null>(null);
   const [trackingActive, setTrackingActive] = useState<boolean | null>(null);
   const [stopping, setStopping] = useState(false);
+  const [syncProgress, setSyncProgress] = useState<number | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -97,6 +98,24 @@ export default function ActivePatrol() {
     }, 10_000);
     return () => clearInterval(id);
   }, [patrolTag]);
+
+  // One press uploads everything still on the phone - this patrol and any
+  // earlier ones - batch after batch until nothing is left.
+  const onSyncNow = async () => {
+    setSyncProgress(0);
+    try {
+      const res = await syncAllPatrolDataNow((uploaded) => setSyncProgress(uploaded));
+      if (res.pending === 0) {
+        feedback.success(res.uploaded ? `All ${res.uploaded} points uploaded` : 'All points already uploaded');
+      } else if (res.error) {
+        feedback.error(`No network - ${res.pending} points still saved on the phone. Try again when you have signal.`);
+      } else {
+        feedback.error(`${res.uploaded} uploaded, ${res.pending} could not be sent yet - they will be retried.`);
+      }
+    } finally {
+      setSyncProgress(null);
+    }
+  };
 
   const onStop = () => {
     Alert.alert(
@@ -189,23 +208,19 @@ export default function ActivePatrol() {
       </Card>
 
       <Button
-        label="Sync Now"
+        label={syncProgress === null ? 'Sync Now' : `Uploading… ${syncProgress} sent`}
         iconLeft="refresh"
         variant="outline"
-        onPress={async () => {
-          if (!patrolTag) return;
-          const res = await syncPatrolQueueNow(patrolTag);
-          feedback.success(
-            `Sync: uploaded ${res.uploaded}, ${res.pending} pending`,
-          );
-        }}
+        loading={syncProgress !== null}
+        disabled={syncProgress !== null}
+        onPress={onSyncNow}
         style={s.syncBtn}
       />
 
       {syncStatus?.lastError ? (
         <Card style={s.errorCard}>
           <Text style={s.errorText}>Last sync error: {syncStatus.lastError}</Text>
-          <Text style={s.errorHint}>Points stay queued — will retry in 30s.</Text>
+          <Text style={s.errorHint}>Points stay saved on the phone. Press Sync Now when you have network.</Text>
         </Card>
       ) : null}
 

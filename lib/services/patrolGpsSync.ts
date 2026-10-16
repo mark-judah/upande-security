@@ -1,7 +1,9 @@
 import { AppState, type AppStateStatus, type NativeEventSubscription } from 'react-native';
 import {
+  bumpPatrolGpsAttempts,
   deleteSyncedPatrolGpsPoints,
   getActivePatrol,
+  getAllPatrolGpsPendingCount,
   getAllPendingPatrolTags,
   getPatrolGpsQueueCount,
   getPendingPatrolGpsPoints,
@@ -17,12 +19,18 @@ export type PatrolSyncStatus = {
 };
 
 const SYNC_INTERVAL_MS = 120_000;
-const BATCH_SIZE = 20;
+// Points per request. A patrol logs hundreds, so draining loops over
+// batches; 50 keeps one request well inside the 30s HTTP timeout on a
+// weak farm connection (the server skips points it already has, so a
+// batch that timed out after landing is safe to resend).
+const BATCH_SIZE = 50;
+// Upper bound on batches per drain - 25,000 points - so a server that
+// keeps answering without taking anything can never spin forever.
+const MAX_BATCHES = 500;
 
 let _patrolTag: string | null = null;
 let _interval: ReturnType<typeof setInterval> | null = null;
 let _appStateSub: NativeEventSubscription | null = null;
-let _busy = false;
 
 const _subscribers = new Set<(status: PatrolSyncStatus) => void>();
 let _status: PatrolSyncStatus = {
@@ -47,38 +55,47 @@ function updateStatus(next: Partial<PatrolSyncStatus>) {
   notify();
 }
 
+async function refreshPendingCount(): Promise<number> {
+  const pending = await getAllPatrolGpsPendingCount();
+  updateStatus({ pending });
+  return pending;
+}
+
 export function subscribePatrolSyncStatus(
   cb: (status: PatrolSyncStatus) => void,
 ): () => void {
   _subscribers.add(cb);
   cb(_status);
+  refreshPendingCount().catch(() => {});
   return () => {
     _subscribers.delete(cb);
   };
 }
 
-export async function syncPatrolQueueNow(
-  patrolTag: string,
-): Promise<{ uploaded: number; pending: number }> {
-  if (__DEV__) console.log('[patrolSync] fire', patrolTag);
-  if (_busy) {
-    if (__DEV__) console.log('[patrolSync] busy — skipping');
-    const counts = await getPatrolGpsQueueCount(patrolTag);
-    return { uploaded: 0, pending: counts.pending };
-  }
-  _busy = true;
-  try {
+// Every upload - the 2-minute loop, the background sweep, Sync Now, Stop,
+// SOS - runs one batch at a time through this chain. A second caller waits
+// its turn instead of being skipped (it used to return "uploaded 0", which
+// is why guards kept pressing Sync Now), and two callers can never send
+// the same points at once.
+let _uploadChain: Promise<unknown> = Promise.resolve();
+function serialized<T>(fn: () => Promise<T>): Promise<T> {
+  const next = _uploadChain.then(fn, fn);
+  _uploadChain = next.catch(() => undefined);
+  return next;
+}
+
+type BatchResult = { uploaded: number; sent: number; pending: number; error: string | null };
+
+function uploadOneBatch(patrolTag: string): Promise<BatchResult> {
+  return serialized(async () => {
     const points = await getPendingPatrolGpsPoints(patrolTag, BATCH_SIZE);
-    if (__DEV__) console.log('[patrolSync] pending rows read:', points.length);
     if (!points.length) {
       const counts = await getPatrolGpsQueueCount(patrolTag);
-      updateStatus({ patrolTag, pending: counts.pending, lastSyncAt: Date.now(), lastError: null });
-      return { uploaded: 0, pending: counts.pending };
+      return { uploaded: 0, sent: 0, pending: counts.pending, error: null };
     }
 
     const active = await getActivePatrol();
     const guardCode = active?.guard ?? '';
-
     const payload: PatrolGpsPayload[] = points.map((p) => ({
       client_id: p.clientId ?? '',
       patrol_tag: p.patrolTag,
@@ -90,79 +107,116 @@ export async function syncPatrolQueueNow(
     }));
 
     try {
-      if (__DEV__) console.log('[patrolSync] POST', payload.length, 'points');
+      if (__DEV__) console.log('[patrolSync] POST', payload.length, 'points for', patrolTag);
       const results = await uploadPatrolGps(payload);
-      if (__DEV__) console.log('[patrolSync] server returned', results.length, 'results');
       const successfulIds: number[] = [];
-      results.forEach((r, i) => {
-        if (r.status === 'success') {
-          const id = points[i]?.id;
-          if (typeof id === 'number') successfulIds.push(id);
-        }
+      const refusedIds: number[] = [];
+      points.forEach((p, i) => {
+        if (typeof p.id !== 'number') return;
+        if (results[i]?.status === 'success') successfulIds.push(p.id);
+        else refusedIds.push(p.id);
       });
-      if (successfulIds.length) {
-        await markPatrolGpsPointsSynced(successfulIds);
-      }
+      await markPatrolGpsPointsSynced(successfulIds);
+      await bumpPatrolGpsAttempts(refusedIds);
       await deleteSyncedPatrolGpsPoints();
       const counts = await getPatrolGpsQueueCount(patrolTag);
-      if (__DEV__) console.log('[patrolSync] uploaded', successfulIds.length, 'pending now', counts.pending);
-      updateStatus({
-        patrolTag,
-        pending: counts.pending,
-        lastSyncAt: Date.now(),
-        lastError: null,
-      });
-      return { uploaded: successfulIds.length, pending: counts.pending };
+      return { uploaded: successfulIds.length, sent: points.length, pending: counts.pending, error: null };
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Upload failed';
       if (__DEV__) console.warn('[patrolSync] upload failed:', message);
       const counts = await getPatrolGpsQueueCount(patrolTag);
-      updateStatus({ patrolTag, pending: counts.pending, lastError: message });
-      return { uploaded: 0, pending: counts.pending };
+      return { uploaded: 0, sent: points.length, pending: counts.pending, error: message };
     }
-  } finally {
-    _busy = false;
+  });
+}
+
+async function recordResult(error: string | null): Promise<void> {
+  const pending = await getAllPatrolGpsPendingCount().catch(() => _status.pending);
+  updateStatus(
+    error ? { pending, lastError: error } : { pending, lastSyncAt: Date.now(), lastError: null },
+  );
+}
+
+/** One batch for this patrol - the 2-minute loop's tick. */
+export async function syncPatrolQueueNow(
+  patrolTag: string,
+): Promise<{ uploaded: number; pending: number }> {
+  const res = await uploadOneBatch(patrolTag);
+  await recordResult(res.error);
+  return { uploaded: res.uploaded, pending: res.pending };
+}
+
+/**
+ * Upload this patrol's whole backlog, batch after batch, until it is empty.
+ * Stops early only when the network fails, or every point left has been
+ * refused by the server this run (those stay queued and are retried on the
+ * next sync - they are never dropped).
+ */
+export async function flushAllPatrolPending(
+  patrolTag: string,
+  onProgress?: (uploaded: number) => void,
+): Promise<{ uploaded: number; pending: number; error: string | null }> {
+  let uploaded = 0;
+  let pending = 0;
+  let error: string | null = null;
+  // Points refused in a row. Refused points move to the back, so once this
+  // covers everything still pending, all of it has been tried this run.
+  let refusedInRow = 0;
+  for (let i = 0; i < MAX_BATCHES; i++) {
+    const res = await uploadOneBatch(patrolTag);
+    uploaded += res.uploaded;
+    pending = res.pending;
+    error = res.error;
+    if (res.uploaded) onProgress?.(uploaded);
+    refusedInRow = res.uploaded ? 0 : refusedInRow + res.sent;
+    if (res.error || res.pending === 0 || res.sent === 0 || refusedInRow >= res.pending) break;
   }
+  await recordResult(error);
+  return { uploaded, pending, error };
+}
+
+/**
+ * Sync Now: upload every patrol's pending points - the current patrol and
+ * any earlier ones still holding data - in one press.
+ */
+export async function syncAllPatrolDataNow(
+  onProgress?: (uploaded: number, pending: number) => void,
+): Promise<{ uploaded: number; pending: number; error: string | null }> {
+  let total = 0;
+  let error: string | null = null;
+  const startPending = await getAllPatrolGpsPendingCount();
+  const tags = await getAllPendingPatrolTags();
+  for (const tag of tags) {
+    const before = total;
+    const res = await flushAllPatrolPending(tag, (n) => {
+      onProgress?.(before + n, Math.max(0, startPending - before - n));
+    });
+    total += res.uploaded;
+    if (res.error) {
+      error = res.error;
+      break; // offline - no point trying the other patrols now
+    }
+  }
+  const pending = await getAllPatrolGpsPendingCount();
+  updateStatus({ pending });
+  return { uploaded: total, pending, error };
 }
 
 export function startPatrolSync(patrolTag: string): void {
   stopPatrolSync();
   _patrolTag = patrolTag;
   updateStatus({ patrolTag });
-  syncPatrolQueueNow(patrolTag).catch(() => {});
+  // Each tick drains the whole backlog, not one batch - a long patrol
+  // otherwise logs points faster than one batch per tick can send them.
+  flushAllPatrolPending(patrolTag).catch(() => {});
   _interval = setInterval(() => {
-    if (_patrolTag) syncPatrolQueueNow(_patrolTag).catch(() => {});
+    if (_patrolTag) flushAllPatrolPending(_patrolTag).catch(() => {});
   }, SYNC_INTERVAL_MS);
   _appStateSub = AppState.addEventListener('change', (state: AppStateStatus) => {
     if (state === 'active' && _patrolTag) {
-      syncPatrolQueueNow(_patrolTag).catch(() => {});
+      flushAllPatrolPending(_patrolTag).catch(() => {});
     }
   });
-}
-
-/**
- * Watchdog — verify the 2-minute sync loop is actually running for this tag.
- * Cheap to call repeatedly: no-ops if the same loop is already active.
- * The active patrol screen calls this on mount; AppState transitions call it too.
- */
-/**
- * Drain the entire pending queue for this patrol in one go (used by the SOS
- * trigger — we want to flush everything, not wait for the next 2-minute tick).
- * Loops syncPatrolQueueNow until the queue is empty, the server returns zero
- * uploads in a cycle, or we hit the safety cap.
- */
-export async function flushAllPatrolPending(
-  patrolTag: string,
-): Promise<{ uploaded: number; pending: number }> {
-  let totalUploaded = 0;
-  let lastPending = 0;
-  for (let i = 0; i < 20; i++) {
-    const res = await syncPatrolQueueNow(patrolTag);
-    totalUploaded = totalUploaded + res.uploaded;
-    lastPending = res.pending;
-    if (res.pending === 0 || res.uploaded === 0) break;
-  }
-  return { uploaded: totalUploaded, pending: lastPending };
 }
 
 let _sweepRunning = false;
@@ -179,14 +233,7 @@ export async function flushAnyPendingPatrols(): Promise<void> {
   if (_sweepRunning) return;
   _sweepRunning = true;
   try {
-    const tags = await getAllPendingPatrolTags();
-    for (const tag of tags) {
-      try {
-        await flushAllPatrolPending(tag);
-      } catch {
-        // move on to the next tag - one bad tag shouldn't block the rest
-      }
-    }
+    await syncAllPatrolDataNow();
   } catch {
     // ignore - next sweep will retry
   } finally {
@@ -194,6 +241,10 @@ export async function flushAnyPendingPatrols(): Promise<void> {
   }
 }
 
+/**
+ * Watchdog - verify the 2-minute sync loop is actually running for this tag.
+ * Cheap to call repeatedly: no-ops if the same loop is already active.
+ */
 export function ensurePatrolSyncRunning(patrolTag: string): void {
   if (_interval && _patrolTag === patrolTag) return;
   startPatrolSync(patrolTag);

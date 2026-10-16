@@ -23,7 +23,12 @@ import {
   startPatrolForegroundPolling,
   startPatrolTrackingWatchdog,
 } from '@/lib/services/patrolTracking';
-import { startPatrolSync, flushAllPatrolPending } from '@/lib/services/patrolGpsSync';
+import {
+  startPatrolSync,
+  flushAllPatrolPending,
+  subscribePatrolSyncStatus,
+  syncAllPatrolDataNow,
+} from '@/lib/services/patrolGpsSync';
 import { generatePatrolTag, sanitizeGuardCode } from '@/lib/services/patrolHelpers';
 import { toFrappeDateTime, fmtDateTime } from '@/lib/utils/date';
 import { useFeedback } from '@/lib/hooks/useFeedback';
@@ -46,6 +51,27 @@ export default function PatrolHome() {
   const [perms, setPerms] = useState<{ foreground: boolean; background: boolean } | null>(null);
   const shiftQuery = useMyShift();
   const checkInShift = useCheckInShift();
+  const [pendingPoints, setPendingPoints] = useState(0);
+  const [syncProgress, setSyncProgress] = useState<number | null>(null);
+
+  useEffect(() => subscribePatrolSyncStatus((st) => setPendingPoints(st.pending)), []);
+
+  // Points from earlier patrols still on the phone - one press sends them all.
+  const onSyncNow = async () => {
+    setSyncProgress(0);
+    try {
+      const res = await syncAllPatrolDataNow((uploaded) => setSyncProgress(uploaded));
+      if (res.pending === 0) {
+        feedback.success(res.uploaded ? `All ${res.uploaded} points uploaded` : 'All points already uploaded');
+      } else if (res.error) {
+        feedback.error(`No network - ${res.pending} points still saved on the phone. Try again when you have signal.`);
+      } else {
+        feedback.error(`${res.uploaded} uploaded, ${res.pending} could not be sent yet - they will be retried.`);
+      }
+    } finally {
+      setSyncProgress(null);
+    }
+  };
 
   useEffect(() => {
     (async () => {
@@ -204,6 +230,26 @@ export default function PatrolHome() {
         </Card>
       ) : null}
 
+      {pendingPoints > 0 || syncProgress !== null ? (
+        <Card style={s.pendingCard}>
+          <View style={s.pendingHeader}>
+            <Ionicons name="cloud-upload-outline" size={18} color={COLORS.warn} />
+            <Text style={s.pendingTitle}>
+              {pendingPoints} patrol point{pendingPoints === 1 ? '' : 's'} not uploaded yet
+            </Text>
+          </View>
+          <Button
+            label={syncProgress === null ? 'SYNC NOW' : `Uploading… ${syncProgress} sent`}
+            iconLeft="refresh"
+            variant="outline"
+            onPress={onSyncNow}
+            loading={syncProgress !== null}
+            disabled={syncProgress !== null}
+            style={s.pendingBtn}
+          />
+        </Card>
+      ) : null}
+
       <Card style={s.readyCard}>
         <View style={s.iconCircle}>
           <Ionicons name="walk-outline" size={40} color={COLORS.textOnPrimary} />
@@ -245,6 +291,22 @@ export default function PatrolHome() {
 }
 
 const s = StyleSheet.create({
+  pendingCard: {
+    marginBottom: spacing.lg,
+  },
+  pendingHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  pendingTitle: {
+    fontFamily: fontFamily.semiBold,
+    fontSize: fontSize.sm,
+    color: COLORS.text,
+  },
+  pendingBtn: {
+    marginTop: spacing.md,
+  },
   subtitle: {
     fontFamily: fontFamily.regular,
     fontSize: fontSize.sm,

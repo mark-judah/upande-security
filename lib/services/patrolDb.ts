@@ -27,7 +27,8 @@ const SCHEMA_SQL = `
     longitude   REAL NOT NULL,
     accuracy    REAL,
     captured_at TEXT NOT NULL,
-    synced      INTEGER NOT NULL DEFAULT 0
+    synced      INTEGER NOT NULL DEFAULT 0,
+    attempts    INTEGER NOT NULL DEFAULT 0
   );
   CREATE INDEX IF NOT EXISTS idx_patrol_queue_tag_synced
     ON patrol_gps_queue (patrol_tag, synced);
@@ -50,6 +51,12 @@ let _dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
 async function openAndInitDb(): Promise<SQLite.SQLiteDatabase> {
   const db = await SQLite.openDatabaseAsync('location.db');
   await db.execAsync(SCHEMA_SQL);
+  // Tables created before `attempts` existed - CREATE TABLE IF NOT EXISTS
+  // leaves them as they were.
+  const cols = await db.getAllAsync<{ name: string }>(`PRAGMA table_info(patrol_gps_queue)`);
+  if (!cols.some((c) => c.name === 'attempts')) {
+    await db.execAsync(`ALTER TABLE patrol_gps_queue ADD COLUMN attempts INTEGER NOT NULL DEFAULT 0`);
+  }
   return db;
 }
 
@@ -151,7 +158,7 @@ export async function getPendingPatrolGpsPoints(
     `SELECT id, patrol_tag, client_id, latitude, longitude, accuracy, captured_at, synced
      FROM patrol_gps_queue
      WHERE patrol_tag = ? AND synced = 0
-     ORDER BY captured_at ASC
+     ORDER BY attempts ASC, captured_at ASC
      LIMIT ?`,
     [patrolTag, limit],
   );
@@ -230,6 +237,30 @@ export async function getPatrolGpsQueueCount(
     [patrolTag],
   );
   return { pending: pendingRow?.c ?? 0, total: totalRow?.c ?? 0 };
+}
+
+// Un-synced points across every patrol, for the "N pending" counters -
+// Sync Now uploads all of them, not only the current patrol's.
+export async function getAllPatrolGpsPendingCount(): Promise<number> {
+  const db = await getDb();
+  const row = await db.getFirstAsync<{ c: number }>(
+    `SELECT COUNT(*) as c FROM patrol_gps_queue WHERE synced = 0`,
+  );
+  return row?.c ?? 0;
+}
+
+// Points the server refused go to the back of the queue, so one bad point
+// can never hold up the rest. They are kept and retried, never dropped.
+export async function bumpPatrolGpsAttempts(ids: number[]): Promise<void> {
+  if (!ids.length) return;
+  return withPatrolGpsQueueLock(async () => {
+    const db = await getDb();
+    const placeholders = ids.map(() => '?').join(',');
+    await db.runAsync(
+      `UPDATE patrol_gps_queue SET attempts = attempts + 1 WHERE id IN (${placeholders})`,
+      ids,
+    );
+  });
 }
 
 export async function markPatrolGpsPointsSynced(ids: number[]): Promise<void> {
