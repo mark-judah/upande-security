@@ -276,6 +276,8 @@ export type StaffStickerScanHit = StaffSearchMatch & {
   vehicle_type: string;
   plate_number: string;
   color: string;
+  /** The sticker itself - sent back when someone other than the owner drives. */
+  sticker?: string;
 };
 export type StaffStickerScanMiss = { found: false; error: string };
 export type StaffStickerScanResult = StaffStickerScanHit | StaffStickerScanMiss;
@@ -1460,16 +1462,24 @@ export const api = {
     call<GuardLocation>('upande_security.api.gate_movement.return_to_roster'),
 
   // Staff attendance
-  createStaffAttendance: (employee: string, vehiclePlate?: string, entryGate?: string) =>
+  createStaffAttendance: (employee: string, vehiclePlate?: string, entryGate?: string, sticker?: string) =>
     call<StaffAttendanceResult>('create_staff_attendance', {
       employee,
+      sticker,
       vehicle_plate: vehiclePlate,
       entry_gate: entryGate,
     }),
   submitStaffAttendance: (name: string) =>
     call<StaffAttendanceResult>('submit_staff_attendance', { name }),
-  checkOutStaffAttendance: (attendance_name: string, exit_gate?: string) =>
-    call<StaffCheckOutResult>('staff_gate_checkout', { attendance_name, exit_gate }),
+  checkOutStaffAttendance: (attendance_name: string, exit_gate?: string, sticker?: string) =>
+    call<StaffCheckOutResult>('staff_gate_checkout', { attendance_name, exit_gate, sticker }),
+  // Someone not on staff driving a staff vehicle (api/sticker_driver.py):
+  // records their own entry or exit - the server works out which.
+  recordStickerDriver: (input: { sticker: string; driver_name: string; id_number?: string; phone?: string; gate?: string }) =>
+    call<{ direction: 'Entry' | 'Exit'; movement: string; farm: string; driver_name: string; plate_number: string; owner_name: string }>(
+      'upande_security.api.sticker_driver.record_sticker_driver',
+      input,
+    ),
   // Staff currently checked in via this app specifically (custom_gate_app_entry=1),
   // not the general Attendance list — feeds the gate checkout picker.
   listCheckedInStaff: () => call<{ staff: CheckedInStaffRow[] }>('list_checked_in_staff'),

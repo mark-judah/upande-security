@@ -6,7 +6,8 @@ export function useStaffCheckOut(employeeId?: string) {
   const qc = useQueryClient();
   const feedback = useFeedback();
   return useMutation({
-    mutationFn: (input: { name: string; exitGate?: string }) => checkOutStaffAttendance(input.name, input.exitGate),
+    mutationFn: (input: { name: string; exitGate?: string; sticker?: string }) =>
+      checkOutStaffAttendance(input.name, input.exitGate, input.sticker),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['attendance'] });
       qc.invalidateQueries({ queryKey: ['staff-attendance-today', employeeId] });

@@ -23,7 +23,17 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { COLORS, spacing, borderRadius, fontFamily, fontSize } from '@/src/core/theme';
 
-type StickerVehicleInfo = { vehicleType: string; plateNumber: string; color: string };
+type StickerVehicleInfo = {
+  vehicleType: string;
+  plateNumber: string;
+  color: string;
+  sticker?: string;
+  ownerId: string;
+  ownerName: string;
+};
+// Who is driving the scanned vehicle: its owner, another staff member
+// (scanned/searched next), or someone not on staff.
+type DriverMode = 'owner' | 'staff' | 'other';
 
 // A badge QR names its Employee (.../app/employee/<id>, .../app/print/Employee/<id>).
 const EMPLOYEE_URL = /\/employee\//i;
@@ -42,6 +52,12 @@ export function StaffCheckInPanel() {
   const [exitGate, setExitGate] = useState<string | null>(null);
   // What the staff member brings in, entered before CHECK IN.
   const [itemDrafts, setItemDrafts] = useState<ItemDraft[]>([]);
+  const [driverMode, setDriverMode] = useState<DriverMode>('owner');
+  const [otherDriver, setOtherDriver] = useState({ name: '', id: '', phone: '' });
+  const [recordingDriver, setRecordingDriver] = useState(false);
+  // A colleague is driving the scanned vehicle: the next badge scan or
+  // search picks the driver, and the vehicle stays attached.
+  const awaitingDriver = stickerVehicleInfo != null && driverMode === 'staff';
 
   const feedback = useFeedback();
   const pendingEmployee = useGateStore((s) => s.pendingScannedEmployee);
@@ -61,13 +77,20 @@ export function StaffCheckInPanel() {
     const raw = pendingEmployee;
     setPendingEmployee(null);
     setMatches([]);
-    setStickerVehicleInfo(null);
 
     function applyEmployeeId() {
       const id = extractEmployeeId(raw);
       if (id) setEmployeeId(id);
       else feedback.error('Could not read an employee ID or sticker from that code');
     }
+
+    // Picking the colleague who drives the scanned vehicle: this scan is
+    // their badge, not another sticker.
+    if (awaitingDriver) {
+      applyEmployeeId();
+      return;
+    }
+    setStickerVehicleInfo(null);
 
     if (EMPLOYEE_URL.test(raw) || !stickersEnabled) {
       applyEmployeeId();
@@ -81,7 +104,11 @@ export function StaffCheckInPanel() {
             vehicleType: result.vehicle_type,
             plateNumber: result.plate_number,
             color: result.color,
+            sticker: result.sticker,
+            ownerId: result.employee_id,
+            ownerName: result.full_name,
           });
+          setDriverMode('owner');
           setEmployeeId(result.employee_id);
         } else if (NOT_A_STICKER.test(result.error)) {
           applyEmployeeId();
@@ -130,7 +157,7 @@ export function StaffCheckInPanel() {
     load: async (name) => (await api.getStaffItems(name)).items,
     markOut: (name, ticked) => api.checkOutStaffItems(name, ticked),
     finish: async (name) => {
-      await checkOut.mutateAsync({ name, exitGate: exitGate ?? undefined });
+      await checkOut.mutateAsync({ name, exitGate: exitGate ?? undefined, sticker: stickerVehicleInfo?.sticker });
       reset();
     },
   });
@@ -143,12 +170,45 @@ export function StaffCheckInPanel() {
     setEntryGate(null);
     setExitGate(null);
     setItemDrafts([]);
+    setDriverMode('owner');
+    setOtherDriver({ name: '', id: '', phone: '' });
   }
 
   function selectMatch(match: StaffSearchMatch) {
     setMatches([]);
-    setStickerVehicleInfo(null);
+    if (!awaitingDriver) setStickerVehicleInfo(null);
     setEmployeeId(match.employee_id);
+  }
+
+  function chooseDriver(mode: DriverMode) {
+    if (!stickerVehicleInfo) return;
+    setDriverMode(mode);
+    // The owner's card stays for 'owner'; otherwise the driver is picked next.
+    setEmployeeId(mode === 'owner' ? stickerVehicleInfo.ownerId : null);
+  }
+
+  async function recordOtherDriver() {
+    if (!stickerVehicleInfo?.sticker) return;
+    if (!otherDriver.name.trim()) {
+      feedback.warning("Enter the driver's name");
+      return;
+    }
+    setRecordingDriver(true);
+    try {
+      const r = await api.recordStickerDriver({
+        sticker: stickerVehicleInfo.sticker,
+        driver_name: otherDriver.name.trim(),
+        id_number: otherDriver.id.trim() || undefined,
+        phone: otherDriver.phone.trim() || undefined,
+        gate: entryGate ?? undefined,
+      });
+      feedback.success(`${r.direction} recorded — ${r.driver_name} on ${r.owner_name}'s ${stickerVehicleInfo.vehicleType.toLowerCase()}`);
+      reset();
+    } catch (e) {
+      feedback.error(e instanceof Error ? e.message : 'Could not record the driver');
+    } finally {
+      setRecordingDriver(false);
+    }
   }
 
   async function onManualSubmit() {
@@ -159,7 +219,7 @@ export function StaffCheckInPanel() {
     }
     setSearching(true);
     setMatches([]);
-    setStickerVehicleInfo(null);
+    if (!awaitingDriver) setStickerVehicleInfo(null);
     try {
       const results = await searchStaffEmployees(v);
       if (results.length === 0) {
@@ -187,6 +247,7 @@ export function StaffCheckInPanel() {
         employee: employeeQuery.data,
         vehiclePlate: stickerVehicleInfo?.plateNumber,
         entryGate: entryGate ?? undefined,
+        sticker: stickerVehicleInfo?.sticker,
       });
       const items = toItemPayload(itemDrafts);
       if (itemsEnabled && items.length) {
@@ -210,7 +271,7 @@ export function StaffCheckInPanel() {
   async function plainCheckOut() {
     if (!openAttendance) return;
     try {
-      await checkOut.mutateAsync({ name: openAttendance.name, exitGate: exitGate ?? undefined });
+      await checkOut.mutateAsync({ name: openAttendance.name, exitGate: exitGate ?? undefined, sticker: stickerVehicleInfo?.sticker });
       reset();
     } catch {
       // feedback handled in the hook
@@ -226,10 +287,93 @@ export function StaffCheckInPanel() {
     }
   }
 
+  const vehicleOf = stickerVehicleInfo
+    ? `${stickerVehicleInfo.ownerName}'s ${stickerVehicleInfo.vehicleType.toLowerCase()} ${stickerVehicleInfo.plateNumber}`
+    : '';
+
+  // Someone not on staff is driving the scanned vehicle: record them.
+  if (stickerVehicleInfo && driverMode === 'other') {
+    const field = (key: 'name' | 'id' | 'phone', placeholder: string, keyboard?: 'phone-pad' | 'number-pad') => (
+      <TextInput
+        value={otherDriver[key]}
+        onChangeText={(v) => setOtherDriver((d) => ({ ...d, [key]: v }))}
+        placeholder={placeholder}
+        placeholderTextColor={COLORS.textMuted}
+        keyboardType={keyboard}
+        editable={!recordingDriver}
+        style={{
+          borderWidth: 1,
+          borderColor: COLORS.border,
+          borderRadius: borderRadius.md,
+          paddingHorizontal: spacing.md,
+          paddingVertical: 10,
+          fontSize: fontSize.md,
+          color: COLORS.text,
+          backgroundColor: COLORS.surface,
+          marginTop: spacing.sm,
+        }}
+      />
+    );
+    return (
+      <View style={{ marginTop: spacing.md }}>
+        <View style={{ backgroundColor: '#FFFBEB', borderRadius: borderRadius.md, padding: 14 }}>
+          <Text style={{ fontFamily: fontFamily.semiBold, fontSize: fontSize.md, color: COLORS.text }}>Driver not on staff</Text>
+          <Text style={{ color: COLORS.textSecondary, fontSize: fontSize.sm, fontFamily: fontFamily.regular, marginTop: 2 }}>
+            Driving {vehicleOf}. Their own entry or exit is recorded — not the owner&apos;s.
+          </Text>
+        </View>
+        {field('name', "Driver's full name")}
+        {field('id', 'ID number', 'number-pad')}
+        {field('phone', 'Phone', 'phone-pad')}
+        <GatePicker farm={ownFarm} value={entryGate} onChange={setEntryGate} label="Gate" />
+        <TouchableOpacity
+          onPress={recordOtherDriver}
+          disabled={recordingDriver}
+          activeOpacity={0.8}
+          style={{
+            backgroundColor: COLORS.primary,
+            opacity: recordingDriver ? 0.6 : 1,
+            borderRadius: borderRadius.md,
+            paddingVertical: spacing.lg,
+            minHeight: 52,
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginTop: 14,
+          }}
+        >
+          {recordingDriver ? (
+            <ActivityIndicator color={COLORS.textOnPrimary} />
+          ) : (
+            <Text style={{ color: COLORS.textOnPrimary, fontFamily: fontFamily.semiBold, letterSpacing: 0.5 }}>RECORD DRIVER IN / OUT</Text>
+          )}
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => chooseDriver('owner')} style={{ alignItems: 'center', paddingVertical: 10 }}>
+          <Text style={{ color: COLORS.textMuted, fontSize: fontSize.sm, fontFamily: fontFamily.regular }}>Back — the owner is driving</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  // Picking the colleague who drives the scanned vehicle.
+  const driverBanner = awaitingDriver ? (
+    <View style={{ backgroundColor: '#FFFBEB', borderRadius: borderRadius.md, padding: 12, marginBottom: spacing.sm }}>
+      <Text style={{ color: COLORS.text, fontFamily: fontFamily.semiBold, fontSize: fontSize.sm }}>
+        Driving {vehicleOf}
+      </Text>
+      <Text style={{ color: COLORS.textSecondary, fontFamily: fontFamily.regular, fontSize: fontSize.xs, marginTop: 2 }}>
+        Scan or search the staff member who is driving.
+      </Text>
+      <TouchableOpacity onPress={() => chooseDriver('owner')} style={{ marginTop: 6 }}>
+        <Text style={{ color: COLORS.primary, fontFamily: fontFamily.semiBold, fontSize: fontSize.xs }}>Back — the owner is driving</Text>
+      </TouchableOpacity>
+    </View>
+  ) : null;
+
   if (!employeeId) {
     if (matches.length > 0) {
       return (
         <View style={{ marginTop: spacing.sm }}>
+          {driverBanner}
           <Text
             style={{
               fontFamily: fontFamily.semiBold,
@@ -286,6 +430,7 @@ export function StaffCheckInPanel() {
     // badge or sticker (or searching), which loads today's attendance.
     return (
       <View style={{ marginTop: spacing.sm }}>
+        {driverBanner}
         <TouchableOpacity
           onPress={() => router.push('/scan?intent=employee')}
           disabled={resolvingScan}
@@ -462,10 +607,49 @@ export function StaffCheckInPanel() {
             }}
           >
             <Ionicons name="car-sport-outline" size={18} color={COLORS.textSecondary} />
-            <Text style={{ color: COLORS.textSecondary, fontSize: fontSize.sm, fontFamily: fontFamily.medium, marginLeft: 8 }}>
+            <Text style={{ color: COLORS.textSecondary, fontSize: fontSize.sm, fontFamily: fontFamily.medium, marginLeft: 8, flex: 1 }}>
               {stickerVehicleInfo.vehicleType} · {stickerVehicleInfo.plateNumber}
               {stickerVehicleInfo.color ? ' · ' + stickerVehicleInfo.color : ''}
+              {emp.name !== stickerVehicleInfo.ownerId ? `\n${stickerVehicleInfo.ownerName}'s vehicle` : ''}
             </Text>
+          </View>
+        ) : null}
+        {stickerVehicleInfo && emp.name === stickerVehicleInfo.ownerId ? (
+          <View style={{ marginTop: 10 }}>
+            <Text style={{ color: COLORS.text, fontFamily: fontFamily.semiBold, fontSize: fontSize.sm }}>Who is driving?</Text>
+            <View style={{ flexDirection: 'row', gap: 6, marginTop: 6 }}>
+              {(
+                [
+                  ['owner', 'The owner'],
+                  ['staff', 'Another staff'],
+                  ['other', 'Not on staff'],
+                ] as [DriverMode, string][]
+              ).map(([m, label]) => (
+                <TouchableOpacity
+                  key={m}
+                  onPress={() => chooseDriver(m)}
+                  style={{
+                    flex: 1,
+                    borderWidth: 1,
+                    borderColor: driverMode === m ? COLORS.primary : COLORS.border,
+                    backgroundColor: driverMode === m ? COLORS.primary : COLORS.surface,
+                    borderRadius: borderRadius.md,
+                    paddingVertical: 8,
+                    alignItems: 'center',
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontSize: fontSize.xs,
+                      fontFamily: fontFamily.semiBold,
+                      color: driverMode === m ? COLORS.textOnPrimary : COLORS.text,
+                    }}
+                  >
+                    {label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
         ) : null}
       </View>

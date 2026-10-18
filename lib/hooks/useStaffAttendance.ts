@@ -7,7 +7,7 @@ export function useStaffAttendance() {
   const qc = useQueryClient();
   const feedback = useFeedback();
   return useMutation({
-    mutationFn: async (input: { employee: Employee; vehiclePlate?: string; entryGate?: string }) => {
+    mutationFn: async (input: { employee: Employee; vehiclePlate?: string; entryGate?: string; sticker?: string }) => {
       const created = await createStaffAttendance(input);
       try {
         await submitAttendance(created.name);

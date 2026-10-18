@@ -6,8 +6,9 @@ export async function createStaffAttendance(input: {
   employee: Employee;
   vehiclePlate?: string;
   entryGate?: string;
+  sticker?: string;
 }): Promise<Attendance> {
-  const result = await api.createStaffAttendance(input.employee.name, input.vehiclePlate, input.entryGate);
+  const result = await api.createStaffAttendance(input.employee.name, input.vehiclePlate, input.entryGate, input.sticker);
   return result as unknown as Attendance;
 }
 
@@ -50,12 +51,12 @@ export async function fetchTodayStaffAttendance(): Promise<Attendance[]> {
  * script since check-in submits the Attendance doc (docstatus=1) and plain
  * field updates on a submitted doc are otherwise blocked.
  */
-export async function checkOutStaffAttendance(attendanceName: string, exitGate?: string): Promise<{
+export async function checkOutStaffAttendance(attendanceName: string, exitGate?: string, sticker?: string): Promise<{
   success: boolean;
   out_time: string;
   working_hours?: number;
 }> {
-  return api.checkOutStaffAttendance(attendanceName, exitGate);
+  return api.checkOutStaffAttendance(attendanceName, exitGate, sticker);
 }
 
 /**
