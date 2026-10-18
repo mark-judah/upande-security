@@ -104,7 +104,8 @@ function BadgeCard({ item }: { item: SupplierBadgeRow }) {
 
           {isAvailable ? (
             <Text style={s.issueHint}>
-              This badge is available — set a supplier, company, and Issued status to issue it.
+              This badge is available — set a supplier, company, and Issued status to issue it. Tell the
+              holder: a lost badge is charged KES 300.
             </Text>
           ) : null}
 

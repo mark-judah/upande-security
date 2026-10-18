@@ -216,6 +216,16 @@ export function ReceivingGatePanel() {
                   Issue {verified.supplier_name}&apos;s driver a badge for this delivery. It&apos;s
                   returned to the pool when departure is confirmed below.
                 </Text>
+                <Text
+                  style={{
+                    color: '#B45309',
+                    fontSize: fontSize.xs,
+                    fontFamily: fontFamily.semiBold,
+                    marginBottom: spacing.sm,
+                  }}
+                >
+                  Tell the driver: a lost badge is charged KES 300.
+                </Text>
                 <View style={{ flexDirection: 'row', gap: spacing.sm }}>
                   <TextInput
                     value={badgeNumberInput}

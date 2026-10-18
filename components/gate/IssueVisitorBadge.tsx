@@ -103,6 +103,9 @@ export function IssueVisitorBadge({ appointmentName, currentBadge, hostReceivedA
       <Text style={{ fontFamily: fontFamily.semiBold, fontSize: fontSize.sm, color: COLORS.text, marginBottom: spacing.sm }}>
         Issue visitor badge
       </Text>
+      <Text style={{ color: '#B45309', fontSize: fontSize.xs, fontFamily: fontFamily.semiBold, marginBottom: spacing.sm }}>
+        Tell the visitor: a lost badge is charged KES 300.
+      </Text>
       <TouchableOpacity
         onPress={() => router.push('/scan?intent=badge')}
         activeOpacity={0.8}
