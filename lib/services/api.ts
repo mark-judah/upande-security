@@ -1109,7 +1109,25 @@ export type ReceivingExtraItem = {
 export type ReceivingExitCheck = {
   items_out: string[];
   extra_items: ReceivingExtraItem[];
+  // Proof of delivery - one of: the goods receipt(s), the supplier's
+  // delivery note number (stores have not posted the receipt yet), or why
+  // nothing was received.
+  receipts?: string[];
+  supplier_delivery_note?: string;
+  no_receipt_reason?: string;
 };
+
+export type ReceivingReceiptCheck =
+  | {
+      receipt: string;
+      supplier_name: string;
+      posting_date: string;
+      submitted: boolean;
+      purchase_orders: string[];
+      items: number;
+      error?: undefined;
+    }
+  | { error: string };
 
 // One supplier truck checked in and not yet gone (server-side list, so any
 // guard at the farm sees it). name: pass to confirm/get departure.
@@ -1131,6 +1149,7 @@ export type ReceivingDeparture = {
   driver_name: string | null;
   departed: boolean;
   items: VisitCarriedItem[];
+  receipt_required?: boolean;
 };
 
 // --- Customer appointment booking (book a future visit ahead of time for
@@ -1572,10 +1591,12 @@ export const api = {
   confirmReceivingDeparture: (name: string, exit?: ReceivingExitCheck) =>
     call<ConfirmReceivingDepartureResult>(
       'upande_security.api.gate_receiving.confirm_receiving_departure',
-      exit ? { name, items_out: exit.items_out, extra_items: exit.extra_items } : { name },
+      exit ? { name, ...exit } : { name },
     ),
   listReceivingsAwaitingDeparture: () =>
     call<ReceivingAwaitingTruck[]>('upande_security.api.gate_receiving.list_receivings_awaiting_departure'),
+  checkReceivingReceipt: (name: string, receipt: string) =>
+    call<ReceivingReceiptCheck>('upande_security.api.gate_receiving.check_receiving_receipt', { name, receipt }),
   getReceivingDeparture: (name: string) =>
     call<ReceivingDeparture>('upande_security.api.gate_receiving.get_receiving_departure', { name }),
   // Issues a Supplier Badge to the supplier behind an already-verified
