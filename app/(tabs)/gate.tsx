@@ -50,6 +50,8 @@ import {
 import { useFeedback } from '@/lib/hooks/useFeedback';
 import { useFeatureFlag } from '@/lib/hooks/useSessionInfo';
 import { GatePicker } from '@/components/gate/GatePicker';
+import { ContractorBadgeScanPanel } from '@/components/gate/ContractorBadgeScanPanel';
+import { ContractorBadgeIssuer } from '@/components/gate/ContractorBadgeIssuer';
 import { useGateStore } from '@/lib/stores/gateStore';
 import { toFrappeDateTime, fmtDateTime } from '@/lib/utils/date';
 import { CheckInType } from '@/constants/checkInTypes';
@@ -607,6 +609,10 @@ export default function GateTab() {
             hiddenTypes={hiddenCheckInTypes}
           />
 
+          {selectedType === CheckInType.Contractor && !contractorResult && !selectedAppointment ? (
+            <ContractorBadgeScanPanel />
+          ) : null}
+
           {selectedType === CheckInType.Visitor ||
           selectedType === CheckInType.Contractor ? (
             <SearchBar
@@ -688,6 +694,9 @@ export default function GateTab() {
                 onCheckIn={onContractorCheckIn}
                 busy={checkIn.isPending || vehicleBusy}
               />
+              {selectedAppointment.name && workflowQuery.data?.custom_check_in_time && !workflowQuery.data?.custom_check_out_time ? (
+                <ContractorBadgeIssuer appointment={selectedAppointment.name} />
+              ) : null}
             </View>
           ) : null}
 

@@ -141,6 +141,29 @@ export type CheckOutStaffItemsResult = {
   not_seen_leaving: string[];
 };
 
+// Contractor badges (upande_security.api.contractor_badge): a pool card
+// assigned to one crew member per job, scanned at any gate of the company.
+export type ContractorBadgeInfo = {
+  badge: string;
+  badge_number: number;
+  company: string;
+  holder_name: string;
+  holder_id_number?: string;
+  contractor?: string | null;
+  contractor_name?: string | null;
+  valid_until: string;
+};
+
+export type ContractorBadgeScan =
+  | (ContractorBadgeInfo & { accepted: true; direction: 'Entry' | 'Exit'; movement: string; farm: string })
+  | { accepted: false; error: string };
+
+export type ContractorVisitBadges = {
+  crew: { full_name: string; id_number?: string; is_team_leader?: number }[];
+  badges: ContractorBadgeInfo[];
+  valid_until: string;
+};
+
 export type GuardLocation = {
   rostered: { farm: string; gate: string | null } | null;
   change: { name: string; farm: string; gate: string; reason: string; started_at: string } | null;
@@ -1364,6 +1387,17 @@ export const api = {
       appointment,
       items_out,
     }),
+  issueContractorBadge: (input: {
+    appointment: string;
+    badge_number: string;
+    holder_name: string;
+    holder_id_number?: string;
+    valid_until?: string;
+  }) => call<ContractorBadgeInfo>('upande_security.api.contractor_badge.issue_contractor_badge', input),
+  scanContractorBadge: (reference: string, gate?: string) =>
+    call<ContractorBadgeScan>('upande_security.api.contractor_badge.scan_contractor_badge', { reference, gate }),
+  contractorBadgesForVisit: (appointment: string) =>
+    call<ContractorVisitBadges>('upande_security.api.contractor_badge.badges_for_visit', { appointment }),
   getStaffItems: (record: string) =>
     call<StaffItems>('upande_security.api.gate_belongings.get_staff_items', { record }),
   saveStaffItems: (record: string, items: VisitCarriedItem[]) =>

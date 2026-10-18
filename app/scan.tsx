@@ -15,7 +15,8 @@ type Intent =
   | 'dispatch'
   | 'receiving'
   | 'vehicle'
-  | 'staffSticker';
+  | 'staffSticker'
+  | 'contractorBadge';
 
 export default function ScanModal() {
   const params = useLocalSearchParams<{ intent?: string }>();
@@ -34,7 +35,9 @@ export default function ScanModal() {
                 ? 'vehicle'
                 : params.intent === 'staffSticker'
                   ? 'staffSticker'
-                  : null;
+                  : params.intent === 'contractorBadge'
+                    ? 'contractorBadge'
+                    : null;
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
   const handledRef = useRef(false);
@@ -45,6 +48,7 @@ export default function ScanModal() {
   const setPendingScannedReceiving = useGateStore((s) => s.setPendingScannedReceiving);
   const setPendingScannedVehicle = useGateStore((s) => s.setPendingScannedVehicle);
   const setPendingScannedStaffSticker = useGateStore((s) => s.setPendingScannedStaffSticker);
+  const setPendingScannedContractorBadge = useGateStore((s) => s.setPendingScannedContractorBadge);
 
   if (!permission) {
     return <View style={s.cameraBg} />;
@@ -101,6 +105,8 @@ export default function ScanModal() {
       setPendingScannedVehicle(data);
     } else if (intent === 'staffSticker') {
       setPendingScannedStaffSticker(data);
+    } else if (intent === 'contractorBadge') {
+      setPendingScannedContractorBadge(data);
     } else if (__DEV__) {
       console.warn('[scan.tsx] opened with no recognized intent param, ignoring scan');
     }
@@ -135,7 +141,9 @@ export default function ScanModal() {
                       ? "Scan the vehicle's number plate / serial"
                       : intent === 'staffSticker'
                         ? 'Scan the vehicle/motorcycle sticker'
-                        : 'Position QR code in the frame'}
+                        : intent === 'contractorBadge'
+                          ? "Scan the contractor's badge"
+                          : 'Position QR code in the frame'}
         </Text>
       </View>
     </View>
