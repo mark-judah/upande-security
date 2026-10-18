@@ -92,7 +92,7 @@ export type VisitPassenger = {
   phone?: string;
 };
 
-export type CarriedItemExitStatus = 'Inside' | 'Left with owner' | 'Not seen leaving';
+export type CarriedItemExitStatus = 'Inside' | 'Left with owner' | 'Not seen leaving' | 'Left with document';
 
 export type VisitCarriedItem = {
   name?: string;
@@ -972,6 +972,8 @@ export type VerifyReceivingInput = {
   remarks?: string;
   /** Gate picked by the guard; the server defaults to the farm's main gate. */
   gate?: string;
+  /** What the supplier brings in that is not part of the delivery (feature_carried_items). */
+  items?: VisitCarriedItem[];
 };
 export type VerifyReceivingResult = {
   name: string;
@@ -1056,6 +1058,47 @@ export type VerifyVehicleTaskResult = {
 export type ConfirmReceivingDepartureResult = {
   name: string;
   gate_departure_time: string;
+  // Newer servers: every record that left with this truck, and the exit check.
+  records?: string[];
+  not_seen_leaving?: string[];
+  left_with_document?: string[];
+};
+
+// Something leaving with the supplier that was not declared on the way in -
+// needs a supporting document (reference and/or a photo's file_url).
+export type ReceivingExtraItem = {
+  item: string;
+  qty?: number;
+  serial_notes?: string;
+  supporting_document?: string;
+  supporting_document_file?: string;
+};
+
+export type ReceivingExitCheck = {
+  items_out: string[];
+  extra_items: ReceivingExtraItem[];
+};
+
+// One supplier truck checked in and not yet gone (server-side list, so any
+// guard at the farm sees it). name: pass to confirm/get departure.
+export type ReceivingAwaitingTruck = {
+  name: string;
+  purchase_orders: string[];
+  supplier_name: string;
+  vehicle_no: string | null;
+  driver_name: string | null;
+  arrived_at: string;
+  items_inside: number;
+};
+
+export type ReceivingDeparture = {
+  name: string;
+  records: string[];
+  supplier_name: string;
+  vehicle_no: string | null;
+  driver_name: string | null;
+  departed: boolean;
+  items: VisitCarriedItem[];
 };
 
 // --- Customer appointment booking (book a future visit ahead of time for
@@ -1481,11 +1524,15 @@ export const api = {
     }),
   verifyReceivingAtGate: (input: VerifyReceivingInput) =>
     call<VerifyReceivingResult>('upande_security.api.gate_receiving.verify_receiving_at_gate', input),
-  confirmReceivingDeparture: (name: string) =>
+  confirmReceivingDeparture: (name: string, exit?: ReceivingExitCheck) =>
     call<ConfirmReceivingDepartureResult>(
       'upande_security.api.gate_receiving.confirm_receiving_departure',
-      { name },
+      exit ? { name, items_out: exit.items_out, extra_items: exit.extra_items } : { name },
     ),
+  listReceivingsAwaitingDeparture: () =>
+    call<ReceivingAwaitingTruck[]>('upande_security.api.gate_receiving.list_receivings_awaiting_departure'),
+  getReceivingDeparture: (name: string) =>
+    call<ReceivingDeparture>('upande_security.api.gate_receiving.get_receiving_departure', { name }),
   // Issues a Supplier Badge to the supplier behind an already-verified
   // Gate Receiving Verification record, so a future delivery from the
   // same supplier can be found by scanning the badge instead of typing

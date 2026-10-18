@@ -1,4 +1,4 @@
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, type VerifyReceivingInput } from '@/lib/services/api';
 import { useReceivingStore } from '@/lib/stores/receivingStore';
 import { useFeedback } from './useFeedback';
@@ -19,11 +19,13 @@ type Context = {
 export function useVerifyReceiving() {
   const feedback = useFeedback();
   const addPending = useReceivingStore((s) => s.addPending);
+  const qc = useQueryClient();
 
   return useMutation({
     mutationFn: ({ input }: { input: VerifyReceivingInput; context: Context }) =>
       api.verifyReceivingAtGate(input),
     onSuccess: (result, { context }) => {
+      qc.invalidateQueries({ queryKey: ['receiving-awaiting'] });
       if (result.gate_verification_status === 'Verified') {
         addPending({
           name: result.name,

@@ -1,7 +1,12 @@
+import { useState } from 'react';
 import { ActivityIndicator, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useQuery } from '@tanstack/react-query';
+import { api } from '@/lib/services/api';
 import { useReceivingStore } from '@/lib/stores/receivingStore';
 import { useConfirmReceivingDeparture } from '@/lib/hooks/useConfirmReceivingDeparture';
+import { useFeatureFlag } from '@/lib/hooks/useSessionInfo';
+import { ReceivingExitSheet } from './ReceivingExitSheet';
 import { fmtTime } from '@/lib/utils/date';
 import { COLORS, borderRadius, fontFamily, fontSize, spacing } from '@/src/core/theme';
 
@@ -12,8 +17,40 @@ import { COLORS, borderRadius, fontFamily, fontSize, spacing } from '@/src/core/
  * later, possibly to a different guard.
  */
 export function ReceivingAwaitingDeparture() {
-  const pending = useReceivingStore((s) => s.pending);
+  const localPending = useReceivingStore((s) => s.pending);
   const confirmDeparture = useConfirmReceivingDeparture();
+  const itemsEnabled = useFeatureFlag('feature_carried_items');
+  const [checking, setChecking] = useState<string | null>(null);
+
+  // The server's list covers every truck at this farm, whoever let it in.
+  // A server without it (older build) falls back to this phone's own list.
+  const serverList = useQuery({
+    queryKey: ['receiving-awaiting'],
+    queryFn: () => api.listReceivingsAwaitingDeparture(),
+    refetchInterval: 60_000,
+    retry: false,
+  });
+  const pending = serverList.data
+    ? serverList.data.map((t) => ({
+        name: t.name,
+        supplier_name: t.supplier_name,
+        detail: [t.purchase_orders.join(', '), t.vehicle_no, t.driver_name].filter(Boolean).join(' · '),
+        arrived: t.arrived_at,
+        items: t.items_inside,
+      }))
+    : localPending.map((e) => ({
+        name: e.name,
+        supplier_name: e.supplier_name,
+        detail: [e.purchase_order, e.vehicle_no, e.driver_name].filter(Boolean).join(' · '),
+        arrived: e.verified_at,
+        items: 0,
+      }));
+
+  function onDepart(name: string) {
+    // The exit check needs the newer server; without it, depart as before.
+    if (itemsEnabled && serverList.data) setChecking(name);
+    else confirmDeparture.mutate({ name });
+  }
 
   if (pending.length === 0) return null;
 
@@ -48,15 +85,20 @@ export function ReceivingAwaitingDeparture() {
                 {entry.supplier_name}
               </Text>
               <Text style={{ color: COLORS.textMuted, fontSize: fontSize.xs, fontFamily: fontFamily.regular }}>
-                {[entry.purchase_order, entry.vehicle_no, entry.driver_name].filter(Boolean).join(' · ') || '—'}
+                {entry.detail || '—'}
                 {' · Arrived '}
-                {fmtTime(entry.verified_at)}
+                {fmtTime(entry.arrived)}
               </Text>
+              {entry.items ? (
+                <Text style={{ color: COLORS.warn, fontSize: fontSize.xs, fontFamily: fontFamily.semiBold }}>
+                  {entry.items} item{entry.items === 1 ? '' : 's'} declared on the way in - check at exit
+                </Text>
+              ) : null}
             </View>
           </View>
 
           <TouchableOpacity
-            onPress={() => confirmDeparture.mutate(entry.name)}
+            onPress={() => onDepart(entry.name)}
             disabled={confirmDeparture.isPending}
             activeOpacity={0.8}
             accessibilityRole="button"
@@ -93,6 +135,11 @@ export function ReceivingAwaitingDeparture() {
           </TouchableOpacity>
         </View>
       ))}
+      <ReceivingExitSheet
+        name={checking}
+        onClose={() => setChecking(null)}
+        onConfirm={(name, exit) => confirmDeparture.mutateAsync({ name, exit })}
+      />
     </View>
   );
 }

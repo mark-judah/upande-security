@@ -1,13 +1,21 @@
 import { useState } from 'react';
 import { ActivityIndicator, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import type { ReceivingSearchHit, GateVerificationStatus } from '@/lib/services/api';
+import type { ReceivingSearchHit, GateVerificationStatus, VisitCarriedItem } from '@/lib/services/api';
+import { PassengersItemsSection, toItemPayload, type ItemDraft } from '@/components/gate/PassengersItemsSection';
+import { useFeatureFlag } from '@/lib/hooks/useSessionInfo';
 import { fmtDateTime } from '@/lib/utils/date';
 import { COLORS, borderRadius, fontFamily, fontSize, spacing } from '@/src/core/theme';
 
 type Props = {
   result: ReceivingSearchHit;
-  onDecide: (status: GateVerificationStatus, vehicleNo: string, driverName: string, remarks: string) => void;
+  onDecide: (
+    status: GateVerificationStatus,
+    vehicleNo: string,
+    driverName: string,
+    remarks: string,
+    items: VisitCarriedItem[],
+  ) => void;
   busy?: boolean;
   onReset: () => void;
 };
@@ -30,13 +38,19 @@ export function ReceivingResultCard({ result, onDecide, busy, onReset }: Props) 
   const [vehicleNo, setVehicleNo] = useState('');
   const [driverName, setDriverName] = useState('');
   const [remarks, setRemarks] = useState('');
+  // Supplier's own goods coming in that are not part of this delivery
+  // (other customers' orders, tools) - checked again when the truck leaves.
+  const [itemDrafts, setItemDrafts] = useState<ItemDraft[]>([]);
+  const itemsEnabled = useFeatureFlag('feature_carried_items');
 
   const remarksRequired = action === 'Rejected';
   const canSubmit = action != null && (!remarksRequired || remarks.trim().length > 0);
 
   function submit() {
     if (!action || !canSubmit) return;
-    onDecide(action, vehicleNo.trim(), driverName.trim(), remarks.trim());
+    // A rejected truck never enters, so it has nothing to declare.
+    const items = action === 'Verified' && itemsEnabled ? toItemPayload(itemDrafts) : [];
+    onDecide(action, vehicleNo.trim(), driverName.trim(), remarks.trim(), items);
   }
 
   return (
@@ -281,6 +295,28 @@ export function ReceivingResultCard({ result, onDecide, busy, onReset }: Props) 
               minHeight: 60,
               textAlignVertical: 'top',
             }}
+          />
+        </View>
+      ) : null}
+
+      {action === 'Verified' && itemsEnabled ? (
+        <View style={{ marginTop: spacing.md }}>
+          <Text style={{ fontFamily: fontFamily.semiBold, fontSize: fontSize.sm, color: COLORS.text }}>
+            Items not for us
+          </Text>
+          <Text style={{ color: COLORS.textMuted, fontSize: fontSize.xs, fontFamily: fontFamily.regular, marginTop: 2 }}>
+            Anything on the truck that is not part of this delivery - other customers&apos; orders, the
+            supplier&apos;s own tools. Checked again when the truck leaves.
+          </Text>
+          <PassengersItemsSection
+            visitorName={driverName.trim() || result.supplier_name}
+            showPassengers={false}
+            showItems
+            passengers={[]}
+            onPassengersChange={() => {}}
+            items={itemDrafts}
+            onItemsChange={setItemDrafts}
+            busy={busy}
           />
         </View>
       ) : null}

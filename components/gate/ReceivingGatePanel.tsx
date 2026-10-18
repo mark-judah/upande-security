@@ -6,6 +6,7 @@ import type {
   ReceivingSearchHit,
   GateVerificationStatus,
   VerifyReceivingResult,
+  VisitCarriedItem,
 } from '@/lib/services/api';
 import { useReceivingSearch } from '@/lib/hooks/useReceivingSearch';
 import { useVerifyReceiving } from '@/lib/hooks/useVerifyReceiving';
@@ -102,6 +103,7 @@ export function ReceivingGatePanel() {
     vehicleNo: string,
     driverName: string,
     remarks: string,
+    items: VisitCarriedItem[],
   ) {
     if (!found) return;
     try {
@@ -113,6 +115,7 @@ export function ReceivingGatePanel() {
           driver_name: driverName || undefined,
           remarks: remarks || undefined,
           gate: gate ?? undefined,
+          items: items.length ? items : undefined,
         },
         context: {
           purchase_order: found.purchase_order,
