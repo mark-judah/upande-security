@@ -65,6 +65,9 @@ export function ContractorBadgeIssuer({ appointment }: { appointment: string }) 
       <Text style={{ marginTop: 4, color: COLORS.textMuted, fontSize: fontSize.xs, fontFamily: fontFamily.regular }}>
         One badge per person. They scan it at any gate of the company until {valid_until} — no booking at the next farm.
       </Text>
+      <Text style={{ marginTop: 4, color: '#B45309', fontSize: fontSize.xs, fontFamily: fontFamily.semiBold }}>
+        Tell each person: a lost badge is charged KES 300.
+      </Text>
       {crew.map((p) => {
         const b = badgeOf(p.full_name);
         return (
