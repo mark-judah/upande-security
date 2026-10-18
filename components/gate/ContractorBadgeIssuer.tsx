@@ -7,8 +7,10 @@ import { useFeedback } from '@/lib/hooks/useFeedback';
 import { COLORS, borderRadius, fontFamily, fontSize, spacing } from '@/src/core/theme';
 
 /**
- * After a contractor visit is checked in: give each crew member a numbered
- * Contractor Badge from the pool. With it they move between the company's
+ * On a contractor visit, before check-in: give each crew member a numbered
+ * contractor badge from the pool - all at once (next free numbers) or one
+ * by one by typing the card's number. Where the company keeps a pool the
+ * server refuses check-in until everyone has one. With it they move between the company's
  * farms by scanning at the gate, without being booked again. The badges go
  * back to the pool when the visit is checked out.
  */
@@ -17,6 +19,7 @@ export function ContractorBadgeIssuer({ appointment }: { appointment: string }) 
   const qc = useQueryClient();
   const [numbers, setNumbers] = useState<Record<string, string>>({});
   const [issuing, setIssuing] = useState<string | null>(null);
+  const [issuingAll, setIssuingAll] = useState(false);
   const query = useQuery({
     queryKey: ['contractor-badges', appointment],
     queryFn: () => api.contractorBadgesForVisit(appointment),
@@ -27,8 +30,29 @@ export function ContractorBadgeIssuer({ appointment }: { appointment: string }) 
   // Older server without contractor badges - say nothing.
   if (query.isError || !query.data) return null;
 
-  const { crew, badges, valid_until } = query.data;
+  const { crew, badges, valid_until, required, available } = query.data;
   const badgeOf = (name: string) => badges.find((b) => b.holder_name.toLowerCase() === name.toLowerCase());
+  const missing = crew.filter((p) => !badgeOf(p.full_name));
+
+  // Next free badge from the pool for everyone still without one - the guard
+  // just hands out the cards with the numbers shown.
+  async function issueAll() {
+    setIssuingAll(true);
+    try {
+      const r = await api.issueBadgesToCrew(appointment);
+      if (r.issued.length) {
+        feedback.success(r.issued.map((x) => `${x.holder_name}: #${x.badge_number}`).join(', '));
+      }
+      if (r.still_needed) {
+        feedback.warning(`Not enough free badges — ${r.still_needed} more needed. Create more or collect returned ones.`);
+      }
+      qc.invalidateQueries({ queryKey: ['contractor-badges', appointment] });
+    } catch (e) {
+      feedback.error(e instanceof Error ? e.message : 'Could not issue the badges');
+    } finally {
+      setIssuingAll(false);
+    }
+  }
 
   async function issue(person: { full_name: string; id_number?: string }) {
     const n = (numbers[person.full_name] || '').trim();
@@ -68,6 +92,38 @@ export function ContractorBadgeIssuer({ appointment }: { appointment: string }) 
       <Text style={{ marginTop: 4, color: '#B45309', fontSize: fontSize.xs, fontFamily: fontFamily.semiBold }}>
         Tell each person: a lost badge is charged KES 300.
       </Text>
+      {required && missing.length ? (
+        <Text style={{ marginTop: 6, color: COLORS.danger, fontSize: fontSize.xs, fontFamily: fontFamily.semiBold }}>
+          Everyone needs a badge before check-in — {missing.length} still without one
+          {available != null ? ` (${available} free in the pool)` : ''}.
+        </Text>
+      ) : null}
+      {missing.length > 1 || (missing.length === 1 && crew.length === 1) ? (
+        <TouchableOpacity
+          onPress={issueAll}
+          disabled={issuingAll || issuing != null}
+          activeOpacity={0.8}
+          style={{
+            marginTop: spacing.sm,
+            backgroundColor: '#B45309',
+            opacity: issuingAll ? 0.6 : 1,
+            borderRadius: borderRadius.md,
+            paddingVertical: 10,
+            alignItems: 'center',
+            flexDirection: 'row',
+            justifyContent: 'center',
+          }}
+        >
+          {issuingAll ? (
+            <ActivityIndicator size="small" color={COLORS.textOnPrimary} />
+          ) : (
+            <Ionicons name="flash-outline" size={16} color={COLORS.textOnPrimary} />
+          )}
+          <Text style={{ marginLeft: 6, color: COLORS.textOnPrimary, fontFamily: fontFamily.semiBold, fontSize: fontSize.sm }}>
+            {crew.length === 1 ? 'Issue next free badge' : `Issue badges to all (${missing.length})`}
+          </Text>
+        </TouchableOpacity>
+      ) : null}
       {crew.map((p) => {
         const b = badgeOf(p.full_name);
         return (

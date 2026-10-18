@@ -686,6 +686,10 @@ export default function GateTab() {
                 onChange={setVisitorEntryGate}
                 label="Entry Gate"
               />
+              {/* Badges first: the server refuses check-in until the crew has them. */}
+              {selectedAppointment.name && workflowQuery.data && !workflowQuery.data.custom_check_out_time ? (
+                <ContractorBadgeIssuer appointment={selectedAppointment.name} />
+              ) : null}
               <ActionButtons
                 approvalRequired={approvalRequired}
                 appointment={workflowQuery.data}
@@ -694,9 +698,6 @@ export default function GateTab() {
                 onCheckIn={onContractorCheckIn}
                 busy={checkIn.isPending || vehicleBusy}
               />
-              {selectedAppointment.name && workflowQuery.data?.custom_check_in_time && !workflowQuery.data?.custom_check_out_time ? (
-                <ContractorBadgeIssuer appointment={selectedAppointment.name} />
-              ) : null}
             </View>
           ) : null}
 

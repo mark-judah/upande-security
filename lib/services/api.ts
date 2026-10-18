@@ -162,6 +162,15 @@ export type ContractorVisitBadges = {
   crew: { full_name: string; id_number?: string; is_team_leader?: number }[];
   badges: ContractorBadgeInfo[];
   valid_until: string;
+  // The company keeps a contractor badge pool: every crew member needs a
+  // badge before the visit can be checked in.
+  required?: boolean;
+  available?: number;
+};
+
+export type IssueBadgesToCrewResult = {
+  issued: { holder_name: string; badge_number: number }[];
+  still_needed: number;
 };
 
 export type GuardLocation = {
@@ -1396,6 +1405,8 @@ export const api = {
   }) => call<ContractorBadgeInfo>('upande_security.api.contractor_badge.issue_contractor_badge', input),
   scanContractorBadge: (reference: string, gate?: string) =>
     call<ContractorBadgeScan>('upande_security.api.contractor_badge.scan_contractor_badge', { reference, gate }),
+  issueBadgesToCrew: (appointment: string) =>
+    call<IssueBadgesToCrewResult>('upande_security.api.contractor_badge.issue_badges_to_crew', { appointment }),
   contractorBadgesForVisit: (appointment: string) =>
     call<ContractorVisitBadges>('upande_security.api.contractor_badge.badges_for_visit', { appointment }),
   getStaffItems: (record: string) =>
