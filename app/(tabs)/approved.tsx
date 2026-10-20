@@ -6,6 +6,8 @@ import { useApprovedAppointments } from '@/lib/hooks/useApprovedAppointments';
 import { useCheckIn } from '@/lib/hooks/useCheckIn';
 import { useCheckOut } from '@/lib/hooks/useCheckOut';
 import { useItemsAwareCheckOut } from '@/components/gate/CheckOutItemsSheet';
+import { EntryItemsSheet } from '@/components/gate/EntryItemsSheet';
+import { api } from '@/lib/services/api';
 import { fmtDateTime } from '@/lib/utils/date';
 import type { ApprovedAppointmentRow } from '@/lib/services/api';
 import { COLORS, fontFamily, fontSize, spacing, borderRadius } from '@/src/core/theme';
@@ -157,6 +159,30 @@ export default function ApprovedTab() {
   const checkOut = useCheckOut();
   const itemsCheckOut = useItemsAwareCheckOut();
   const [activeName, setActiveName] = useState<string | null>(null);
+  const itemsEnabled = useFeatureFlag('feature_carried_items');
+  // Check-in declares what they bring in, so their exit can be checked.
+  const [checkingIn, setCheckingIn] = useState<ApprovedAppointmentRow | null>(null);
+
+  async function doCheckIn(item: ApprovedAppointmentRow) {
+    setActiveName(item.name);
+    try {
+      await checkIn.mutateAsync({ name: item.name });
+    } finally {
+      setActiveName(null);
+    }
+  }
+
+  // New items are added to whatever the visit already has registered.
+  async function addItems(name: string, add: { item: string; qty: number }[]) {
+    if (!add.length) return;
+    const existing = (await api.getVisitPeopleAndItems(name)).items.map((i) => ({
+      carried_by: i.carried_by,
+      item: i.item,
+      qty: i.qty ?? 1,
+      serial_notes: i.serial_notes ?? undefined,
+    }));
+    await api.saveVisitPeopleAndItems({ appointment: name, items: [...existing, ...add.map((a) => ({ ...a, carried_by: '' }))] });
+  }
 
   const items = data ?? [];
   const inside = items.filter((i) => i.workflow_state === 'Visitor Checked In').length;
@@ -166,6 +192,8 @@ export default function ApprovedTab() {
     if (checkIn.isPending || checkOut.isPending) return;
     if (item.workflow_state === 'Visitor Checked In') {
       itemsCheckOut.begin(item.name, item.customer_name, () => confirmPlainCheckOut(item));
+    } else if (itemsEnabled) {
+      setCheckingIn(item);
     } else {
       Alert.alert('Check in?', `Check in ${item.customer_name}?`, [
         { text: 'Cancel', style: 'cancel' },
@@ -210,6 +238,26 @@ export default function ApprovedTab() {
       }}
     >
       {itemsCheckOut.sheet}
+      <EntryItemsSheet
+        entry={checkingIn ? { key: checkingIn.name, holder: checkingIn.customer_name, items: [] } : null}
+        onClose={() => setCheckingIn(null)}
+        hint="Add what they are bringing in - it is checked again when they leave."
+        emptyText={null}
+        skipLabel="Nothing - check in"
+        saveLabel="Record & check in"
+        onSkip={() => {
+          const item = checkingIn;
+          setCheckingIn(null);
+          if (item) doCheckIn(item);
+        }}
+        onSave={async (_ticked, add) => {
+          const item = checkingIn;
+          if (!item) return;
+          await addItems(item.name, add);
+          setCheckingIn(null);
+          await doCheckIn(item);
+        }}
+      />
       <View style={s.pageHeaderRow}>
         <Text style={s.pageTitle}>Approved Visitors</Text>
         {isLoading || isFetching ? (

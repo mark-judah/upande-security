@@ -17,11 +17,22 @@ export function EntryItemsSheet({
   entry,
   onClose,
   onSave,
+  hint = 'Tick what they brought back in, and add anything new.',
+  emptyText = 'No items left with them earlier.',
+  skipLabel = 'Skip',
+  saveLabel = 'Record items',
+  onSkip,
 }: {
   entry: { key: string; holder: string; items: VisitCarriedItem[] } | null;
   onClose: () => void;
   // Record it (throw to keep the sheet open); the caller reports success.
   onSave: (ticked: string[], newItems: { item: string; qty: number }[]) => Promise<void>;
+  hint?: string;
+  emptyText?: string | null;
+  skipLabel?: string;
+  saveLabel?: string;
+  // Defaults to closing; a check-in passes "go on without items".
+  onSkip?: () => void;
 }) {
   const feedback = useFeedback();
   const [ticked, setTicked] = useState<string[]>([]);
@@ -64,11 +75,11 @@ export function EntryItemsSheet({
             Items coming in with {entry?.holder}
           </Text>
           <Text style={{ fontSize: fontSize.xs, color: COLORS.textMuted, marginTop: 2, marginBottom: spacing.sm }}>
-            Tick what they brought back in, and add anything new.
+            {hint}
           </Text>
           <ScrollView style={{ maxHeight: 420 }}>
-            {entry && !entry.items.length ? (
-              <Text style={{ fontSize: fontSize.sm, color: COLORS.textMuted }}>No items left with them earlier.</Text>
+            {entry && !entry.items.length && emptyText ? (
+              <Text style={{ fontSize: fontSize.sm, color: COLORS.textMuted }}>{emptyText}</Text>
             ) : null}
             {entry?.items.map((it) => {
               const name = it.name ?? '';
@@ -146,8 +157,8 @@ export function EntryItemsSheet({
             </TouchableOpacity>
           </ScrollView>
           <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md }}>
-            <Button label="Skip" variant="outline" onPress={onClose} disabled={saving} style={{ flex: 1 }} />
-            <Button label="Record items" iconLeft="log-in-outline" onPress={save} loading={saving} style={{ flex: 1 }} />
+            <Button label={skipLabel} variant="outline" onPress={onSkip ?? onClose} disabled={saving} style={{ flex: 1 }} />
+            <Button label={saveLabel} iconLeft="log-in-outline" onPress={save} loading={saving} style={{ flex: 1 }} />
           </View>
         </View>
       </View>
