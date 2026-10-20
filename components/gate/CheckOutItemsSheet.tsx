@@ -19,6 +19,8 @@ type ExitCheck = {
   markOut: (name: string, ticked: string[], extras: ExitExtraItem[]) => Promise<{ not_seen_leaving: string[] }>;
   // The normal check-out. Reports its own failures.
   finish: (name: string) => Promise<unknown>;
+  // A temporary step-out, not a check-out: unticked items stay inside.
+  stepOut?: boolean;
 };
 
 /**
@@ -113,7 +115,7 @@ export function useItemsExitCheck(config: ExitCheck) {
   function onConfirm() {
     if (!pending) return;
     const missing = pending.items.filter((i) => !ticked.includes(i.name ?? ''));
-    if (!missing.length) {
+    if (!missing.length || configRef.current.stepOut) {
       complete();
       return;
     }
@@ -143,8 +145,15 @@ export function useItemsExitCheck(config: ExitCheck) {
           <View style={s.header}>
             <Ionicons name="bag-check-outline" size={22} color={COLORS.text} />
             <View style={{ flex: 1, marginLeft: spacing.sm }}>
-              <Text style={s.title}>Items leaving with {pending?.ownerName ?? 'visitor'}</Text>
-              <Text style={s.subtitle}>Tick each item you see going out.</Text>
+              <Text style={s.title}>
+                {configRef.current.stepOut ? 'Items going out with ' : 'Items leaving with '}
+                {pending?.ownerName ?? 'visitor'}
+              </Text>
+              <Text style={s.subtitle}>
+                {configRef.current.stepOut
+                  ? 'Tick what they take with them. Unticked items stay inside.'
+                  : 'Tick each item you see going out.'}
+              </Text>
             </View>
           </View>
 
@@ -204,8 +213,8 @@ export function useItemsExitCheck(config: ExitCheck) {
               style={{ flex: 1 }}
             />
             <Button
-              label="CHECK OUT"
-              iconLeft="log-out-outline"
+              label={configRef.current.stepOut ? 'STEP OUT' : 'CHECK OUT'}
+              iconLeft={configRef.current.stepOut ? 'walk-outline' : 'log-out-outline'}
               onPress={onConfirm}
               loading={saving}
               style={{ flex: 1 }}

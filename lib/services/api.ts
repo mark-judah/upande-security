@@ -1450,6 +1450,16 @@ export const api = {
       'upande_security.api.contractor_badge.check_out_badge_items',
       { badge, items_out: itemsOut, ...(extra_items?.length ? { extra_items } : {}) },
     ),
+  stepOutStaffItems: (record: string, itemsOut: string[], extra_items?: ExitExtraItem[]) =>
+    call<{ record: string; taken_out: number; left_with_document: string[] }>(
+      'upande_security.api.gate_belongings.step_out_staff_items',
+      { record, items_out: itemsOut, ...(extra_items?.length ? { extra_items } : {}) },
+    ),
+  stepInStaffItems: (record: string, itemsIn: string[], newItems: { item: string; qty?: number }[]) =>
+    call<{ record: string; back_inside: number; added: string[] }>(
+      'upande_security.api.gate_belongings.step_in_staff_items',
+      { record, items_in: itemsIn, new_items: newItems },
+    ),
   checkInBadgeItems: (badge: string, itemsIn: string[], newItems: { item: string; qty?: number }[]) =>
     call<{ badge: string; back_inside: number; added: string[] }>(
       'upande_security.api.contractor_badge.check_in_badge_items',

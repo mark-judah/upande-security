@@ -12,6 +12,8 @@ import { useFeatureFlag } from '@/lib/hooks/useSessionInfo';
 import { GatePicker } from '@/components/gate/GatePicker';
 import { PassengersItemsSection, toItemPayload, type ItemDraft } from '@/components/gate/PassengersItemsSection';
 import { useItemsExitCheck } from '@/components/gate/CheckOutItemsSheet';
+import { EntryItemsSheet } from '@/components/gate/EntryItemsSheet';
+import type { VisitCarriedItem } from '@/lib/services/api';
 import { api } from '@/lib/services/api';
 import { useGateStore } from '@/lib/stores/gateStore';
 import { extractEmployeeId } from '@/lib/utils/qr';
@@ -143,6 +145,10 @@ export function StaffCheckInPanel() {
   const openAttendance = todayAttendanceQuery.data;
   const isCheckedIn = Boolean(openAttendance?.in_time && !openAttendance?.out_time);
   const steppedOut = Boolean(openAttendance?.custom_temp_exit_time);
+  // Gate Movement mode has no step-out: every exit is a check-out and every
+  // entry a new movement.
+  // (get_today_attendance reports a movement with status 'Movement'.)
+  const canStepOut = String(openAttendance?.status ?? '') !== 'Movement';
 
   const itemsQuery = useQuery({
     queryKey: ['staff-items', openAttendance?.name],
@@ -161,6 +167,20 @@ export function StaffCheckInPanel() {
       reset();
     },
   });
+
+  // Stepping out for a while: tick what goes out with them (the rest stays
+  // inside); anything unregistered needs its delivery note or a photo.
+  const stepOutCheck = useItemsExitCheck({
+    load: async (name) => (await api.getStaffItems(name)).items,
+    markOut: async (name, ticked, extras) => {
+      await api.stepOutStaffItems(name, ticked, extras);
+      return { not_seen_leaving: [] }; // nothing is missing - the rest stays inside
+    },
+    finish: (name) => tempExit.mutateAsync({ name, direction: 'out' }),
+    stepOut: true,
+  });
+  // Coming back: tick what returned with them, add anything new.
+  const [returning, setReturning] = useState<{ key: string; holder: string; items: VisitCarriedItem[] } | null>(null);
 
   function reset() {
     setEmployeeId(null);
@@ -278,12 +298,31 @@ export function StaffCheckInPanel() {
     }
   }
 
-  async function onTempExit() {
+  async function plainTempExit() {
     if (!openAttendance) return;
     try {
       await tempExit.mutateAsync({ name: openAttendance.name, direction: steppedOut ? 'in' : 'out' });
     } catch {
       // feedback handled in the hook
+    }
+  }
+
+  async function onTempExit() {
+    if (!openAttendance || !employeeQuery.data) return;
+    const who = employeeQuery.data.employee_name;
+    if (!steppedOut) {
+      stepOutCheck.begin(openAttendance.name, who, plainTempExit);
+      return;
+    }
+    if (!itemsEnabled) {
+      plainTempExit();
+      return;
+    }
+    try {
+      const items = (await api.getStaffItems(openAttendance.name)).items.filter((i) => i.exit_status === 'Left with owner');
+      setReturning({ key: openAttendance.name, holder: who, items });
+    } catch {
+      plainTempExit();
     }
   }
 
@@ -753,7 +792,7 @@ export function StaffCheckInPanel() {
           <GatePicker farm={ownFarm} value={exitGate} onChange={setExitGate} label="Exit Gate" />
 
           <View style={{ flexDirection: 'row', gap: 8, marginTop: 14 }}>
-            {tempExitEnabled ? (
+            {tempExitEnabled && canStepOut ? (
               <TouchableOpacity
                 onPress={onTempExit}
                 disabled={tempExit.isPending}
@@ -852,6 +891,17 @@ export function StaffCheckInPanel() {
       </TouchableOpacity>
 
       {exitCheck.sheet}
+      {stepOutCheck.sheet}
+      <EntryItemsSheet
+        entry={returning}
+        onClose={() => setReturning(null)}
+        onSave={async (ticked, add) => {
+          if (!returning) return;
+          await api.stepInStaffItems(returning.key, ticked, add);
+          setReturning(null);
+          await plainTempExit();
+        }}
+      />
     </View>
   );
 }
