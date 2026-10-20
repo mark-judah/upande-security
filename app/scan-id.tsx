@@ -1,22 +1,54 @@
-import { useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, Linking, ActivityIndicator } from 'react-native';
-import { CameraView, useCameraPermissions } from 'expo-camera';
+import { useCallback, useRef } from 'react';
+import { View, Text, TouchableOpacity, Linking } from 'react-native';
+import { useCameraPermissions } from 'expo-camera';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
-import TextRecognition from '@react-native-ml-kit/text-recognition';
+import MrzReader, { CameraSelector, DocType, ResizeMode } from 'react-native-mrz-reader';
 import { useGateStore } from '@/lib/stores/gateStore';
-import { parseIdCardText } from '@/lib/utils/idCard';
-import { parseMrz } from '@/lib/utils/mrz';
+import { parseMrzString } from '@/lib/utils/mrz';
 import { audio } from '@/src/core/audio';
 
 const CARD_ASPECT_RATIO = 1.586; // standard ID card width:height
 
+/**
+ * ID scan by MRZ only - the three lines of letters and chevrons on the back
+ * of the newer ID cards. A dedicated MRZ reader (Tesseract trained on the
+ * MRZ font) watches the live camera; a read is accepted only when every
+ * check digit passes, so a wrong ID number can't be filled in. Cards without
+ * an MRZ (the older Kenyan ID) are entered by hand - general OCR guessed
+ * wrong too often to keep.
+ */
 export default function ScanIdModal() {
   const [permission, requestPermission] = useCameraPermissions();
-  const [capturing, setCapturing] = useState(false);
-  const cameraRef = useRef<CameraView>(null);
+  const done = useRef(false);
   const setPendingScannedIdCard = useGateStore((s) => s.setPendingScannedIdCard);
+
+  const close = useCallback(() => {
+    if (router.canDismiss()) router.dismiss();
+    else router.back();
+  }, []);
+
+  const onMrzRead = useCallback(
+    (raw: string) => {
+      if (done.current) return;
+      const parsed = parseMrzString(raw);
+      if (!parsed) return; // a check digit failed - keep scanning
+      done.current = true;
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      audio.beep();
+      setPendingScannedIdCard({ name: parsed.name, idNumber: parsed.idNumber });
+      close();
+    },
+    [setPendingScannedIdCard, close],
+  );
+
+  const enterManually = useCallback(() => {
+    if (done.current) return;
+    done.current = true;
+    setPendingScannedIdCard({});
+    close();
+  }, [setPendingScannedIdCard, close]);
 
   if (!permission) {
     return <View style={{ flex: 1, backgroundColor: '#000000' }} />;
@@ -48,79 +80,42 @@ export default function ScanIdModal() {
         <Text style={{ color: '#AAAAAA', fontSize: 13, marginTop: 6, textAlign: 'center' }}>
           We need camera access to scan the ID card.
         </Text>
-        {permission.canAskAgain ? (
-          <TouchableOpacity
-            onPress={() => requestPermission()}
-            activeOpacity={0.8}
-            accessibilityRole="button"
-            style={{
-              backgroundColor: '#FFFFFF',
-              paddingHorizontal: 18,
-              paddingVertical: 14,
-              borderRadius: 8,
-              marginTop: 20,
-              minHeight: 48,
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <Text style={{ color: '#000000', fontWeight: '700' }}>Grant Permission</Text>
-          </TouchableOpacity>
-        ) : (
-          <TouchableOpacity
-            onPress={() => Linking.openSettings()}
-            activeOpacity={0.8}
-            accessibilityRole="button"
-            style={{
-              backgroundColor: '#FFFFFF',
-              paddingHorizontal: 18,
-              paddingVertical: 14,
-              borderRadius: 8,
-              marginTop: 20,
-              minHeight: 48,
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <Text style={{ color: '#000000', fontWeight: '700' }}>Open Settings</Text>
-          </TouchableOpacity>
-        )}
+        <TouchableOpacity
+          onPress={() => (permission.canAskAgain ? requestPermission() : Linking.openSettings())}
+          activeOpacity={0.8}
+          accessibilityRole="button"
+          style={{
+            backgroundColor: '#FFFFFF',
+            paddingHorizontal: 18,
+            paddingVertical: 14,
+            borderRadius: 8,
+            marginTop: 20,
+            minHeight: 48,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Text style={{ color: '#000000', fontWeight: '700' }}>
+            {permission.canAskAgain ? 'Grant Permission' : 'Open Settings'}
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={enterManually} style={{ marginTop: 16, padding: 12 }}>
+          <Text style={{ color: '#FFFFFF', textDecorationLine: 'underline' }}>Enter details manually</Text>
+        </TouchableOpacity>
       </View>
     );
   }
 
-  async function onCapture() {
-    if (capturing || !cameraRef.current) return;
-    setCapturing(true);
-    try {
-      const photo = await cameraRef.current.takePictureAsync({ quality: 0.8 });
-      if (!photo?.uri) throw new Error('No photo captured');
-
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-      audio.beep();
-
-      const result = await TextRecognition.recognize(photo.uri);
-      // MRZ first (the newer bilingual/Maisha Namba generation prints one) —
-      // check-digit validated, so a match here is *known* correct, not a
-      // guess. The classic Kenyan ID has no MRZ at all, so this falls
-      // through to the existing full-text heuristics whenever no valid MRZ
-      // is found, rather than ever blocking on it.
-      const mrz = parseMrz(result.text);
-      const parsed = mrz ?? parseIdCardText(result.text);
-      setPendingScannedIdCard(parsed);
-    } catch {
-      // No text recognized / OCR failed — fall back to a blank scan so the
-      // guard can just type the details in manually.
-      setPendingScannedIdCard({});
-    } finally {
-      if (router.canDismiss()) router.dismiss();
-      else router.back();
-    }
-  }
-
   return (
     <View style={{ flex: 1, backgroundColor: '#000000' }}>
-      <CameraView ref={cameraRef} style={{ flex: 1 }} facing="back" />
+      <MrzReader
+        style={{ flex: 1 }}
+        docType={DocType.ID}
+        cameraSelector={CameraSelector.Back}
+        resizeMode={ResizeMode.COVER}
+        onMRZRead={onMrzRead}
+      />
+
       <View
         pointerEvents="none"
         style={{
@@ -137,55 +132,69 @@ export default function ScanIdModal() {
           style={{
             width: '85%',
             aspectRatio: CARD_ASPECT_RATIO,
-            borderWidth: 3,
+            borderWidth: 2,
             borderColor: '#FFFFFF',
-            borderRadius: 16,
-            backgroundColor: 'transparent',
+            borderRadius: 12,
+            justifyContent: 'flex-end',
+            padding: 10,
           }}
-        />
+        >
+          {/* Where the MRZ sits: the bottom third of the card's back. */}
+          <View
+            style={{
+              height: '36%',
+              borderWidth: 2,
+              borderColor: '#22C55E',
+              borderRadius: 6,
+              borderStyle: 'dashed',
+            }}
+          />
+        </View>
         <Text
           style={{
             color: '#FFFFFF',
-            fontSize: 14,
+            fontSize: 15,
             fontWeight: '600',
             marginTop: 20,
+            textAlign: 'center',
+            paddingHorizontal: 24,
             textShadowColor: 'rgba(0,0,0,0.8)',
             textShadowRadius: 4,
           }}
         >
-          Position the ID card in the frame
+          Show the back of the ID - the 3 lines of letters and {'<<<'} in the green box
+        </Text>
+        <Text
+          style={{
+            color: '#D1D5DB',
+            fontSize: 13,
+            marginTop: 6,
+            textShadowColor: 'rgba(0,0,0,0.8)',
+            textShadowRadius: 4,
+          }}
+        >
+          It reads automatically - hold steady
         </Text>
       </View>
 
-      <View
-        style={{
-          position: 'absolute',
-          bottom: 40,
-          left: 0,
-          right: 0,
-          alignItems: 'center',
-        }}
-      >
+      <View style={{ position: 'absolute', bottom: 40, left: 0, right: 0, alignItems: 'center' }}>
         <TouchableOpacity
-          onPress={onCapture}
-          disabled={capturing}
+          onPress={enterManually}
           activeOpacity={0.8}
           accessibilityRole="button"
           style={{
-            width: 72,
-            height: 72,
-            borderRadius: 36,
-            backgroundColor: '#FFFFFF',
+            backgroundColor: 'rgba(255,255,255,0.92)',
+            paddingHorizontal: 20,
+            paddingVertical: 12,
+            borderRadius: 24,
+            flexDirection: 'row',
             alignItems: 'center',
-            justifyContent: 'center',
-            opacity: capturing ? 0.6 : 1,
           }}
         >
-          {capturing ? (
-            <ActivityIndicator color="#000000" />
-          ) : (
-            <MaterialIcons name="camera-alt" size={32} color="#000000" />
-          )}
+          <MaterialIcons name="keyboard" size={20} color="#000000" />
+          <Text style={{ color: '#000000', fontWeight: '700', marginLeft: 8 }}>
+            No MRZ on this card? Enter manually
+          </Text>
         </TouchableOpacity>
       </View>
     </View>

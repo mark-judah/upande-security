@@ -153,3 +153,17 @@ export function parseMrzDates(rawText: string): { birthDate?: string; expiryDate
     expiryDate: formatMrzDate(l2.slice(8, 14)),
   };
 }
+
+/**
+ * For a dedicated MRZ scanner's output (react-native-mrz-reader): the raw
+ * zone, with or without line breaks. A TD1 zone is 90 characters - split it
+ * into its three 30-character lines, then validate with parseMrz (every
+ * check digit, composite included).
+ */
+export function parseMrzString(raw: string): MrzResult | null {
+  const compact = (raw || '').toUpperCase().replace(/[^A-Z0-9<\n]/g, '');
+  if (compact.includes('\n')) return parseMrz(compact);
+  if (compact.length < 90) return null;
+  const zone = compact.slice(0, 90);
+  return parseMrz([zone.slice(0, 30), zone.slice(30, 60), zone.slice(60, 90)].join('\n'));
+}
