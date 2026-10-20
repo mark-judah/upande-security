@@ -175,7 +175,7 @@ export function PassengersItemsSection({
 
       {showItems ? (
         <View style={s.section}>
-          <Text style={s.sectionTitle}>Carried Items</Text>
+          <Text style={s.sectionTitle}>Registered Personal Items</Text>
           <Text style={s.hint}>
             What each person is bringing in. They are checked again at exit.
           </Text>

@@ -537,7 +537,7 @@ export default function GateTab() {
         try {
           await api.saveVisitPeopleAndItems({ appointment: result.name, items: input.items });
         } catch (e) {
-          feedback.warning('Host notified, but carried items were not saved — ' + (e instanceof Error ? e.message : String(e)));
+          feedback.warning('Host notified, but registered personal items were not saved — ' + (e instanceof Error ? e.message : String(e)));
         }
       }
       // Collapse the contractor form and hand off to the shared ActionButtons,
