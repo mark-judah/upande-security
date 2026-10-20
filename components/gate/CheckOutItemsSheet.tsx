@@ -2,7 +2,8 @@ import { useRef, useState } from 'react';
 import { Alert, Modal, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Button } from '@/src/core/ui/Button';
-import { api, type VisitCarriedItem } from '@/lib/services/api';
+import { api, type ExitExtraItem, type VisitCarriedItem } from '@/lib/services/api';
+import { ExitExtraItems, extrasPayload, type ExtraDraft } from '@/components/gate/ExitExtraItems';
 import { useCheckOut } from '@/lib/hooks/useCheckOut';
 import { useFeatureFlag } from '@/lib/hooks/useSessionInfo';
 import { useFeedback } from '@/lib/hooks/useFeedback';
@@ -13,8 +14,9 @@ type PendingCheckOut = { name: string; ownerName: string; items: VisitCarriedIte
 type ExitCheck = {
   // Items of this record still inside; [] skips the checklist.
   load: (name: string) => Promise<VisitCarriedItem[]>;
-  // Record what was ticked; returns the items not seen leaving.
-  markOut: (name: string, ticked: string[]) => Promise<{ not_seen_leaving: string[] }>;
+  // Record what was ticked, plus unregistered items leaving with proof;
+  // returns the items not seen leaving.
+  markOut: (name: string, ticked: string[], extras: ExitExtraItem[]) => Promise<{ not_seen_leaving: string[] }>;
   // The normal check-out. Reports its own failures.
   finish: (name: string) => Promise<unknown>;
 };
@@ -33,7 +35,7 @@ export function useItemsAwareCheckOut() {
   const checkOut = useCheckOut();
   const exit = useItemsExitCheck({
     load: async (name) => (await api.getVisitPeopleAndItems(name)).items,
-    markOut: (name, ticked) => api.checkOutItems(name, ticked),
+    markOut: (name, ticked, extras) => api.checkOutItems(name, ticked, extras),
     finish: (name) => checkOut.mutateAsync(name),
   });
   return { ...exit, busy: exit.busy || checkOut.isPending };
@@ -51,6 +53,7 @@ export function useItemsExitCheck(config: ExitCheck) {
   configRef.current = config;
   const [pending, setPending] = useState<PendingCheckOut | null>(null);
   const [ticked, setTicked] = useState<string[]>([]);
+  const [extras, setExtras] = useState<ExtraDraft[]>([]);
   const [saving, setSaving] = useState(false);
   const [loadingName, setLoadingName] = useState<string | null>(null);
 
@@ -60,11 +63,12 @@ export function useItemsExitCheck(config: ExitCheck) {
       try {
         const items = await configRef.current.load(name);
         const inside = items.filter((i) => !i.exit_status || i.exit_status === 'Inside');
-        if (inside.length) {
-          setTicked([]);
-          setPending({ name, ownerName, items: inside });
-          return;
-        }
+        // Open even with nothing registered: someone may be leaving with
+        // something bought from the company, which is added here with proof.
+        setTicked([]);
+        setExtras([]);
+        setPending({ name, ownerName, items: inside });
+        return;
       } catch {
         // fall through to the plain check-out
       } finally {
@@ -79,8 +83,15 @@ export function useItemsExitCheck(config: ExitCheck) {
     setSaving(true);
     try {
       let result: { not_seen_leaving: string[] };
+      let extraItems: ExitExtraItem[];
       try {
-        result = await configRef.current.markOut(pending.name, ticked);
+        extraItems = await extrasPayload(extras);
+      } catch (e) {
+        feedback.error(e instanceof Error ? e.message : 'Check the items leaving');
+        return;
+      }
+      try {
+        result = await configRef.current.markOut(pending.name, ticked, extraItems);
       } catch (e) {
         feedback.error(e instanceof Error ? e.message : 'Could not record the items');
         return;
@@ -137,7 +148,10 @@ export function useItemsExitCheck(config: ExitCheck) {
             </View>
           </View>
 
-          <ScrollView style={{ maxHeight: 360 }}>
+          <ScrollView style={{ maxHeight: 460 }}>
+            {pending && !pending.items.length ? (
+              <Text style={s.itemMeta}>Nothing was registered on the way in.</Text>
+            ) : null}
             {pending?.items.map((it) => {
               const rowName = it.name ?? '';
               const on = ticked.includes(rowName);
@@ -169,15 +183,17 @@ export function useItemsExitCheck(config: ExitCheck) {
                 </TouchableOpacity>
               );
             })}
+            {pending?.items.length ? (
+              <TouchableOpacity
+                onPress={() => setTicked(pending?.items.map((i) => i.name ?? '') ?? [])}
+                disabled={saving}
+                style={s.tickAll}
+              >
+                <Text style={s.tickAllText}>Tick all</Text>
+              </TouchableOpacity>
+            ) : null}
+            <ExitExtraItems extras={extras} onChange={setExtras} disabled={saving} />
           </ScrollView>
-
-          <TouchableOpacity
-            onPress={() => setTicked(pending?.items.map((i) => i.name ?? '') ?? [])}
-            disabled={saving}
-            style={s.tickAll}
-          >
-            <Text style={s.tickAllText}>Tick all</Text>
-          </TouchableOpacity>
 
           <View style={s.actions}>
             <Button

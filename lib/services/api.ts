@@ -154,6 +154,14 @@ export type ContractorBadgeInfo = {
   valid_until: string;
 };
 
+/** An item leaving that was not registered on the way in, with its proof. */
+export type ExitExtraItem = {
+  item: string;
+  qty?: number;
+  supporting_document?: string;
+  supporting_document_file?: string;
+};
+
 export type ContractorBadgeScan =
   | (ContractorBadgeInfo & {
       accepted: true;
@@ -1422,10 +1430,11 @@ export const api = {
     }),
   saveVisitPeopleAndItems: (input: SaveVisitPeopleAndItemsInput) =>
     call<VisitPeopleAndItems>('upande_security.api.gate_belongings.save_visit_people_and_items', input),
-  checkOutItems: (appointment: string, items_out: string[]) =>
+  checkOutItems: (appointment: string, items_out: string[], extra_items?: ExitExtraItem[]) =>
     call<CheckOutItemsResult>('upande_security.api.gate_belongings.check_out_items', {
       appointment,
       items_out,
+      ...(extra_items?.length ? { extra_items } : {}),
     }),
   issueContractorBadge: (input: {
     appointment: string;
@@ -1436,11 +1445,24 @@ export const api = {
   }) => call<ContractorBadgeInfo>('upande_security.api.contractor_badge.issue_contractor_badge', input),
   scanContractorBadge: (reference: string, gate?: string) =>
     call<ContractorBadgeScan>('upande_security.api.contractor_badge.scan_contractor_badge', { reference, gate }),
-  checkOutBadgeItems: (badge: string, itemsOut: string[]) =>
+  checkOutBadgeItems: (badge: string, itemsOut: string[], extra_items?: ExitExtraItem[]) =>
     call<{ badge: string; not_seen_leaving: string[] }>(
       'upande_security.api.contractor_badge.check_out_badge_items',
-      { badge, items_out: itemsOut },
+      { badge, items_out: itemsOut, ...(extra_items?.length ? { extra_items } : {}) },
     ),
+  checkInBadgeItems: (badge: string, itemsIn: string[], newItems: { item: string; qty?: number }[]) =>
+    call<{ badge: string; back_inside: number; added: string[] }>(
+      'upande_security.api.contractor_badge.check_in_badge_items',
+      { badge, items_in: itemsIn, new_items: newItems },
+    ),
+  leaveForGood: (badge: string) =>
+    call<{
+      badge: string;
+      holder_name: string;
+      not_seen_leaving: string[];
+      still_on_site: number;
+      visit_checked_out: boolean;
+    }>('upande_security.api.contractor_badge.leave_for_good', { badge }),
   issueBadgesToCrew: (appointment: string) =>
     call<IssueBadgesToCrewResult>('upande_security.api.contractor_badge.issue_badges_to_crew', { appointment }),
   contractorBadgesForVisit: (appointment: string) =>
@@ -1449,10 +1471,11 @@ export const api = {
     call<StaffItems>('upande_security.api.gate_belongings.get_staff_items', { record }),
   saveStaffItems: (record: string, items: VisitCarriedItem[]) =>
     call<StaffItems>('upande_security.api.gate_belongings.save_staff_items', { record, items }),
-  checkOutStaffItems: (record: string, items_out: string[]) =>
+  checkOutStaffItems: (record: string, items_out: string[], extra_items?: ExitExtraItem[]) =>
     call<CheckOutStaffItemsResult>('upande_security.api.gate_belongings.check_out_staff_items', {
       record,
       items_out,
+      ...(extra_items?.length ? { extra_items } : {}),
     }),
   checkInVisitor: (input: CheckInInput) => call<CheckInResult>('check_in_visitor', input),
   checkOutVisitor: (name: string, exit_gate?: string) =>

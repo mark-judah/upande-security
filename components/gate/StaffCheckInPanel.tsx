@@ -155,7 +155,7 @@ export function StaffCheckInPanel() {
   // At check-out, items still inside get the same tick-off as a visitor's.
   const exitCheck = useItemsExitCheck({
     load: async (name) => (await api.getStaffItems(name)).items,
-    markOut: (name, ticked) => api.checkOutStaffItems(name, ticked),
+    markOut: (name, ticked, extras) => api.checkOutStaffItems(name, ticked, extras),
     finish: async (name) => {
       await checkOut.mutateAsync({ name, exitGate: exitGate ?? undefined, sticker: stickerVehicleInfo?.sticker });
       reset();
