@@ -95,7 +95,8 @@
           }
         }
       ],
-      "@preeternal/react-native-cookie-manager"
+      "@preeternal/react-native-cookie-manager",
+      "./plugins/withoutOldBouncyCastle"
     ],
     "experiments": {
       "typedRoutes": true
