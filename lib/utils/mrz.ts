@@ -127,20 +127,45 @@ export function parseMrz(rawText: string): MrzResult | null {
   const birthDateOk = checkDigit(birthDateRaw) === Number(birthDateCheck);
   const expiryDateOk = checkDigit(expiryDateRaw) === Number(expiryDateCheck);
 
-  // Composite check covers doc number + its check + birth date + its check +
-  // expiry date + its check + the optional-data field on line 2, per spec.
+  // ICAO 9303 TD1: line 1 positions 6-30 (document number, its check digit
+  // and the optional data), line 2 positions 1-7, 9-15 and 19-29.
   const compositeData =
-    l1.slice(5, 15) + l2.slice(0, 7) + l2.slice(8, 15) + l2.slice(18, 29);
+    l1.slice(5, 30) + l2.slice(0, 7) + l2.slice(8, 15) + l2.slice(18, 29);
   const compositeOk = checkDigit(compositeData) === Number(compositeCheck);
 
-  const mrzValid = docNumberOk && birthDateOk && expiryDateOk && compositeOk;
-  if (!mrzValid) return null; // any single wrong digit means an OCR misread — don't surface a wrong ID number
+  // The document number, birth and expiry digits must pass - any single wrong
+  // digit means a misread. The composite digit also covers line 1's optional
+  // data, so it decides whether that area can be trusted (below).
+  if (!(docNumberOk && birthDateOk && expiryDateOk)) return null;
 
   return {
-    idNumber: docNumber || undefined,
+    idNumber: personalIdNumber(l1, compositeOk) || docNumber || undefined,
     name: formatMrzName(l3),
     mrzValid: true,
   };
+}
+
+// Kenyan cards (KEN, older KYA): the document-number field holds the card's
+// serial; the personal ID number sits in line 1's optional data. Used only
+// when the composite check digit vouches for that area.
+const OPTIONAL_ID_COUNTRIES = ['KEN', 'KYA'];
+
+function personalIdNumber(line1: string, compositeOk: boolean): string | undefined {
+  if (!compositeOk || !OPTIONAL_ID_COUNTRIES.includes(line1.slice(2, 5))) return undefined;
+  const digits = line1.slice(15, 30).match(/\d{6,9}/);
+  return digits ? digits[0] : undefined;
+}
+
+/** Why an MRZ the scanner saw was not accepted - for the scan screen. */
+export function mrzRejectionReason(raw: string): string | null {
+  const compact = (raw || '').toUpperCase().replace(/[^A-Z0-9<\n]/g, '').replace(/\n/g, '');
+  if (compact.length < 90) return 'Only part of the MRZ was read';
+  const l1 = compact.slice(0, 30);
+  const l2 = compact.slice(30, 60);
+  if (checkDigit(l1.slice(5, 14)) !== Number(l1[14])) return 'Document number check digit failed';
+  if (checkDigit(l2.slice(0, 6)) !== Number(l2[6])) return 'Birth date check digit failed';
+  if (checkDigit(l2.slice(8, 14)) !== Number(l2[14])) return 'Expiry date check digit failed';
+  return null;
 }
 
 /** Convenience for callers that just want "birth/expiry date, if a valid MRZ was read". */

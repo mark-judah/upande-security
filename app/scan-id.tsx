@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { View, Text, TouchableOpacity, Linking } from 'react-native';
 import { useCameraPermissions } from 'expo-camera';
 import * as Haptics from 'expo-haptics';
@@ -6,7 +6,7 @@ import { router } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import MrzReader, { CameraSelector, DocType, ResizeMode } from 'react-native-mrz-reader';
 import { useGateStore } from '@/lib/stores/gateStore';
-import { parseMrzString } from '@/lib/utils/mrz';
+import { mrzRejectionReason, parseMrzString } from '@/lib/utils/mrz';
 import { audio } from '@/src/core/audio';
 
 const CARD_ASPECT_RATIO = 1.586; // standard ID card width:height
@@ -22,6 +22,9 @@ const CARD_ASPECT_RATIO = 1.586; // standard ID card width:height
 export default function ScanIdModal() {
   const [permission, requestPermission] = useCameraPermissions();
   const done = useRef(false);
+  // Shown when the reader saw an MRZ but it did not validate - so a guard
+  // knows the camera is reading and can steady the card.
+  const [rejected, setRejected] = useState<string | null>(null);
   const setPendingScannedIdCard = useGateStore((s) => s.setPendingScannedIdCard);
 
   const close = useCallback(() => {
@@ -33,7 +36,10 @@ export default function ScanIdModal() {
     (raw: string) => {
       if (done.current) return;
       const parsed = parseMrzString(raw);
-      if (!parsed) return; // a check digit failed - keep scanning
+      if (!parsed) {
+        setRejected(mrzRejectionReason(raw) ?? 'MRZ read but not valid');
+        return; // keep scanning
+      }
       done.current = true;
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       audio.beep();
@@ -175,6 +181,19 @@ export default function ScanIdModal() {
         >
           It reads automatically - hold steady
         </Text>
+        {rejected ? (
+          <Text
+            style={{
+              color: '#FBBF24',
+              fontSize: 13,
+              marginTop: 8,
+              textShadowColor: 'rgba(0,0,0,0.8)',
+              textShadowRadius: 4,
+            }}
+          >
+            {rejected} - keep the card still and flat
+          </Text>
+        ) : null}
       </View>
 
       <View style={{ position: 'absolute', bottom: 40, left: 0, right: 0, alignItems: 'center' }}>

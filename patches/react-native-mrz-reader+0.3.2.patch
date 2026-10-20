@@ -1,0 +1,69 @@
+diff --git a/node_modules/react-native-mrz-reader/android/src/main/java/com/mrzreader/utils/OcrUtil.kt b/node_modules/react-native-mrz-reader/android/src/main/java/com/mrzreader/utils/OcrUtil.kt
+index ad4eaa4..cd2078a 100644
+--- a/node_modules/react-native-mrz-reader/android/src/main/java/com/mrzreader/utils/OcrUtil.kt
++++ b/node_modules/react-native-mrz-reader/android/src/main/java/com/mrzreader/utils/OcrUtil.kt
+@@ -147,38 +147,33 @@ class OcrUtil {
+         val matcherIDCardTD1Line3 = patternIDCardTD1Line3.matcher(scannedTextBuffer)
+ 
+         if (matcherIDCardTD1Line1.find() && matcherIDCardTD1Line2.find() && matcherIDCardTD1Line3.find()) {
+-          // Prefer exact TD1 length (90) starting from the detected type marker (I< / 1< / 1K / IK)
+-          val startIdx = scannedTextBuffer.indexOf(typeIdCard).takeIf { it >= 0 } ?: return null
+-          val candidate = scannedTextBuffer.substring(startIdx)
+-          if (candidate.length < 90) return null
+-
+-          val mrzRaw = candidate.substring(0, 90)
+-          val line1 = mrzRaw.substring(0, 30)
+-          val line2 = mrzRaw.substring(30, 60)
+-          // val line3 = mrzRaw.substring(60, 90) // kept for completeness
+-
+-          // Minimal validation (same as before)
+-          var documentNumber = line1.substring(5, 14)
+-          if (documentNumber.substring(3, 4) == "0") {
+-            documentNumber = documentNumber.substring(0, 3) + "O" + documentNumber.substring(4, 9)
++          // Patched (upande-security): any issuing country (e.g. Kenya IDKEN / IDKYA),
++          // not only the Turkish "I<TUR" marker. Try every place a TD1 line 1 can
++          // start and keep the first 90 characters whose document number, birth
++          // date and expiry check digits all pass - read as printed, no 0 -> O.
++          val starts = patternIDCardTD1Line1.matcher(scannedTextBuffer)
++          var from = 0
++          while (from < scannedTextBuffer.length && starts.find(from)) {
++            val startIdx = starts.start()
++            from = startIdx + 1
++            if (scannedTextBuffer.length - startIdx < 90) break
++
++            val mrzRaw = scannedTextBuffer.substring(startIdx, startIdx + 90)
++            val line1 = mrzRaw.substring(0, 30)
++            val line2 = mrzRaw.substring(30, 60)
++            if (!Pattern.compile(ID_CARD_TD_1_LINE_2_REGEX).matcher(line2).matches()) continue
++
++            val documentNumber = line1.substring(5, 14)
++            val dateOfBirthDay = line2.substring(0, 6)
++            val expiryDate = line2.substring(8, 14)
++            if (line1[14] != MRZInfo.checkDigit(documentNumber)) continue
++            if (line2[6] != MRZInfo.checkDigit(dateOfBirthDay)) continue
++            if (line2[14] != MRZInfo.checkDigit(expiryDate)) continue
++
++            val mrzInfo = try { MRZInfo(mrzRaw) } catch (e: Exception) { null } ?: continue
++            return MrzFilterResult(mrzInfo = mrzInfo, mrzRaw = mrzRaw)
+           }
+-          val dateOfBirthDay = line2.substring(0, 6)
+-          val expiryDate = line2.substring(8, 14)
+-
+-          val chkdocumentNumber = line1.substring(14, 15)[0]
+-          val chkdateOfBirthDay = line2.substring(6, 7)[0]
+-          val chkexpiryDate = line2.substring(14, 15)[0]
+-
+-          val valdocumentNumber = MRZInfo.checkDigit(documentNumber)
+-          val valdateOfBirthDay = MRZInfo.checkDigit(dateOfBirthDay)
+-          val valexpiryDate = MRZInfo.checkDigit(expiryDate)
+-
+-          if (chkdocumentNumber.compareTo(valdocumentNumber) != 0) return null
+-          if (chkdateOfBirthDay.compareTo(valdateOfBirthDay) != 0) return null
+-          if (chkexpiryDate.compareTo(valexpiryDate) != 0) return null
+-
+-          val mrzInfo = MRZInfo(mrzRaw)
+-          return MrzFilterResult(mrzInfo = mrzInfo, mrzRaw = mrzRaw)
++          return null
+         }
+       } else if (docType === DocType.PASSPORT) {
+         val patternPassportTD3Line1 = Pattern.compile(PASSPORT_TD_3_LINE_1_REGEX)
