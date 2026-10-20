@@ -23,6 +23,7 @@ import {
   startPatrolForegroundPolling,
   startPatrolTrackingWatchdog,
 } from '@/lib/services/patrolTracking';
+import { pauseDutyTracking, resumeDutyTracking } from '@/lib/services/dutyTracking';
 import {
   startPatrolSync,
   flushAllPatrolPending,
@@ -151,9 +152,12 @@ export default function PatrolHome() {
 
       await saveActivePatrol({ patrolTag, guard: userEmail, startedAt, stoppedAt: null });
 
+      // The patrol tracker takes over from on-duty tracking until it stops.
+      await pauseDutyTracking();
       const started = await startPatrolLocationUpdates(patrolTag, userEmail);
       if (!started) {
         await clearActivePatrol();
+        resumeDutyTracking().catch(() => {});
         Alert.alert('Could not start', 'Check permissions and try again.');
         return;
       }

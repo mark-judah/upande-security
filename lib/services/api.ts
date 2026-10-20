@@ -207,6 +207,9 @@ export type SessionInfo = {
   /** Where this guard is posted: the roster, or an emergency location
    * change on top of it. Absent on servers predating it. */
   location?: GuardLocation | null;
+  /** On-duty location between patrols. Absent on servers that can't store
+   *  it apart from patrol work - the app then never starts it. */
+  on_duty_tracking?: { enabled: boolean; interval_minutes: number } | null;
   employee:
     | {
         name?: string;

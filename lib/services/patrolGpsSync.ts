@@ -11,6 +11,9 @@ import {
 } from './patrolDb';
 import { uploadPatrolGps, type PatrolGpsPayload } from '@/lib/api/patrol';
 
+// Kept here, not imported from dutyTracking.ts, which imports this module.
+const DUTY_TAG_PREFIX = 'DUTY-';
+
 export type PatrolSyncStatus = {
   patrolTag: string | null;
   pending: number;
@@ -104,6 +107,7 @@ function uploadOneBatch(patrolTag: string): Promise<BatchResult> {
       longitude: p.longitude,
       accuracy: p.accuracy,
       captured_at: p.capturedAt,
+      ...(p.patrolTag.startsWith(DUTY_TAG_PREFIX) ? { mode: 'on_duty' as const } : {}),
     }));
 
     try {

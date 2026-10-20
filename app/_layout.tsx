@@ -30,6 +30,7 @@ import { useScheduledAppUpdate } from '@/lib/hooks/useScheduledAppUpdate';
 import { useAppVersionReporting } from '@/lib/hooks/useAppVersionReporting';
 import { useIsApprover } from '@/lib/hooks/usePendingApprovals';
 import { useFeatureFlag, useHasCommandCenterAccess } from '@/lib/hooks/useSessionInfo';
+import { useDutyTracking } from '@/lib/hooks/useDutyTracking';
 import '@/lib/services/patrolTracking';
 
 // Hold the native splash until fonts + auth hydrated.
@@ -225,6 +226,7 @@ export default function RootLayout() {
  *  any screen appears, rather than a broken SOS button. */
 function SosWatcher() {
   useSosWatcher();
+  useDutyTracking();
   return null;
 }
 

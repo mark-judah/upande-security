@@ -30,6 +30,7 @@ import {
 import { toFrappeDateTime } from '@/lib/utils/date';
 import { useFeedback } from '@/lib/hooks/useFeedback';
 import { useFeatureFlag } from '@/lib/hooks/useSessionInfo';
+import { resumeDutyTracking } from '@/lib/services/dutyTracking';
 import { Screen } from '@/src/core/ui/Screen';
 import { Button } from '@/src/core/ui/Button';
 import { Card } from '@/src/core/ui/Card';
@@ -151,6 +152,8 @@ export default function ActivePatrol() {
       const endedAt = toFrappeDateTime();
       await markPatrolStopped(endedAt);
       await clearActivePatrol();
+      // Back to on-duty location until the guard logs out.
+      resumeDutyTracking().catch(() => {});
 
       if (flushed && flushed.pending > 0) {
         feedback.error(`${flushed.pending} points still queued — they'll keep uploading in the background.`);

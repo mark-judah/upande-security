@@ -21,6 +21,8 @@ export type PatrolGpsPayload = {
   longitude: number;
   accuracy: number | null;
   captured_at: string;
+  /** 'on_duty' for points sent between patrols (see dutyTracking.ts). */
+  mode?: 'on_duty';
 };
 
 export type PatrolGpsResult = {
