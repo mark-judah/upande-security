@@ -155,7 +155,14 @@ export type ContractorBadgeInfo = {
 };
 
 export type ContractorBadgeScan =
-  | (ContractorBadgeInfo & { accepted: true; direction: 'Entry' | 'Exit'; movement: string; farm: string })
+  | (ContractorBadgeInfo & {
+      accepted: true;
+      direction: 'Entry' | 'Exit';
+      movement: string;
+      farm: string;
+      /** On an exit: the holder's registered items still inside (newer servers). */
+      items?: VisitCarriedItem[];
+    })
   | { accepted: false; error: string };
 
 export type ContractorVisitBadges = {
@@ -1429,6 +1436,11 @@ export const api = {
   }) => call<ContractorBadgeInfo>('upande_security.api.contractor_badge.issue_contractor_badge', input),
   scanContractorBadge: (reference: string, gate?: string) =>
     call<ContractorBadgeScan>('upande_security.api.contractor_badge.scan_contractor_badge', { reference, gate }),
+  checkOutBadgeItems: (badge: string, itemsOut: string[]) =>
+    call<{ badge: string; not_seen_leaving: string[] }>(
+      'upande_security.api.contractor_badge.check_out_badge_items',
+      { badge, items_out: itemsOut },
+    ),
   issueBadgesToCrew: (appointment: string) =>
     call<IssueBadgesToCrewResult>('upande_security.api.contractor_badge.issue_badges_to_crew', { appointment }),
   contractorBadgesForVisit: (appointment: string) =>

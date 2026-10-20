@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { api, type ContractorBadgeScan } from '@/lib/services/api';
+import { api, type ContractorBadgeScan, type VisitCarriedItem } from '@/lib/services/api';
+import { useItemsExitCheck } from '@/components/gate/CheckOutItemsSheet';
 import { useGateFarm } from '@/lib/hooks/useGateFarm';
 import { useFeedback } from '@/lib/hooks/useFeedback';
 import { useGateStore } from '@/lib/stores/gateStore';
@@ -14,6 +15,10 @@ import { COLORS, borderRadius, fontFamily, fontSize, spacing } from '@/src/core/
  * Badge: one scan records their entry or exit at this farm - no new
  * booking. The server works out the direction and refuses (and reports) a
  * badge that is not issued, expired or belongs to another company.
+ *
+ * On an exit the server also returns the holder's registered items still
+ * inside; the guard ticks what leaves with them (the same checklist as a
+ * visit check-out) and unticked items are recorded as not seen leaving.
  */
 export function ContractorBadgeScanPanel() {
   const feedback = useFeedback();
@@ -24,6 +29,13 @@ export function ContractorBadgeScanPanel() {
   const [result, setResult] = useState<ContractorBadgeScan | null>(null);
   const pending = useGateStore((s) => s.pendingScannedContractorBadge);
   const setPending = useGateStore((s) => s.setPendingScannedContractorBadge);
+  // Items from the last exit scan - the checklist loads them from here.
+  const exitItems = useRef<VisitCarriedItem[]>([]);
+  const exitCheck = useItemsExitCheck({
+    load: async () => exitItems.current,
+    markOut: (badge, ticked) => api.checkOutBadgeItems(badge, ticked),
+    finish: async () => undefined, // the exit itself was recorded by the scan
+  });
 
   async function scan(reference: string) {
     setBusy(true);
@@ -31,8 +43,13 @@ export function ContractorBadgeScanPanel() {
     try {
       const r = await api.scanContractorBadge(reference, gate ?? undefined);
       setResult(r);
-      if (r.accepted) feedback.success(`${r.direction} recorded — ${r.holder_name}`);
-      else feedback.error(r.error);
+      if (r.accepted) {
+        feedback.success(`${r.direction} recorded — ${r.holder_name}`);
+        if (r.direction === 'Exit' && r.items?.length) {
+          exitItems.current = r.items;
+          exitCheck.begin(r.badge, r.holder_name ?? 'contractor', () => {});
+        }
+      } else feedback.error(r.error);
     } catch (e) {
       feedback.error(e instanceof Error ? e.message : 'Badge scan failed');
     } finally {
@@ -159,6 +176,7 @@ export function ContractorBadgeScanPanel() {
           )}
         </View>
       ) : null}
+      {exitCheck.sheet}
     </View>
   );
 }
