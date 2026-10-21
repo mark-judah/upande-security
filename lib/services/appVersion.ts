@@ -1,4 +1,7 @@
-import { Alert, AppState, Platform, type AppStateStatus, type NativeEventSubscription } from 'react-native';
+import { AppState, Platform, ToastAndroid, type AppStateStatus, type NativeEventSubscription } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Notifications from 'expo-notifications';
+import * as TaskManager from 'expo-task-manager';
 import Constants from 'expo-constants';
 import * as Updates from 'expo-updates';
 import client from '@/lib/api/client';
@@ -51,6 +54,7 @@ let _sub: NativeEventSubscription | null = null;
 /** Report now and on every return to the foreground. Idempotent. */
 export function startAppVersionReporting(): () => void {
   reportAppVersion(true).catch(() => {});
+  startPushedUpdateHandling();
   if (!_sub) {
     _sub = AppState.addEventListener('change', (state: AppStateStatus) => {
       if (state === 'active') reportAppVersion().catch(() => {});
@@ -65,12 +69,22 @@ export function startAppVersionReporting(): () => void {
 let _applying = false;
 let _restartOnResume: NativeEventSubscription | null = null;
 
+// Seconds between "Updating the app" and the restart when the app is open.
+const RESTART_DELAY_MS = 8000;
+// Set by the background task when it downloaded a pushed update while the
+// app was not on screen; the next return to the foreground restarts into it.
+const PENDING_KEY = 'appVersion:pushedUpdatePending';
+export const BACKGROUND_UPDATE_TASK = 'pushed-app-update';
+
 /**
- * An "app_update" push from a security head: download the update now and
- * restart into it. The guard can put the restart off (e.g. mid check-in);
- * it then happens the next time the app comes back to the foreground. A
- * running patrol is never interrupted - its background tracking would be
- * orphaned by a reload - so the update waits for the next app start.
+ * An "app_update" push from a security head installs itself - nobody taps:
+ * - app on screen: download, show "Updating the app", restart a few seconds
+ *   later;
+ * - app in the background: restart into it the next time it comes back;
+ * - app not running or the phone locked: the background task below
+ *   downloads it, and it starts with the next launch or return to the app.
+ * A running patrol is never interrupted - its background tracking would be
+ * orphaned by a reload - so then the update waits for the next app start.
  */
 export async function applyPushedUpdate(): Promise<void> {
   if (__DEV__ || !Updates.isEnabled || _applying) return;
@@ -78,21 +92,25 @@ export async function applyPushedUpdate(): Promise<void> {
   try {
     const result = await Updates.checkForUpdateAsync();
     if (!result.isAvailable) {
+      await AsyncStorage.removeItem(PENDING_KEY).catch(() => {});
       reportAppVersion(true).catch(() => {});
       return;
     }
     const fetched = await Updates.fetchUpdateAsync();
     if (!fetched.isNew) return;
+    await AsyncStorage.removeItem(PENDING_KEY).catch(() => {});
 
     const active = await getActivePatrol().catch(() => null);
     if (active && !active.stoppedAt) {
-      Alert.alert('Update downloaded', 'It will be installed the next time the app starts, after your patrol.');
+      notify('Update downloaded - it installs the next time the app starts, after your patrol.');
       return;
     }
-    Alert.alert('Update ready', 'A new version of the app has been downloaded.', [
-      { text: 'Later', style: 'cancel', onPress: restartOnNextResume },
-      { text: 'Restart now', onPress: () => Updates.reloadAsync().catch(() => {}) },
-    ]);
+    if (AppState.currentState === 'active') {
+      notify('Updating the app - it restarts in a few seconds.');
+      setTimeout(() => Updates.reloadAsync().catch(() => {}), RESTART_DELAY_MS);
+    } else {
+      restartOnNextResume();
+    }
   } catch (e) {
     console.warn('[appVersion] pushed update failed:', e);
   } finally {
@@ -100,9 +118,15 @@ export async function applyPushedUpdate(): Promise<void> {
   }
 }
 
+function notify(message: string) {
+  if (Platform.OS === 'android') ToastAndroid.show(message, ToastAndroid.LONG);
+  else console.log('[appVersion] ' + message);
+}
+
 function restartOnNextResume(): void {
   if (_restartOnResume) return;
-  let wentAway = false;
+  // Already in the background: the next "active" is the return.
+  let wentAway = AppState.currentState !== 'active';
   _restartOnResume = AppState.addEventListener('change', (state: AppStateStatus) => {
     if (state !== 'active') {
       wentAway = true;
@@ -114,4 +138,52 @@ function restartOnNextResume(): void {
       Updates.reloadAsync().catch(() => {});
     }
   });
+}
+
+// --- Push while the app is not on screen --------------------------------------
+// Android hands a data-only push to this task even when the app is in the
+// background or not running. It downloads the update and leaves a flag; the
+// download itself makes the next cold start use it, and the flag makes the
+// next return to the foreground restart into it.
+function isAppUpdatePush(payload: unknown): boolean {
+  try {
+    return JSON.stringify(payload ?? '').includes('app_update');
+  } catch {
+    return false;
+  }
+}
+
+TaskManager.defineTask(BACKGROUND_UPDATE_TASK, async ({ data, error }) => {
+  if (error || !isAppUpdatePush(data) || !Updates.isEnabled) return;
+  try {
+    const result = await Updates.checkForUpdateAsync();
+    if (!result.isAvailable) return;
+    const fetched = await Updates.fetchUpdateAsync();
+    if (fetched.isNew) await AsyncStorage.setItem(PENDING_KEY, '1');
+  } catch (e) {
+    if (__DEV__) console.warn('[appVersion] background update failed:', e);
+  }
+});
+
+let _bgRegistered = false;
+let _pendingSub: NativeEventSubscription | null = null;
+
+/** Register the background update task and apply a pending one on return. */
+export function startPushedUpdateHandling(): void {
+  if (!_bgRegistered) {
+    _bgRegistered = true;
+    Notifications.registerTaskAsync(BACKGROUND_UPDATE_TASK).catch(() => {
+      _bgRegistered = false;
+    });
+  }
+  const applyPending = async () => {
+    const pending = await AsyncStorage.getItem(PENDING_KEY).catch(() => null);
+    if (pending) applyPushedUpdate().catch(() => {});
+  };
+  applyPending();
+  if (!_pendingSub) {
+    _pendingSub = AppState.addEventListener('change', (state: AppStateStatus) => {
+      if (state === 'active') applyPending();
+    });
+  }
 }
