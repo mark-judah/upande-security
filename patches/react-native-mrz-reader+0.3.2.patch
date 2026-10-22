@@ -1,8 +1,13 @@
 diff --git a/node_modules/react-native-mrz-reader/android/src/main/java/com/mrzreader/analyzer/MrzReaderAnalyzer.kt b/node_modules/react-native-mrz-reader/android/src/main/java/com/mrzreader/analyzer/MrzReaderAnalyzer.kt
-index 617f23c..2d64014 100644
+index 617f23c..891032a 100644
 --- a/node_modules/react-native-mrz-reader/android/src/main/java/com/mrzreader/analyzer/MrzReaderAnalyzer.kt
 +++ b/node_modules/react-native-mrz-reader/android/src/main/java/com/mrzreader/analyzer/MrzReaderAnalyzer.kt
-@@ -5,8 +5,9 @@ import androidx.camera.core.ImageAnalysis
+@@ -1,12 +1,14 @@
+ package com.mrzreader.analyzer
+ 
+ import android.content.Context
++import android.util.Log
+ import androidx.camera.core.ImageAnalysis
  import androidx.camera.core.ImageProxy
  import androidx.lifecycle.LiveData
  import androidx.lifecycle.MutableLiveData
@@ -13,7 +18,34 @@ index 617f23c..2d64014 100644
  import com.mrzreader.utils.MrzUtil
  import com.mrzreader.utils.OcrUtil
  import kotlinx.coroutines.CoroutineScope
-@@ -37,9 +38,24 @@ class MrzReaderAnalyzer(context: Context) : ImageAnalysis.Analyzer {
+@@ -21,12 +23,26 @@ class MrzReaderAnalyzer(context: Context) : ImageAnalysis.Analyzer {
+   val mrzInfo: LiveData<MRZInfo> = _mrzInfo
+ 
+   private var docType: OcrUtil.DocType = OcrUtil.DocType.ID_CARD
++  // Temporary (upande-security): logged once, not per-frame - a real device
++  // test showed the camera producing frames (ImageReader buffers visible in
++  // logcat) but NOT ONE log line from this file, MrzUtil or OcrUtil ever
++  // appearing, across several seconds of attempted scanning. That means
++  // whatever is failing is throwing before reaching any of our own logging,
++  // and the catch block below - unmodified library code, not something this
++  // patch added - was silently discarding it with no trace at all. This
++  // flag confirms analyze() is at least being invoked; the Log.e in the
++  // catch is what should finally show the real exception.
++  private var loggedFirstFrame = false
+ 
+   fun setDocType(docType: String) {
+     this.docType = OcrUtil.DocType.valueOf(docType)
+   }
+ 
+   override fun analyze(image: ImageProxy) {
++    if (!loggedFirstFrame) {
++      loggedFirstFrame = true
++      Log.d("MrzReaderAnalyzer", "analyze() invoked, first frame " + image.width + "x" + image.height)
++    }
+     CoroutineScope(Dispatchers.IO).launch {
+       try {
+         val originalBitmap = image.toBitmap()
+@@ -37,15 +53,35 @@ class MrzReaderAnalyzer(context: Context) : ImageAnalysis.Analyzer {
            angle
          )
  
@@ -40,6 +72,18 @@ index 617f23c..2d64014 100644
  
          mrzInfo?.let {
            _mrzInfo.postValue(it)
+         }
+ 
+-      } catch (_: Exception) {
++      } catch (e: Exception) {
++        // Temporary (upande-security): was `catch (_: Exception) {}` -
++        // silently discarded whatever actually failed, which is the reason
++        // three rounds of fixes to the crop/PSM logic below could never be
++        // verified against a real failure. See loggedFirstFrame's comment.
++        Log.e("MrzReaderAnalyzer", "analyze() frame failed", e)
+       }
+ 
+       image.close()
 diff --git a/node_modules/react-native-mrz-reader/android/src/main/java/com/mrzreader/extensions/Bitmap.kt b/node_modules/react-native-mrz-reader/android/src/main/java/com/mrzreader/extensions/Bitmap.kt
 index 23a7c7e..778b08c 100644
 --- a/node_modules/react-native-mrz-reader/android/src/main/java/com/mrzreader/extensions/Bitmap.kt
