@@ -280,3 +280,101 @@ index ad4eaa4..321d261 100644
          }
        } else if (docType === DocType.PASSPORT) {
          val patternPassportTD3Line1 = Pattern.compile(PASSPORT_TD_3_LINE_1_REGEX)
+diff --git a/node_modules/react-native-mrz-reader/android/src/main/java/com/mrzreader/view/CameraPreviewView.kt b/node_modules/react-native-mrz-reader/android/src/main/java/com/mrzreader/view/CameraPreviewView.kt
+index 5c0352e..e89c8d9 100644
+--- a/node_modules/react-native-mrz-reader/android/src/main/java/com/mrzreader/view/CameraPreviewView.kt
++++ b/node_modules/react-native-mrz-reader/android/src/main/java/com/mrzreader/view/CameraPreviewView.kt
+@@ -1,6 +1,7 @@
+ package com.mrzreader.view
+ 
+ import android.util.AttributeSet
++import android.util.Log
+ import android.view.Gravity
+ import android.widget.FrameLayout
+ import androidx.camera.core.AspectRatio
+@@ -49,6 +50,19 @@ class CameraPreviewView @JvmOverloads constructor(
+   private var isCameraStarted = false
+ 
+   private var camera: Camera? = null
++  // Temporary (upande-security): a real device test showed camera frames
++  // reaching the analysis ImageReader (visible in logcat as
++  // BufferQueueProducer traffic) but MrzReaderAnalyzer.analyze() never
++  // being invoked - not even its first, synchronous, pre-try/catch log
++  // line. That only makes sense if either startCamera() never successfully
++  // binds the analyzer, or binds it more than once and a later bind
++  // replaces the one we think is live. updatePreview() runs from init{}
++  // AND from every resizeMode/androidPreviewViewType prop setter, which
++  // React Native's bridge can re-invoke on a re-render even when the value
++  // didn't change - so startCamera() running more than once is a real
++  // possibility, not a hypothetical. These counters and logs find out
++  // which, instead of guessing again.
++  private var startCameraCallCount = 0
+ 
+   var androidPreviewViewType: PreviewViewType = PreviewViewType.SURFACE_VIEW
+     set(value) {
+@@ -75,6 +89,7 @@ class CameraPreviewView @JvmOverloads constructor(
+   }
+ 
+   private fun updatePreview() {
++    Log.d("CameraPreviewView", "updatePreview() called")
+     mainCoroutineScope.launch {
+       if (previewView == null) {
+         previewView = createPreviewView()
+@@ -133,6 +148,7 @@ class CameraPreviewView @JvmOverloads constructor(
+   override fun onDetachedFromWindow() {
+     super.onDetachedFromWindow()
+ 
++    Log.d("CameraPreviewView", "onDetachedFromWindow() - shutting down cameraExecutor")
+     cameraProvider?.unbindAll()
+     cameraExecutor.shutdown()
+   }
+@@ -144,6 +160,8 @@ class CameraPreviewView @JvmOverloads constructor(
+   }
+ 
+   private fun startCamera() {
++    startCameraCallCount += 1
++    Log.d("CameraPreviewView", "startCamera() call #" + startCameraCallCount)
+     ensureCameraExecutor()
+     val cameraProviderFuture = ProcessCameraProvider.getInstance(reactContext)
+ 
+@@ -172,6 +190,20 @@ class CameraPreviewView @JvmOverloads constructor(
+         .setResolutionSelector(resolutionSelector)
+         .build()
+         .also {
++          // Temporary (upande-security): ensureCameraExecutor() validated
++          // cameraExecutor at the top of startCamera(), but
++          // ProcessCameraProvider.getInstance() is async - if
++          // onDetachedFromWindow() (which shuts the executor down) fires
++          // during that gap, setAnalyzer below would be handing CameraX an
++          // already-dead executor, and every frame's dispatch to it would
++          // fail inside CameraX's own internals - silently from our side,
++          // same end result as analyze() never being called.
++          Log.d(
++            "CameraPreviewView",
++            "setAnalyzer() call #" + startCameraCallCount +
++              ", cameraExecutor.isShutdown=" + cameraExecutor.isShutdown +
++              ", isTerminated=" + cameraExecutor.isTerminated,
++          )
+           it.setAnalyzer(cameraExecutor, mrzReaderAnalyzer)
+         }
+ 
+@@ -184,7 +216,19 @@ class CameraPreviewView @JvmOverloads constructor(
+           imageAnalysis
+         )
+         isCameraStarted = true
++        // Temporary (upande-security): confirms this specific call
++        // actually succeeded and which ImageAnalysis instance (by identity)
++        // ended up bound - see startCameraCallCount's comment.
++        Log.d(
++          "CameraPreviewView",
++          "bindToLifecycle() ok, call #" + startCameraCallCount +
++            ", imageAnalysis=" + System.identityHashCode(imageAnalysis),
++        )
+       } catch (exc: Exception) {
++        // Was exc.printStackTrace() only - this device's ROM may not route
++        // System.err to logcat the way stock AOSP does, which would make a
++        // real failure here just as silent as analyze() never firing.
++        Log.e("CameraPreviewView", "bindToLifecycle() failed, call #" + startCameraCallCount, exc)
+         exc.printStackTrace()
+       }
+     }, ContextCompat.getMainExecutor(reactContext))
