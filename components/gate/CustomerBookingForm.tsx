@@ -24,14 +24,18 @@ const MIN_ID_LOOKUP_LENGTH = 6;
  * of time. Self-contained, like DispatchGatePanel/StaffCheckInPanel: owns
  * its own form state and submits directly via the booking mutation.
  *
- * Only the specific person being sent (name + ID number) is typed in —
- * phone/email are always sourced server-side from the linked Customer
- * record, never typed here.
+ * Phone is the visiting PERSON's own number, typed in here — a Customer
+ * commonly sends a different representative each visit, and the
+ * check-in/check-out OTP SMS needs to reach whoever actually shows up at
+ * the gate, not the Customer account's main switchboard number. Email is
+ * still sourced server-side from the linked Customer record; only phone
+ * changed.
  */
 export function CustomerBookingForm() {
   const [customerId, setCustomerId] = useState<string | null>(null);
   const [customerName, setCustomerName] = useState<string | null>(null);
   const [personName, setPersonName] = useState('');
+  const [phone, setPhone] = useState('');
   const [idNumber, setIdNumber] = useState('');
   const [nameLocked, setNameLocked] = useState(false);
   const [checkingHistory, setCheckingHistory] = useState(false);
@@ -50,6 +54,7 @@ export function CustomerBookingForm() {
     setCustomerId(null);
     setCustomerName(null);
     setPersonName('');
+    setPhone('');
     setIdNumber('');
     setNameLocked(false);
     setHistoryNote(null);
@@ -80,6 +85,10 @@ export function CustomerBookingForm() {
           if (cancelled) return;
           if (result.found) {
             setPersonName(result.visitor_name ?? '');
+            // Same ID number is the same person, so their own number from
+            // last time is a safe prefill - still editable below, since a
+            // phone can change between visits even when the ID doesn't.
+            if (result.phone_number) setPhone(result.phone_number);
             setNameLocked(true);
             setHistoryNote(
               result.last_visit_date ? `Last visited on ${result.last_visit_date}` : 'Matched a past visit',
@@ -118,6 +127,14 @@ export function CustomerBookingForm() {
       feedback.warning("Please enter the visitor's name");
       return;
     }
+    if (!phone.trim()) {
+      // Required, not just offered: this is the only number the OTP/
+      // thank-you SMS can reach once this specific person checks in - the
+      // Customer account's own number is a different person and a silent
+      // fallback here would send the welcome text to the wrong phone.
+      feedback.warning("Please enter the visitor's phone number");
+      return;
+    }
     if (!hostId) {
       feedback.warning('Please select a host');
       return;
@@ -126,6 +143,7 @@ export function CustomerBookingForm() {
       await book.mutateAsync({
         customer: customerId,
         person_name: personName.trim(),
+        phone: phone.trim(),
         id_number: idNumber.trim(),
         host: hostId,
         scheduled_time: toFrappeDateTime(scheduledTime),
@@ -240,6 +258,37 @@ export function CustomerBookingForm() {
             style={{ flex: 1, paddingVertical: 10, paddingHorizontal: spacing.sm, fontSize: 14, color: COLORS.text }}
           />
         </View>
+      </View>
+
+      <View style={{ marginBottom: spacing.md }}>
+        <Text style={{ fontSize: fontSize.xs, fontWeight: '600', color: COLORS.textSecondary, marginBottom: 6 }}>
+          Visitor's Phone
+        </Text>
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            borderWidth: 1,
+            borderColor: COLORS.border,
+            borderRadius: borderRadius.md,
+            backgroundColor: COLORS.surface,
+            paddingHorizontal: spacing.md,
+          }}
+        >
+          <Ionicons name="call-outline" size={18} color={COLORS.textMuted} />
+          <TextInput
+            value={phone}
+            onChangeText={setPhone}
+            placeholder="This specific person's own number"
+            placeholderTextColor={COLORS.textMuted}
+            keyboardType="phone-pad"
+            editable={!book.isPending}
+            style={{ flex: 1, paddingVertical: 10, paddingHorizontal: spacing.sm, fontSize: 14, color: COLORS.text }}
+          />
+        </View>
+        <Text style={{ fontSize: fontSize.xs, color: COLORS.textMuted, marginTop: 4 }}>
+          The check-in/check-out SMS goes here, not to the Customer account's main number
+        </Text>
       </View>
 
       <HostSearchField

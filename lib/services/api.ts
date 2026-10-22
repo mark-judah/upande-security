@@ -1191,6 +1191,12 @@ export type BookCustomerAppointmentInput = {
   host: string;
   scheduled_time: string;
   purpose: string;
+  // The visiting person's own phone - a Customer often sends a different
+  // representative each time, and the check-in/check-out SMS needs to
+  // reach whoever is actually at the gate, not the Customer account's main
+  // number. Optional only because the server still falls back to the
+  // Customer record's number if this is left blank.
+  phone?: string;
 };
 
 export type BookCustomerAppointmentResult = {
