@@ -1,33 +1,39 @@
 diff --git a/node_modules/react-native-mrz-reader/android/src/main/java/com/mrzreader/analyzer/MrzReaderAnalyzer.kt b/node_modules/react-native-mrz-reader/android/src/main/java/com/mrzreader/analyzer/MrzReaderAnalyzer.kt
-index 617f23c..2d815f4 100644
+index 617f23c..2d64014 100644
 --- a/node_modules/react-native-mrz-reader/android/src/main/java/com/mrzreader/analyzer/MrzReaderAnalyzer.kt
 +++ b/node_modules/react-native-mrz-reader/android/src/main/java/com/mrzreader/analyzer/MrzReaderAnalyzer.kt
-@@ -5,8 +5,8 @@ import androidx.camera.core.ImageAnalysis
+@@ -5,8 +5,9 @@ import androidx.camera.core.ImageAnalysis
  import androidx.camera.core.ImageProxy
  import androidx.lifecycle.LiveData
  import androidx.lifecycle.MutableLiveData
 -import com.mrzreader.extensions.cropToCenterSquare
++import com.mrzreader.extensions.bottomBand
  import com.mrzreader.extensions.rotate
 +import com.mrzreader.extensions.scaleDownToMax
  import com.mrzreader.utils.MrzUtil
  import com.mrzreader.utils.OcrUtil
  import kotlinx.coroutines.CoroutineScope
-@@ -37,9 +37,19 @@ class MrzReaderAnalyzer(context: Context) : ImageAnalysis.Analyzer {
+@@ -37,9 +38,24 @@ class MrzReaderAnalyzer(context: Context) : ImageAnalysis.Analyzer {
            angle
          )
  
 -        val cropBitmapCenterSquare = rotatedBitmap.cropToCenterSquare()
-+        // Patched (upande-security): no center-square crop. That crop assumed
-+        // the card was positioned inside a specific on-screen guide box, and
-+        // discarded whatever fell outside a square taken from the middle of
-+        // the frame - usually the top and bottom ~20% of a portrait frame.
-+        // With the guide box removed (the card can be anywhere in view), the
-+        // MRZ can legitimately be in that discarded band, so we now hand the
-+        // whole rotated frame to the reader instead of pre-guessing where the
-+        // text is. Scaled down first - see scaleDownToMax - so dropping the
-+        // crop (more pixels per pass) and switching to sparse-text mode
-+        // (slower search) don't add up to a scan that takes several seconds.
-+        val scaledBitmap = rotatedBitmap.scaleDownToMax(1280)
++        // Patched (upande-security): crop to the bottom 65% of the frame -
++        // see bottomBand's doc comment for why this replaced both the old
++        // UI-box-shaped center-square crop AND a later, less reliable
++        // attempt at no crop at all. 65%, not 50%: tested against a real ID
++        // photo where the card didn't fill the frame (shot from a normal
++        // working distance, not pressed up to the lens) - a 50% crop cut
++        // off 2 of the MRZ's 3 lines, 60% just barely kept all three. This
++        // is deliberately short of "assume the card fills the frame", since
++        // nothing on screen asks the guard to hold it close, and still
++        // leaves most of the busy upper content (photo, chip, county/
++        // sub-county fields) out of what Tesseract has to search.
++        // Downscaled after cropping, not before - the crop already does
++        // most of the work cropToCenterSquare used to do for keeping each
++        // OCR pass fast.
++        val bandBitmap = rotatedBitmap.bottomBand(0.65f)
++        val scaledBitmap = bandBitmap.scaleDownToMax(1280)
  
 -        val mrzInfo = mrzUtil.readMRZ(cropBitmapCenterSquare, docType)
 +        val mrzInfo = mrzUtil.readMRZ(scaledBitmap, docType)
@@ -35,7 +41,7 @@ index 617f23c..2d815f4 100644
          mrzInfo?.let {
            _mrzInfo.postValue(it)
 diff --git a/node_modules/react-native-mrz-reader/android/src/main/java/com/mrzreader/extensions/Bitmap.kt b/node_modules/react-native-mrz-reader/android/src/main/java/com/mrzreader/extensions/Bitmap.kt
-index 23a7c7e..32c479f 100644
+index 23a7c7e..778b08c 100644
 --- a/node_modules/react-native-mrz-reader/android/src/main/java/com/mrzreader/extensions/Bitmap.kt
 +++ b/node_modules/react-native-mrz-reader/android/src/main/java/com/mrzreader/extensions/Bitmap.kt
 @@ -2,6 +2,7 @@ package com.mrzreader.extensions
@@ -46,7 +52,43 @@ index 23a7c7e..32c479f 100644
  import kotlin.math.min
  
  fun Bitmap.cropToCenterSquare(): Bitmap {
-@@ -21,3 +22,28 @@ fun Bitmap.rotate(angle: Float): Bitmap {
+@@ -13,6 +14,35 @@ fun Bitmap.cropToCenterSquare(): Bitmap {
+   return Bitmap.createBitmap(this, xStart, yStart, newSize, newSize)
+ }
+ 
++/**
++ * Patched (upande-security): the bottom [fraction] of the frame, full
++ * width.
++ *
++ * Replaces cropToCenterSquare, which tied the crop to where an on-screen
++ * guide box told the user to put the card - removing that box (see
++ * scan-id.tsx) meant the crop had nothing left to be centered on, so an
++ * earlier version of this patch dropped cropping entirely and fed
++ * Tesseract the whole, busy frame (ID photo, chip graphic, county/
++ * sub-county/division text above the MRZ). That made detection LESS
++ * reliable, not more: sparse-text mode has to find the three MRZ lines
++ * among everything else on the card, and anything it recognizes from that
++ * other content breaks the contiguous 90-character match the TD1 filter
++ * needs once whitespace is stripped (see OcrUtil.filterScannedText).
++ *
++ * The right anchor was never the screen, it's the document: a TD1 card's
++ * machine-readable zone is always printed along the bottom edge (ICAO
++ * 9303), regardless of where in the camera frame the user happens to be
++ * holding the card. Cropping to a generous bottom band keeps that
++ * tolerance - no pixel-perfect alignment required - while cutting out
++ * most of the non-MRZ content that was interfering with the sparse-text
++ * search.
++ */
++fun Bitmap.bottomBand(fraction: Float): Bitmap {
++  val bandHeight = (this.height * fraction).toInt().coerceIn(1, this.height)
++  val yStart = this.height - bandHeight
++  return Bitmap.createBitmap(this, 0, yStart, this.width, bandHeight)
++}
++
+ fun Bitmap.rotate(angle: Float): Bitmap {
+   if (angle == 0.0f) {
+     return this
+@@ -21,3 +51,28 @@ fun Bitmap.rotate(angle: Float): Bitmap {
    matrix.postRotate(angle)
    return Bitmap.createBitmap(this, 0, 0, this.width, this.height, matrix, true)
  }
@@ -76,23 +118,34 @@ index 23a7c7e..32c479f 100644
 +  return Bitmap.createScaledBitmap(this, newWidth, newHeight, true)
 +}
 diff --git a/node_modules/react-native-mrz-reader/android/src/main/java/com/mrzreader/utils/MrzUtil.kt b/node_modules/react-native-mrz-reader/android/src/main/java/com/mrzreader/utils/MrzUtil.kt
-index 21efc1d..04e7ebc 100644
+index 21efc1d..41fd6dd 100644
 --- a/node_modules/react-native-mrz-reader/android/src/main/java/com/mrzreader/utils/MrzUtil.kt
 +++ b/node_modules/react-native-mrz-reader/android/src/main/java/com/mrzreader/utils/MrzUtil.kt
-@@ -14,7 +14,15 @@ class MrzUtil(private val context: Context) {
+@@ -14,7 +14,26 @@ class MrzUtil(private val context: Context) {
    private var modelType: String = ".traineddata"
    private var currentDirectory: File? = null
    private var imageTextReader: ImageTextReader? = null
 -  private var mPageSegMode = 1
 +  // Patched (upande-security): mode 1 is "automatic page segmentation + OSD" -
-+  // built for a full page of structured text, a poor fit for a card photo
-+  // where the MRZ strip is a small fraction of a frame that also has a photo,
-+  // a chip graphic and a printed pattern in it. Now that the frame also isn't
-+  // pre-cropped to roughly where the MRZ is (see MrzReaderAnalyzer), mode 11
-+  // ("sparse text - find as much as possible, no particular order") is the
-+  // right fit: look for text blocks wherever they are, don't assume the image
-+  // is one layout.
-+  private var mPageSegMode = 11
++  // built for a full page of structured text, a poor fit for a card photo.
++  // A first attempt at this patch dropped MrzReaderAnalyzer's crop entirely
++  // and switched to mode 11 ("sparse text, no particular order") to match -
++  // but a real test against an ID whose MRZ passes every check digit still
++  // failed to read. Sparse mode has to find the three MRZ lines as islands
++  // among the photo, chip graphic and county/sub-county/division text also
++  // in frame; anything it recognises from that content breaks the
++  // contiguous 90-character match the TD1 filter needs once whitespace is
++  // stripped (see OcrUtil.filterScannedText) - trading one failure mode
++  // (crop cuts off the MRZ) for another (other printed fields contaminate
++  // the read).
++  //
++  // MrzReaderAnalyzer now crops to the bottom half of the frame instead of
++  // dropping cropping altogether, so the image reaching Tesseract is once
++  // again overwhelmingly just the MRZ. Mode 6 ("assume a single uniform
++  // block of text") fits that - and is cheaper than 11's open-ended
++  // search - the same way mode 1 fit the old UI-box-shaped crop, without
++  // mode 1's page-layout/OSD assumptions a card photo doesn't have.
++  private var mPageSegMode = 6
    private val ocrUtil = OcrUtil()
  
    init {
