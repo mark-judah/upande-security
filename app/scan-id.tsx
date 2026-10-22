@@ -18,10 +18,11 @@ import { audio } from '@/src/core/audio';
  * wrong too often to keep.
  *
  * No framing box - the guard doesn't have to line the card up inside a
- * drawn outline. The native reader now scans the whole frame (sparse-text
- * mode, no pre-crop - see MrzReaderAnalyzer/MrzUtil in the patched
- * react-native-mrz-reader), so it finds the MRZ wherever the card sits in
- * view rather than only inside a region the UI guessed in advance.
+ * drawn outline. The native reader instead crops to the bottom half of
+ * whatever frame it gets (see MrzReaderAnalyzer/MrzUtil in the patched
+ * react-native-mrz-reader) - a TD1 card's MRZ is always printed along its
+ * bottom edge, so that's tolerant of where in view the card sits without
+ * needing the screen to draw a box around it.
  */
 export default function ScanIdModal() {
   const [permission, requestPermission] = useCameraPermissions();
@@ -30,6 +31,12 @@ export default function ScanIdModal() {
   // knows the camera is reading and can steady the card.
   const [rejected, setRejected] = useState<string | null>(null);
   const setPendingScannedIdCard = useGateStore((s) => s.setPendingScannedIdCard);
+  const setPendingScannedIdForSearch = useGateStore((s) => s.setPendingScannedIdForSearch);
+  // Which caller sent us here - the walk-in form (fills Name/ID fields
+  // directly) or the search bar (scan as a shortcut for typing an ID and
+  // searching). Read once on mount: the caller sets this immediately
+  // before navigating, so it can't change out from under an open scan.
+  const scanIdContextRef = useRef(useGateStore.getState().scanIdContext);
 
   const close = useCallback(() => {
     if (router.canDismiss()) router.dismiss();
@@ -47,18 +54,29 @@ export default function ScanIdModal() {
       done.current = true;
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       audio.beep();
-      setPendingScannedIdCard({ name: parsed.name, idNumber: parsed.idNumber });
+      const card = { name: parsed.name, idNumber: parsed.idNumber };
+      if (scanIdContextRef.current === 'search') {
+        setPendingScannedIdForSearch(card);
+      } else {
+        setPendingScannedIdCard(card);
+      }
       close();
     },
-    [setPendingScannedIdCard, close],
+    [setPendingScannedIdCard, setPendingScannedIdForSearch, close],
   );
 
   const enterManually = useCallback(() => {
     if (done.current) return;
     done.current = true;
-    setPendingScannedIdCard({});
+    if (scanIdContextRef.current === 'search') {
+      // Nothing to prefill - the search bar behind this modal already IS
+      // the manual-entry path, just close and let the guard type there.
+      setPendingScannedIdForSearch(null);
+    } else {
+      setPendingScannedIdCard({});
+    }
     close();
-  }, [setPendingScannedIdCard, close]);
+  }, [setPendingScannedIdCard, setPendingScannedIdForSearch, close]);
 
   if (!permission) {
     return <View style={{ flex: 1, backgroundColor: '#000000' }} />;
@@ -159,7 +177,7 @@ export default function ScanIdModal() {
             textShadowRadius: 4,
           }}
         >
-          It reads automatically - hold the card steady anywhere in view
+          Fill most of the screen with the card - reads automatically, anywhere in view
         </Text>
         {rejected ? (
           <Text

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { FarmPicker } from '@/components/gate/FarmPicker';
 import { useGateFarm } from '@/lib/hooks/useGateFarm';
-import { View, Text, Platform, Keyboard, Pressable, ActivityIndicator, Alert, StyleSheet, RefreshControl } from 'react-native';
+import { View, Text, Platform, Keyboard, Pressable, TouchableOpacity, ActivityIndicator, Alert, StyleSheet, RefreshControl } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { router } from 'expo-router';
 import { useForm } from 'react-hook-form';
@@ -151,6 +151,9 @@ export default function GateTab() {
 
   const pendingScannedIdCard = useGateStore((s) => s.pendingScannedIdCard);
   const setPendingScannedIdCard = useGateStore((s) => s.setPendingScannedIdCard);
+  const setScanIdContext = useGateStore((s) => s.setScanIdContext);
+  const pendingScannedIdForSearch = useGateStore((s) => s.pendingScannedIdForSearch);
+  const setPendingScannedIdForSearch = useGateStore((s) => s.setPendingScannedIdForSearch);
 
   const form = useForm<VisitorFormValues>({ defaultValues: emptyVisitorForm });
   const {
@@ -270,8 +273,12 @@ export default function GateTab() {
     clearForm();
   }
 
-  async function onManualSearch() {
-    const q = searchQuery.trim();
+  async function onManualSearch(queryOverride?: string) {
+    // queryOverride lets a scan result search immediately without waiting
+    // on setSearchQuery's state update to land first (React state updates
+    // aren't synchronous, so reading searchQuery right after setting it in
+    // the same tick could still see the old value).
+    const q = (queryOverride ?? searchQuery).trim();
     if (!q) {
       feedback.warning('Please enter a search query');
       return;
@@ -583,6 +590,22 @@ export default function GateTab() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingScannedIdCard]);
 
+  useEffect(() => {
+    if (!pendingScannedIdForSearch) return;
+    const { idNumber } = pendingScannedIdForSearch;
+    setPendingScannedIdForSearch(null);
+    if (!idNumber) {
+      // A name-only read (no MRZ, or "enter manually") isn't useful here -
+      // the ID number is what a search actually matches on. Name alone
+      // would just repeat whatever the guard already typed, or nothing.
+      feedback.warning('Could not read an ID number - type it in below instead');
+      return;
+    }
+    setSearchQuery(idNumber);
+    onManualSearch(idNumber);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingScannedIdForSearch]);
+
   return (
     <Screen title="Gate" scroll={false} contentPadded={false}>
       <KeyboardAwareScrollView
@@ -619,9 +642,38 @@ export default function GateTab() {
               value={searchQuery}
               placeholder={`Search ${selectedType.toUpperCase()} (ID/Name)`}
               onChangeText={setSearchQuery}
-              onSubmit={onManualSearch}
+              // Explicit no-arg call - onManualSearch now takes an optional
+              // override param for the scan-to-search path below, and
+              // TextInput/Pressable both call onSubmit with an event
+              // object that must never flow into that param.
+              onSubmit={() => onManualSearch()}
               disabled={loading}
             />
+          ) : null}
+
+          {selectedType === CheckInType.Visitor ? (
+            <TouchableOpacity
+              onPress={() => {
+                setScanIdContext('search');
+                router.push('/scan-id');
+              }}
+              disabled={loading}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginTop: -spacing.xs,
+                marginBottom: spacing.sm,
+                paddingVertical: 8,
+              }}
+            >
+              <Ionicons name="scan-outline" size={16} color={COLORS.primary} />
+              <Text style={{ color: COLORS.primary, fontWeight: '600', fontSize: fontSize.sm, marginLeft: 6 }}>
+                Or scan their ID instead of typing
+              </Text>
+            </TouchableOpacity>
           ) : null}
 
           {selectedType === CheckInType.Visitor && showVisitorResult && visitorResult ? (
@@ -731,7 +783,13 @@ export default function GateTab() {
                 watchTransport={watchTransport}
                 watchHostId={watchHostId}
                 watchHostName={watchHostName}
-                onScanId={() => router.push('/scan-id')}
+                onScanId={() => {
+                  // Explicit, not relying on the store's default - a
+                  // search-bar scan elsewhere in the same session could
+                  // otherwise leave this at 'search'.
+                  setScanIdContext('walkin');
+                  router.push('/scan-id');
+                }}
                 lockedFields={lockedFields}
                 hidePassengerCount={passengerNamesEnabled}
               />

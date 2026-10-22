@@ -6,6 +6,14 @@ type GateState = {
   selectedType: CheckInType;
   pendingScannedEmployee: string | null;
   pendingScannedIdCard: ParsedIdCard | null;
+  // The same ID scanner (app/scan-id.tsx) is reachable from two different
+  // places: the walk-in form (fills Name/ID fields directly - the existing
+  // pendingScannedIdCard above) and, now, the search bar itself (scan an ID
+  // as a shortcut for typing it in and searching). Both write their result
+  // into a shared screen's single onMRZRead callback, so the screen needs
+  // to know which one asked - set this right before navigating there.
+  scanIdContext: 'walkin' | 'search';
+  pendingScannedIdForSearch: ParsedIdCard | null;
   pendingScannedBadge: string | null;
   pendingScannedAsset: string | null;
   pendingScannedDispatch: string | null;
@@ -16,6 +24,8 @@ type GateState = {
   setSelectedType: (t: CheckInType) => void;
   setPendingScannedEmployee: (v: string | null) => void;
   setPendingScannedIdCard: (v: ParsedIdCard | null) => void;
+  setScanIdContext: (v: 'walkin' | 'search') => void;
+  setPendingScannedIdForSearch: (v: ParsedIdCard | null) => void;
   setPendingScannedBadge: (v: string | null) => void;
   setPendingScannedAsset: (v: string | null) => void;
   setPendingScannedDispatch: (v: string | null) => void;
@@ -29,6 +39,8 @@ export const useGateStore = create<GateState>((set) => ({
   selectedType: CheckInType.Visitor,
   pendingScannedEmployee: null,
   pendingScannedIdCard: null,
+  scanIdContext: 'walkin',
+  pendingScannedIdForSearch: null,
   pendingScannedBadge: null,
   pendingScannedAsset: null,
   pendingScannedDispatch: null,
@@ -39,6 +51,8 @@ export const useGateStore = create<GateState>((set) => ({
   setSelectedType: (t) => set({ selectedType: t }),
   setPendingScannedEmployee: (v) => set({ pendingScannedEmployee: v }),
   setPendingScannedIdCard: (v) => set({ pendingScannedIdCard: v }),
+  setScanIdContext: (v) => set({ scanIdContext: v }),
+  setPendingScannedIdForSearch: (v) => set({ pendingScannedIdForSearch: v }),
   setPendingScannedBadge: (v) => set({ pendingScannedBadge: v }),
   setPendingScannedAsset: (v) => set({ pendingScannedAsset: v }),
   setPendingScannedDispatch: (v) => set({ pendingScannedDispatch: v }),
