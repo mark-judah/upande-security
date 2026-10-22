@@ -90,13 +90,17 @@
               "arm64-v8a"
             ],
             "enableMinifyInReleaseBuilds": true,
-            "enableShrinkResourcesInReleaseBuilds": true,
-            "extraProguardRules": "# react-native-mrz-reader: Tesseract (JNI) and jmrtd MRZ parsing\n-keep class com.mrzreader.** { *; }\n-keep class com.googlecode.tesseract.android.** { *; }\n-keep class org.jmrtd.** { *; }\n-keep class net.sf.scuba.** { *; }\n-dontwarn org.jmrtd.**\n-dontwarn net.sf.scuba.**\n-dontwarn org.bouncycastle.**\n-dontwarn org.ejbca.**\n-dontwarn javax.smartcardio.**"
+            "enableShrinkResourcesInReleaseBuilds": true
           }
         }
       ],
       "@preeternal/react-native-cookie-manager",
-      "./plugins/withoutOldBouncyCastle"
+      [
+        "rn-mrz-scanner",
+        {
+          "cameraPermissionText": "Allow Upande Security to scan the ID card's MRZ."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

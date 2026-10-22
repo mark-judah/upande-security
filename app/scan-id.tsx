@@ -1,35 +1,39 @@
-import { useCallback, useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, Linking } from 'react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { View, Text, TouchableOpacity, Linking, ActivityIndicator } from 'react-native';
 import { useCameraPermissions } from 'expo-camera';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
-import MrzReader, { CameraSelector, DocType, ResizeMode } from 'react-native-mrz-reader';
+import { scanMRZ } from 'rn-mrz-scanner';
 import { useGateStore } from '@/lib/stores/gateStore';
 import { mrzRejectionReason, parseMrzString } from '@/lib/utils/mrz';
 import { audio } from '@/src/core/audio';
 
 /**
  * ID scan by MRZ only - the three lines of letters and chevrons on the back
- * of the newer ID cards. A dedicated MRZ reader (Tesseract trained on the
- * MRZ font) watches the live camera; a read is accepted only when every
- * check digit passes, so a wrong ID number can't be filled in. Cards without
- * an MRZ (the older Kenyan ID) are entered by hand - general OCR guessed
- * wrong too often to keep.
+ * of the newer ID cards. A read is accepted only when every check digit
+ * passes (lib/utils/mrz.ts), so a wrong ID number can't be filled in. Cards
+ * without an MRZ (the older Kenyan ID) are entered by hand - general OCR
+ * guessed wrong too often to keep.
  *
- * No framing box - the guard doesn't have to line the card up inside a
- * drawn outline. The native reader instead crops to the bottom half of
- * whatever frame it gets (see MrzReaderAnalyzer/MrzUtil in the patched
- * react-native-mrz-reader) - a TD1 card's MRZ is always printed along its
- * bottom edge, so that's tolerant of where in view the card sits without
- * needing the screen to draw a box around it.
+ * The actual scanning is native and opaque to us: rn-mrz-scanner presents
+ * its own full-screen camera view (Google ML Kit Text Recognition on
+ * Android, Apple Vision on iOS) with a built-in card-shaped overlay, finds
+ * the MRZ wherever it sits in frame - no fixed crop fraction to guess, no
+ * camera-binding plumbing of our own - and only resolves once its own
+ * multi-frame stabiliser is confident. We call scanMRZ(), then run the same
+ * check-digit validation we always did on whatever text comes back.
+ *
+ * Replaces react-native-mrz-reader (bundled Tesseract + a hand-patched
+ * CameraX pipeline): three rounds of native patches to its crop/PSM/camera-
+ * binding code still failed to read a card on a real device, while a
+ * detection-based engine read the same card correctly first try.
  */
 export default function ScanIdModal() {
   const [permission, requestPermission] = useCameraPermissions();
+  const [scanning, setScanning] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const done = useRef(false);
-  // Shown when the reader saw an MRZ but it did not validate - so a guard
-  // knows the camera is reading and can steady the card.
-  const [rejected, setRejected] = useState<string | null>(null);
   const setPendingScannedIdCard = useGateStore((s) => s.setPendingScannedIdCard);
   const setPendingScannedIdForSearch = useGateStore((s) => s.setPendingScannedIdForSearch);
   // Which caller sent us here - the walk-in form (fills Name/ID fields
@@ -43,29 +47,7 @@ export default function ScanIdModal() {
     else router.back();
   }, []);
 
-  const onMrzRead = useCallback(
-    (raw: string) => {
-      if (done.current) return;
-      const parsed = parseMrzString(raw);
-      if (!parsed) {
-        setRejected(mrzRejectionReason(raw) ?? 'MRZ read but not valid');
-        return; // keep scanning
-      }
-      done.current = true;
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-      audio.beep();
-      const card = { name: parsed.name, idNumber: parsed.idNumber };
-      if (scanIdContextRef.current === 'search') {
-        setPendingScannedIdForSearch(card);
-      } else {
-        setPendingScannedIdCard(card);
-      }
-      close();
-    },
-    [setPendingScannedIdCard, setPendingScannedIdForSearch, close],
-  );
-
-  const enterManually = useCallback(() => {
+  const finishManually = useCallback(() => {
     if (done.current) return;
     done.current = true;
     if (scanIdContextRef.current === 'search') {
@@ -77,6 +59,65 @@ export default function ScanIdModal() {
     }
     close();
   }, [setPendingScannedIdCard, setPendingScannedIdForSearch, close]);
+
+  const finishWithCard = useCallback(
+    (name?: string, idNumber?: string) => {
+      if (done.current) return;
+      done.current = true;
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      audio.beep();
+      const card = { name, idNumber };
+      if (scanIdContextRef.current === 'search') {
+        setPendingScannedIdForSearch(card);
+      } else {
+        setPendingScannedIdCard(card);
+      }
+      close();
+    },
+    [setPendingScannedIdCard, setPendingScannedIdForSearch, close],
+  );
+
+  const runScan = useCallback(async () => {
+    setError(null);
+    setScanning(true);
+    try {
+      const raw = await scanMRZ({ instructionText: 'Show the back of the ID - the 3 lines of letters and <<<' });
+      if (done.current) return;
+      const parsed = parseMrzString(raw);
+      if (!parsed) {
+        // The native side already filters by MRZ shape and stabilises over
+        // several frames before ever returning, so landing here (passed
+        // its check, failed ours) should be rare - but never trust a scan
+        // result over the check digits. Let the guard retry rather than
+        // silently falling back, since a second attempt is cheap here.
+        setScanning(false);
+        setError(mrzRejectionReason(raw) ?? 'That read did not check out');
+        return;
+      }
+      finishWithCard(parsed.name, parsed.idNumber);
+    } catch (e) {
+      if (done.current) return;
+      setScanning(false);
+      const code = (e as { code?: string } | null)?.code;
+      if (code === 'ERR_CANCELLED') {
+        // The native screen's own back/dismiss gesture - same outcome as
+        // choosing "enter manually" below.
+        finishManually();
+        return;
+      }
+      setError('Could not open the scanner');
+    }
+  }, [finishWithCard, finishManually]);
+
+  // Fire the native scanner the moment permission is in hand - there is no
+  // live preview of our own to show first, the scanner's own screen is the
+  // whole UI while it runs.
+  useEffect(() => {
+    if (permission?.granted) {
+      runScan();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [permission?.granted]);
 
   if (!permission) {
     return <View style={{ flex: 1, backgroundColor: '#000000' }} />;
@@ -127,95 +168,70 @@ export default function ScanIdModal() {
             {permission.canAskAgain ? 'Grant Permission' : 'Open Settings'}
           </Text>
         </TouchableOpacity>
-        <TouchableOpacity onPress={enterManually} style={{ marginTop: 16, padding: 12 }}>
+        <TouchableOpacity onPress={finishManually} style={{ marginTop: 16, padding: 12 }}>
           <Text style={{ color: '#FFFFFF', textDecorationLine: 'underline' }}>Enter details manually</Text>
         </TouchableOpacity>
       </View>
     );
   }
 
+  // Permission granted: either the native scanner is up full-screen right
+  // now (nothing of ours to render underneath it), or it has returned with
+  // an error/invalid read and we're showing our own retry screen.
   return (
-    <View style={{ flex: 1, backgroundColor: '#000000' }}>
-      <MrzReader
-        style={{ flex: 1 }}
-        docType={DocType.ID}
-        cameraSelector={CameraSelector.Back}
-        resizeMode={ResizeMode.COVER}
-        onMRZRead={onMrzRead}
-      />
-
-      <View
-        pointerEvents="none"
-        style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          alignItems: 'center',
-          paddingTop: 48,
-        }}
-      >
-        <Text
-          style={{
-            color: '#FFFFFF',
-            fontSize: 15,
-            fontWeight: '600',
-            textAlign: 'center',
-            paddingHorizontal: 24,
-            textShadowColor: 'rgba(0,0,0,0.8)',
-            textShadowRadius: 4,
-          }}
-        >
-          Show the back of the ID - the 3 lines of letters and {'<<<'}
-        </Text>
-        <Text
-          style={{
-            color: '#D1D5DB',
-            fontSize: 13,
-            marginTop: 6,
-            textShadowColor: 'rgba(0,0,0,0.8)',
-            textShadowRadius: 4,
-          }}
-        >
-          Fill most of the screen with the card - reads automatically, anywhere in view
-        </Text>
-        {rejected ? (
-          <Text
+    <View
+      style={{
+        flex: 1,
+        backgroundColor: '#000000',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 32,
+      }}
+    >
+      {scanning ? (
+        <ActivityIndicator size="large" color="#FFFFFF" />
+      ) : (
+        <>
+          <MaterialIcons
+            name={error ? 'error-outline' : 'badge'}
+            size={48}
+            color={error ? '#FBBF24' : '#666666'}
+          />
+          {error ? (
+            <Text
+              style={{
+                color: '#FBBF24',
+                fontSize: 14,
+                marginTop: 12,
+                textAlign: 'center',
+                paddingHorizontal: 16,
+              }}
+            >
+              {error} - keep the card still and flat, then try again
+            </Text>
+          ) : null}
+          <TouchableOpacity
+            onPress={runScan}
+            activeOpacity={0.8}
+            accessibilityRole="button"
             style={{
-              color: '#FBBF24',
-              fontSize: 13,
-              marginTop: 8,
-              paddingHorizontal: 24,
-              textAlign: 'center',
-              textShadowColor: 'rgba(0,0,0,0.8)',
-              textShadowRadius: 4,
+              backgroundColor: '#FFFFFF',
+              paddingHorizontal: 20,
+              paddingVertical: 14,
+              borderRadius: 8,
+              marginTop: 20,
+              minHeight: 48,
+              alignItems: 'center',
+              justifyContent: 'center',
             }}
           >
-            {rejected} - keep the card still and flat
-          </Text>
-        ) : null}
-      </View>
-
-      <View style={{ position: 'absolute', bottom: 40, left: 0, right: 0, alignItems: 'center' }}>
-        <TouchableOpacity
-          onPress={enterManually}
-          activeOpacity={0.8}
-          accessibilityRole="button"
-          style={{
-            backgroundColor: 'rgba(255,255,255,0.92)',
-            paddingHorizontal: 20,
-            paddingVertical: 12,
-            borderRadius: 24,
-            flexDirection: 'row',
-            alignItems: 'center',
-          }}
-        >
-          <MaterialIcons name="keyboard" size={20} color="#000000" />
-          <Text style={{ color: '#000000', fontWeight: '700', marginLeft: 8 }}>
-            No MRZ on this card? Enter manually
-          </Text>
-        </TouchableOpacity>
-      </View>
+            <Text style={{ color: '#000000', fontWeight: '700' }}>Try Again</Text>
+          </TouchableOpacity>
+        </>
+      )}
+      <TouchableOpacity onPress={finishManually} style={{ marginTop: 16, padding: 12 }}>
+        <Text style={{ color: '#FFFFFF', textDecorationLine: 'underline' }}>Enter details manually</Text>
+      </TouchableOpacity>
     </View>
   );
 }
