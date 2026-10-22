@@ -9,8 +9,6 @@ import { useGateStore } from '@/lib/stores/gateStore';
 import { mrzRejectionReason, parseMrzString } from '@/lib/utils/mrz';
 import { audio } from '@/src/core/audio';
 
-const CARD_ASPECT_RATIO = 1.586; // standard ID card width:height
-
 /**
  * ID scan by MRZ only - the three lines of letters and chevrons on the back
  * of the newer ID cards. A dedicated MRZ reader (Tesseract trained on the
@@ -18,6 +16,12 @@ const CARD_ASPECT_RATIO = 1.586; // standard ID card width:height
  * check digit passes, so a wrong ID number can't be filled in. Cards without
  * an MRZ (the older Kenyan ID) are entered by hand - general OCR guessed
  * wrong too often to keep.
+ *
+ * No framing box - the guard doesn't have to line the card up inside a
+ * drawn outline. The native reader now scans the whole frame (sparse-text
+ * mode, no pre-crop - see MrzReaderAnalyzer/MrzUtil in the patched
+ * react-native-mrz-reader), so it finds the MRZ wherever the card sits in
+ * view rather than only inside a region the UI guessed in advance.
  */
 export default function ScanIdModal() {
   const [permission, requestPermission] = useCameraPermissions();
@@ -129,46 +133,22 @@ export default function ScanIdModal() {
           top: 0,
           left: 0,
           right: 0,
-          bottom: 0,
           alignItems: 'center',
-          justifyContent: 'center',
+          paddingTop: 48,
         }}
       >
-        <View
-          style={{
-            width: '85%',
-            aspectRatio: CARD_ASPECT_RATIO,
-            borderWidth: 2,
-            borderColor: '#FFFFFF',
-            borderRadius: 12,
-            justifyContent: 'flex-end',
-            padding: 10,
-          }}
-        >
-          {/* Where the MRZ sits: the bottom third of the card's back. */}
-          <View
-            style={{
-              height: '36%',
-              borderWidth: 2,
-              borderColor: '#22C55E',
-              borderRadius: 6,
-              borderStyle: 'dashed',
-            }}
-          />
-        </View>
         <Text
           style={{
             color: '#FFFFFF',
             fontSize: 15,
             fontWeight: '600',
-            marginTop: 20,
             textAlign: 'center',
             paddingHorizontal: 24,
             textShadowColor: 'rgba(0,0,0,0.8)',
             textShadowRadius: 4,
           }}
         >
-          Show the back of the ID - the 3 lines of letters and {'<<<'} in the green box
+          Show the back of the ID - the 3 lines of letters and {'<<<'}
         </Text>
         <Text
           style={{
@@ -179,7 +159,7 @@ export default function ScanIdModal() {
             textShadowRadius: 4,
           }}
         >
-          It reads automatically - hold steady
+          It reads automatically - hold the card steady anywhere in view
         </Text>
         {rejected ? (
           <Text
@@ -187,6 +167,8 @@ export default function ScanIdModal() {
               color: '#FBBF24',
               fontSize: 13,
               marginTop: 8,
+              paddingHorizontal: 24,
+              textAlign: 'center',
               textShadowColor: 'rgba(0,0,0,0.8)',
               textShadowRadius: 4,
             }}

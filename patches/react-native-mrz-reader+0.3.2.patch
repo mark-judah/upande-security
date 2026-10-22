@@ -1,8 +1,124 @@
+diff --git a/node_modules/react-native-mrz-reader/android/src/main/java/com/mrzreader/analyzer/MrzReaderAnalyzer.kt b/node_modules/react-native-mrz-reader/android/src/main/java/com/mrzreader/analyzer/MrzReaderAnalyzer.kt
+index 617f23c..2d815f4 100644
+--- a/node_modules/react-native-mrz-reader/android/src/main/java/com/mrzreader/analyzer/MrzReaderAnalyzer.kt
++++ b/node_modules/react-native-mrz-reader/android/src/main/java/com/mrzreader/analyzer/MrzReaderAnalyzer.kt
+@@ -5,8 +5,8 @@ import androidx.camera.core.ImageAnalysis
+ import androidx.camera.core.ImageProxy
+ import androidx.lifecycle.LiveData
+ import androidx.lifecycle.MutableLiveData
+-import com.mrzreader.extensions.cropToCenterSquare
+ import com.mrzreader.extensions.rotate
++import com.mrzreader.extensions.scaleDownToMax
+ import com.mrzreader.utils.MrzUtil
+ import com.mrzreader.utils.OcrUtil
+ import kotlinx.coroutines.CoroutineScope
+@@ -37,9 +37,19 @@ class MrzReaderAnalyzer(context: Context) : ImageAnalysis.Analyzer {
+           angle
+         )
+ 
+-        val cropBitmapCenterSquare = rotatedBitmap.cropToCenterSquare()
++        // Patched (upande-security): no center-square crop. That crop assumed
++        // the card was positioned inside a specific on-screen guide box, and
++        // discarded whatever fell outside a square taken from the middle of
++        // the frame - usually the top and bottom ~20% of a portrait frame.
++        // With the guide box removed (the card can be anywhere in view), the
++        // MRZ can legitimately be in that discarded band, so we now hand the
++        // whole rotated frame to the reader instead of pre-guessing where the
++        // text is. Scaled down first - see scaleDownToMax - so dropping the
++        // crop (more pixels per pass) and switching to sparse-text mode
++        // (slower search) don't add up to a scan that takes several seconds.
++        val scaledBitmap = rotatedBitmap.scaleDownToMax(1280)
+ 
+-        val mrzInfo = mrzUtil.readMRZ(cropBitmapCenterSquare, docType)
++        val mrzInfo = mrzUtil.readMRZ(scaledBitmap, docType)
+ 
+         mrzInfo?.let {
+           _mrzInfo.postValue(it)
+diff --git a/node_modules/react-native-mrz-reader/android/src/main/java/com/mrzreader/extensions/Bitmap.kt b/node_modules/react-native-mrz-reader/android/src/main/java/com/mrzreader/extensions/Bitmap.kt
+index 23a7c7e..32c479f 100644
+--- a/node_modules/react-native-mrz-reader/android/src/main/java/com/mrzreader/extensions/Bitmap.kt
++++ b/node_modules/react-native-mrz-reader/android/src/main/java/com/mrzreader/extensions/Bitmap.kt
+@@ -2,6 +2,7 @@ package com.mrzreader.extensions
+ 
+ import android.graphics.Bitmap
+ import android.graphics.Matrix
++import kotlin.math.max
+ import kotlin.math.min
+ 
+ fun Bitmap.cropToCenterSquare(): Bitmap {
+@@ -21,3 +22,28 @@ fun Bitmap.rotate(angle: Float): Bitmap {
+   matrix.postRotate(angle)
+   return Bitmap.createBitmap(this, 0, 0, this.width, this.height, matrix, true)
+ }
++
++/**
++ * Patched (upande-security): scale down to at most [maxDimension] on the
++ * longer side, never up.
++ *
++ * Added together with dropping the center-square crop (see
++ * MrzReaderAnalyzer) and switching Tesseract to sparse-text mode (see
++ * MrzUtil) - both of those make each OCR pass see more of the frame, which
++ * on its own would make every pass slower. Every stage downstream
++ * (Leptonica contrast/unsharp/threshold/skew in OcrUtil.preProcessBitmap,
++ * then Tesseract's own layout search) costs roughly in proportion to pixel
++ * count, and a modern rear camera hands back frames far higher-resolution
++ * than an MRZ actually needs - the characters are large, bold, fixed-pitch
++ * print, not fine detail. 1280px keeps them comfortably legible while
++ * cutting the pixel count (and so the time) a full-sensor frame would cost
++ * by several times over.
++ */
++fun Bitmap.scaleDownToMax(maxDimension: Int): Bitmap {
++  val longest = max(this.width, this.height)
++  if (longest <= maxDimension) return this
++  val scale = maxDimension.toFloat() / longest.toFloat()
++  val newWidth = (this.width * scale).toInt().coerceAtLeast(1)
++  val newHeight = (this.height * scale).toInt().coerceAtLeast(1)
++  return Bitmap.createScaledBitmap(this, newWidth, newHeight, true)
++}
+diff --git a/node_modules/react-native-mrz-reader/android/src/main/java/com/mrzreader/utils/MrzUtil.kt b/node_modules/react-native-mrz-reader/android/src/main/java/com/mrzreader/utils/MrzUtil.kt
+index 21efc1d..04e7ebc 100644
+--- a/node_modules/react-native-mrz-reader/android/src/main/java/com/mrzreader/utils/MrzUtil.kt
++++ b/node_modules/react-native-mrz-reader/android/src/main/java/com/mrzreader/utils/MrzUtil.kt
+@@ -14,7 +14,15 @@ class MrzUtil(private val context: Context) {
+   private var modelType: String = ".traineddata"
+   private var currentDirectory: File? = null
+   private var imageTextReader: ImageTextReader? = null
+-  private var mPageSegMode = 1
++  // Patched (upande-security): mode 1 is "automatic page segmentation + OSD" -
++  // built for a full page of structured text, a poor fit for a card photo
++  // where the MRZ strip is a small fraction of a frame that also has a photo,
++  // a chip graphic and a printed pattern in it. Now that the frame also isn't
++  // pre-cropped to roughly where the MRZ is (see MrzReaderAnalyzer), mode 11
++  // ("sparse text - find as much as possible, no particular order") is the
++  // right fit: look for text blocks wherever they are, don't assume the image
++  // is one layout.
++  private var mPageSegMode = 11
+   private val ocrUtil = OcrUtil()
+ 
+   init {
 diff --git a/node_modules/react-native-mrz-reader/android/src/main/java/com/mrzreader/utils/OcrUtil.kt b/node_modules/react-native-mrz-reader/android/src/main/java/com/mrzreader/utils/OcrUtil.kt
-index ad4eaa4..cd2078a 100644
+index ad4eaa4..321d261 100644
 --- a/node_modules/react-native-mrz-reader/android/src/main/java/com/mrzreader/utils/OcrUtil.kt
 +++ b/node_modules/react-native-mrz-reader/android/src/main/java/com/mrzreader/utils/OcrUtil.kt
-@@ -147,38 +147,33 @@ class OcrUtil {
+@@ -74,6 +74,17 @@ class OcrUtil {
+       val res = imageTextReader?.getTextFromBitmap(bitmapProcess)
+       val cleanText = Html.fromHtml(res).toString().trim().replace(" ", "")
+ 
++      // Temporary (upande-security): this is the actual text Tesseract
++      // produced from the frame, before any MRZ-shape filtering. If a scan
++      // that visibly shows the MRZ to the camera never reads, check logcat
++      // for "OcrUtil: raw=" - empty/short output means the OCR pass itself
++      // found nothing (framing/exposure/PSM), while garbled-but-present
++      // output means it saw text but not cleanly enough to pass the TD1
++      // regex or check digits. Remove once the real-world cause is known.
++      if (cleanText.isNotEmpty()) {
++        Log.d("OcrUtil", "raw=" + cleanText)
++      }
++
+       val result = filterScannedText(cleanText, docType)
+       return result?.mrzInfo
+     } catch (e: Exception) {
+@@ -147,38 +158,33 @@ class OcrUtil {
          val matcherIDCardTD1Line3 = patternIDCardTD1Line3.matcher(scannedTextBuffer)
  
          if (matcherIDCardTD1Line1.find() && matcherIDCardTD1Line2.find() && matcherIDCardTD1Line3.find()) {
