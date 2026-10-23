@@ -5,10 +5,12 @@ import {
   Alert,
   Platform,
   StyleSheet,
+  Linking,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import * as Location from 'expo-location';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuthStore } from '@/lib/stores/authStore';
 import {
   getActivePatrol,
@@ -42,6 +44,16 @@ import { Card } from '@/src/core/ui/Card';
 import { COLORS, spacing, radius, fontFamily, fontSize } from '@/src/core/theme';
 
 const STALE_THRESHOLD_MS = 14 * 60 * 60 * 1000;
+// There's no RN-core way to ask Android whether this app is already
+// exempt from battery optimization without a native module - so this
+// can't check and only show itself when actually needed. It's a one-time
+// nudge instead: shown once, dismissed for good once acknowledged. Some
+// OEMs (this one included) kill backgrounded apps aggressively enough
+// that a patrol's GPS recording - not just the sync queue, which is solid
+// - can stop outright during a long stretch with no signal. That's a
+// device setting, not something any amount of sync-retry logic can fix
+// from inside the app.
+const BATTERY_BANNER_DISMISSED_KEY = 'patrol_battery_banner_dismissed';
 
 export default function PatrolHome() {
   const userEmail = useAuthStore((s) => s.user?.email);
@@ -54,8 +66,30 @@ export default function PatrolHome() {
   const checkInShift = useCheckInShift();
   const [pendingPoints, setPendingPoints] = useState(0);
   const [syncProgress, setSyncProgress] = useState<number | null>(null);
+  const [showBatteryBanner, setShowBatteryBanner] = useState(false);
 
   useEffect(() => subscribePatrolSyncStatus((st) => setPendingPoints(st.pending)), []);
+
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+    AsyncStorage.getItem(BATTERY_BANNER_DISMISSED_KEY)
+      .then((v) => setShowBatteryBanner(v !== '1'))
+      .catch(() => setShowBatteryBanner(true));
+  }, []);
+
+  const dismissBatteryBanner = () => {
+    setShowBatteryBanner(false);
+    AsyncStorage.setItem(BATTERY_BANNER_DISMISSED_KEY, '1').catch(() => {});
+  };
+
+  const openBatterySettings = () => {
+    // No single cross-OEM intent reliably opens the battery-optimization
+    // exemption screen itself - this app's own settings page is the one
+    // place every Android build guarantees exists, and "Battery" is one
+    // tap from there on stock Android and most OEM skins including this
+    // device's.
+    Linking.openSettings();
+  };
 
   // Points from earlier patrols still on the phone - one press sends them all.
   const onSyncNow = async () => {
@@ -231,6 +265,29 @@ export default function PatrolHome() {
             Android, choose &quot;Allow all the time&quot;.
           </Text>
           <Button label="GRANT PERMISSIONS" onPress={requestPerms} style={s.permBtn} />
+        </Card>
+      ) : null}
+
+      {showBatteryBanner ? (
+        <Card style={s.permCard}>
+          <View style={s.permHeader}>
+            <Ionicons name="battery-charging" size={20} color={COLORS.text} />
+            <Text style={s.permTitle}>For long patrols out of signal</Text>
+          </View>
+          <Text style={s.permBody}>
+            Some phones stop this app in the background to save battery - that can stop a patrol
+            recording, not just delay the upload. Open Settings → Battery and set this app to
+            Unrestricted.
+          </Text>
+          <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+            <Button label="OPEN SETTINGS" onPress={openBatterySettings} style={{ ...s.permBtn, flex: 1 }} />
+            <Button
+              label="DISMISS"
+              variant="outline"
+              onPress={dismissBatteryBanner}
+              style={{ ...s.permBtn, flex: 1 }}
+            />
+          </View>
         </Card>
       ) : null}
 
