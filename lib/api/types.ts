@@ -223,4 +223,6 @@ export type CreateIncidentInput = {
   attachment_2?: string;
   attachment_3?: string;
   attachment_4?: string;
+  /** Employee IDs to tell about this incident, notified when it is saved. */
+  notify?: string[];
 };

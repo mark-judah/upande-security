@@ -65,6 +65,7 @@ export type SecurityFeatureFlags = {
   feature_patrol_geofence_alerts: boolean;
   feature_watchlist: boolean;
   feature_asset_scanning: boolean;
+  feature_checkpoint_scanning: boolean;
   feature_gate_dispatch: boolean;
   feature_gate_receiving: boolean;
   feature_vehicle_stickers: boolean;
@@ -548,6 +549,8 @@ export type CreateIncidentInput = {
   attachment_2?: string;
   attachment_3?: string;
   attachment_4?: string;
+  // Employee IDs to tell about this incident (api/incident_notify.py).
+  notify?: string[];
 };
 
 export type CreatedIncident = {
@@ -793,6 +796,64 @@ export type KnownAsset = {
 };
 export type MyAssetsAtFarmResult = { assets: KnownAsset[] };
 
+// Patrol checkpoints (upande_security.api.checkpoints). A scan counts only
+// at the checkpoint's own GPS position; a refused scan still answers with
+// accepted=false and a message for the guard, not an error.
+export type PatrolCheckpoint = {
+  checkpoint: string;
+  checkpoint_name: string;
+  location_hint: string | null;
+  position: number;
+  has_position: boolean;
+  scanned: boolean;
+  scanned_at: string | null;
+};
+export type PatrolCheckpointPlan = {
+  patrol: string;
+  route: string | null;
+  farm: string | null;
+  checkpoints: PatrolCheckpoint[];
+  done: number;
+  total: number;
+};
+export type ScanCheckpointInput = {
+  code: string;
+  latitude: number;
+  longitude: number;
+  accuracy: number | null;
+  mocked: 0 | 1;
+  patrol: string;
+};
+export type ScanCheckpointResult = {
+  accepted: boolean;
+  result: 'Valid' | 'Too Far' | 'Poor GPS' | 'Fake GPS' | 'Position Not Set' | 'Inactive Checkpoint' | 'Unknown Code';
+  message: string;
+  checkpoint_name: string | null;
+  distance_m?: number | null;
+  allowed_m?: number | null;
+  plan?: PatrolCheckpointPlan;
+};
+export type SetupCheckpoint = {
+  checkpoint: string;
+  checkpoint_name: string;
+  farm: string | null;
+  location_hint: string | null;
+  has_position: boolean;
+  position_accuracy_m: number | null;
+  position_set_at: string | null;
+  radius_m: number | null;
+};
+export type GpsReading = { latitude: number; longitude: number; accuracy: number | null };
+export type SetCheckpointPositionResult = {
+  checkpoint: string;
+  checkpoint_name: string;
+  latitude: number;
+  longitude: number;
+  accuracy_m: number;
+  readings_used: number;
+  readings_dropped: number;
+};
+
 export type ReportKpi = { label: string; value: number | string; sub?: string };
 export type ReportColumn = { key: string; label: string; align?: 'left' | 'right' };
 export type ReportTable = {
@@ -811,6 +872,8 @@ export type IncidentPerson = {
   id_number: string;
   contact: string;
   notes: string;
+  // Photo/scan of a statement written on paper (Desk attach field).
+  statement?: string;
 };
 export type IncidentDetail = {
   name: string;
@@ -1400,6 +1463,18 @@ export const api = {
   reportAssetMissing: (input: ReportAssetMissingInput) =>
     call<ReportAssetMissingResult>('report_asset_missing', input),
   myAssetsAtFarm: () => call<MyAssetsAtFarmResult>('my_assets_at_farm'),
+  patrolCheckpoints: (patrol: string) =>
+    call<PatrolCheckpointPlan>('upande_security.api.checkpoints.get_patrol_checkpoints', { patrol }),
+  scanCheckpoint: (input: ScanCheckpointInput) =>
+    call<ScanCheckpointResult>('upande_security.api.checkpoints.scan_checkpoint', input),
+  checkpointsForSetup: () =>
+    call<{ checkpoints: SetupCheckpoint[] }>('upande_security.api.checkpoints.list_checkpoints_for_setup'),
+  setCheckpointPosition: (code: string, readings: GpsReading[], mocked: 0 | 1) =>
+    call<SetCheckpointPositionResult>('upande_security.api.checkpoints.set_checkpoint_position', {
+      code,
+      readings: JSON.stringify(readings),
+      mocked,
+    }),
 
   // Employees (host search + lookup)
   searchEmployees: (query: string) =>

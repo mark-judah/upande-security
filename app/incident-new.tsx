@@ -20,13 +20,14 @@ import * as Location from 'expo-location';
 import { router } from 'expo-router';
 import { useIncidentCategories } from '@/lib/hooks/useIncidentCategories';
 import { useCreateIncident } from '@/lib/hooks/useCreateIncident';
+import { useEmployeeSearch } from '@/lib/hooks/useEmployeeSearch';
 import { uploadIncidentPhoto } from '@/lib/api/incidents';
 import { useFeedback } from '@/lib/hooks/useFeedback';
 import { toFrappeDateTime } from '@/lib/utils/date';
 import { Screen } from '@/src/core/ui/Screen';
 import { Button } from '@/src/core/ui/Button';
 import { COLORS, borderRadius, fontSize, spacing } from '@/src/core/theme';
-import type { IncidentSeverity } from '@/lib/api/types';
+import type { EmployeeResult, IncidentSeverity } from '@/lib/api/types';
 
 const SEVERITIES: IncidentSeverity[] = ['Low', 'Medium', 'High', 'Critical'];
 const MAX_PHOTOS = 4;
@@ -46,6 +47,13 @@ export default function NewIncident() {
   const [description, setDescription] = useState('');
 
   const [photos, setPhotos] = useState<string[]>([]); // local URIs
+  // Optional: people to tell about this incident, notified when it is saved.
+  const [notify, setNotify] = useState<EmployeeResult[]>([]);
+  const [notifyQuery, setNotifyQuery] = useState('');
+  const notifySearch = useEmployeeSearch(notifyQuery.trim());
+  const notifyResults = (notifySearch.data ?? [])
+    .filter((e) => !notify.some((n) => n.name === e.name))
+    .slice(0, 6);
   const [uploading, setUploading] = useState(false);
 
   const categoriesQuery = useIncidentCategories();
@@ -156,6 +164,7 @@ export default function NewIncident() {
         attachment_2: uploaded[1],
         attachment_3: uploaded[2],
         attachment_4: uploaded[3],
+        notify: notify.length ? notify.map((e) => e.name) : undefined,
       });
 
       router.back();
@@ -333,7 +342,59 @@ export default function NewIncident() {
             editable={!busy}
           />
 
-          {/* 6. Photos */}
+          {/* 6. Notify (optional) */}
+          <Text style={s.label}>Notify (optional)</Text>
+          {notify.length ? (
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.sm }}>
+              {notify.map((e) => (
+                <View key={e.name} style={s.chip}>
+                  <Text style={s.chipText} numberOfLines={1}>
+                    {e.employee_name}
+                  </Text>
+                  <TouchableOpacity
+                    onPress={() => setNotify((cur) => cur.filter((n) => n.name !== e.name))}
+                    hitSlop={8}
+                    disabled={busy}
+                  >
+                    <Ionicons name="close-circle" size={16} color={COLORS.textMuted} />
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </View>
+          ) : null}
+          <View style={s.pickerField}>
+            <Ionicons name="person-add-outline" size={18} color={COLORS.textMuted} />
+            <TextInput
+              value={notifyQuery}
+              onChangeText={setNotifyQuery}
+              placeholder="Search a person to notify"
+              placeholderTextColor={COLORS.textMuted}
+              style={{ flex: 1, marginLeft: spacing.sm, fontSize: fontSize.md, color: COLORS.text }}
+              editable={!busy}
+            />
+            {notifySearch.isFetching ? <ActivityIndicator size="small" color={COLORS.textMuted} /> : null}
+          </View>
+          {notifyQuery.trim().length >= 2 && notifyResults.length ? (
+            <View style={s.results}>
+              {notifyResults.map((e) => (
+                <TouchableOpacity
+                  key={e.name}
+                  style={s.resultRow}
+                  onPress={() => {
+                    setNotify((cur) => [...cur, e]);
+                    setNotifyQuery('');
+                  }}
+                >
+                  <Text style={{ fontSize: fontSize.md, color: COLORS.text }}>{e.employee_name}</Text>
+                  <Text style={{ fontSize: fontSize.xs, color: COLORS.textMuted }}>
+                    {[e.designation, e.department].filter(Boolean).join(' · ') || e.name}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          ) : null}
+
+          {/* 7. Photos */}
           <Text style={s.label}>Photos ({photos.length}/{MAX_PHOTOS})</Text>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: 14 }}>
             {photos.map((uri) => (
@@ -493,5 +554,30 @@ const s = {
     backgroundColor: COLORS.bg,
     marginBottom: 14,
     minHeight: 44,
+  },
+  chip: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 6,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 6,
+    borderRadius: borderRadius.full,
+    backgroundColor: COLORS.bgMuted,
+    maxWidth: '100%' as const,
+  },
+  chipText: { fontSize: fontSize.sm, color: COLORS.text, flexShrink: 1 },
+  results: {
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: borderRadius.md,
+    marginTop: -8,
+    marginBottom: 14,
+    backgroundColor: COLORS.bg,
+  },
+  resultRow: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm + 2,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.bgMuted,
   },
 };

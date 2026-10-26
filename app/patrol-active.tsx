@@ -49,6 +49,7 @@ function formatElapsed(ms: number): string {
 export default function ActivePatrol() {
   const feedback = useFeedback();
   const assetScanningEnabled = useFeatureFlag('feature_asset_scanning');
+  const checkpointsEnabled = useFeatureFlag('feature_checkpoint_scanning');
   const [patrolTag, setPatrolTag] = useState<string | null>(null);
   const [startedAt, setStartedAt] = useState<string | null>(null);
   const [elapsedMs, setElapsedMs] = useState(0);
@@ -225,6 +226,15 @@ export default function ActivePatrol() {
           <Text style={s.errorText}>Last sync error: {syncStatus.lastError}</Text>
           <Text style={s.errorHint}>Points stay saved on the phone. Press Sync Now when you have network.</Text>
         </Card>
+      ) : null}
+
+      {checkpointsEnabled ? (
+        <Button
+          label="CHECKPOINTS"
+          iconLeft="flag-outline"
+          onPress={() => router.push('/checkpoints')}
+          style={s.fileReportBtn}
+        />
       ) : null}
 
       <Button

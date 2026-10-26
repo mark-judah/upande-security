@@ -22,7 +22,15 @@ function Field({ label, value }: { label: string; value?: string }) {
   );
 }
 
-function People({ title, people }: { title: string; people: IncidentPerson[] }) {
+function People({
+  title,
+  people,
+  onOpen,
+}: {
+  title: string;
+  people: IncidentPerson[];
+  onOpen: (path: string) => void;
+}) {
   if (!people.length) return null;
   return (
     <View style={s.field}>
@@ -39,6 +47,12 @@ function People({ title, people }: { title: string; people: IncidentPerson[] }) 
             <Text style={s.personMeta}>{[p.id_number, p.contact].filter(Boolean).join('  ·  ')}</Text>
           ) : null}
           {p.notes ? <Text style={s.personMeta}>{p.notes}</Text> : null}
+          {p.statement ? (
+            <TouchableOpacity onPress={() => onOpen(p.statement as string)} style={s.attachRow}>
+              <Ionicons name="document-text-outline" size={15} color={COLORS.info} />
+              <Text style={s.attachText}>Written statement</Text>
+            </TouchableOpacity>
+          ) : null}
         </View>
       ))}
     </View>
@@ -104,9 +118,9 @@ export function IncidentCard({ incident }: { incident: IncidentDetail }) {
           <Field label="Corrective Actions" value={incident.corrective_actions} />
           <Field label="Resolution" value={incident.resolution} />
           <Field label="Resolved At" value={incident.resolution_datetime} />
-          <People title="Witnesses" people={incident.witnesses} />
-          <People title="Victims" people={incident.victims} />
-          <People title="Responsible Persons" people={incident.responsible} />
+          <People title="Witnesses" people={incident.witnesses} onOpen={openAttachment} />
+          <People title="Victims" people={incident.victims} onOpen={openAttachment} />
+          <People title="Responsible Persons" people={incident.responsible} onOpen={openAttachment} />
           {incident.attachments.length ? (
             <View style={s.field}>
               <Text style={s.fieldLabel}>Attachments</Text>

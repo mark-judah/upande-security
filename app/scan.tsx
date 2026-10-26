@@ -16,7 +16,9 @@ type Intent =
   | 'receiving'
   | 'vehicle'
   | 'staffSticker'
-  | 'contractorBadge';
+  | 'contractorBadge'
+  | 'checkpoint'
+  | 'checkpointSetup';
 
 export default function ScanModal() {
   const params = useLocalSearchParams<{ intent?: string }>();
@@ -37,7 +39,11 @@ export default function ScanModal() {
                   ? 'staffSticker'
                   : params.intent === 'contractorBadge'
                     ? 'contractorBadge'
-                    : null;
+                    : params.intent === 'checkpoint'
+                      ? 'checkpoint'
+                      : params.intent === 'checkpointSetup'
+                        ? 'checkpointSetup'
+                        : null;
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
   const handledRef = useRef(false);
@@ -49,6 +55,8 @@ export default function ScanModal() {
   const setPendingScannedVehicle = useGateStore((s) => s.setPendingScannedVehicle);
   const setPendingScannedStaffSticker = useGateStore((s) => s.setPendingScannedStaffSticker);
   const setPendingScannedContractorBadge = useGateStore((s) => s.setPendingScannedContractorBadge);
+  const setPendingScannedCheckpoint = useGateStore((s) => s.setPendingScannedCheckpoint);
+  const setPendingScannedCheckpointSetup = useGateStore((s) => s.setPendingScannedCheckpointSetup);
 
   if (!permission) {
     return <View style={s.cameraBg} />;
@@ -107,6 +115,10 @@ export default function ScanModal() {
       setPendingScannedStaffSticker(data);
     } else if (intent === 'contractorBadge') {
       setPendingScannedContractorBadge(data);
+    } else if (intent === 'checkpoint') {
+      setPendingScannedCheckpoint(data);
+    } else if (intent === 'checkpointSetup') {
+      setPendingScannedCheckpointSetup(data);
     } else if (__DEV__) {
       console.warn('[scan.tsx] opened with no recognized intent param, ignoring scan');
     }
@@ -143,7 +155,9 @@ export default function ScanModal() {
                         ? 'Scan the vehicle/motorcycle sticker'
                         : intent === 'contractorBadge'
                           ? "Scan the contractor's badge"
-                          : 'Position QR code in the frame'}
+                          : intent === 'checkpoint' || intent === 'checkpointSetup'
+                            ? 'Scan the checkpoint QR'
+                            : 'Position QR code in the frame'}
         </Text>
       </View>
     </View>

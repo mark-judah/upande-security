@@ -37,7 +37,7 @@ import { toFrappeDateTime, fmtDateTime } from '@/lib/utils/date';
 import { useFeedback } from '@/lib/hooks/useFeedback';
 import { useMyShift } from '@/lib/hooks/useMyShift';
 import { useCheckInShift } from '@/lib/hooks/useCheckInShift';
-import { useFeatureFlag } from '@/lib/hooks/useSessionInfo';
+import { useFeatureFlag, useSessionInfo } from '@/lib/hooks/useSessionInfo';
 import { Screen } from '@/src/core/ui/Screen';
 import { Button } from '@/src/core/ui/Button';
 import { Card } from '@/src/core/ui/Card';
@@ -59,6 +59,10 @@ export default function PatrolHome() {
   const userEmail = useAuthStore((s) => s.user?.email);
   const feedback = useFeedback();
   const assetScanningEnabled = useFeatureFlag('feature_asset_scanning');
+  const checkpointsEnabled = useFeatureFlag('feature_checkpoint_scanning');
+  const roles = useSessionInfo().data?.roles ?? [];
+  // Setting checkpoint positions is the System Manager / Security Head's job.
+  const canSetCheckpoints = roles.includes('System Manager') || roles.includes('Security Head');
   const [ready, setReady] = useState(false);
   const [starting, setStarting] = useState(false);
   const [perms, setPerms] = useState<{ foreground: boolean; background: boolean } | null>(null);
@@ -344,6 +348,16 @@ export default function PatrolHome() {
           iconLeft="qr-code-outline"
           variant="outline"
           onPress={() => router.push('/asset-scan')}
+          style={s.fileReportBtn}
+        />
+      ) : null}
+
+      {checkpointsEnabled && canSetCheckpoints ? (
+        <Button
+          label="SET CHECKPOINT POSITIONS"
+          iconLeft="locate-outline"
+          variant="outline"
+          onPress={() => router.push('/checkpoint-setup')}
           style={s.fileReportBtn}
         />
       ) : null}

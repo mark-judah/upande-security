@@ -21,6 +21,10 @@ type GateState = {
   pendingScannedVehicle: string | null;
   pendingScannedStaffSticker: string | null;
   pendingScannedContractorBadge: string | null;
+  // Checkpoint QR read on patrol, and the same QR read in Set position mode -
+  // two fields so the two screens can never consume each other's scan.
+  pendingScannedCheckpoint: string | null;
+  pendingScannedCheckpointSetup: string | null;
   setSelectedType: (t: CheckInType) => void;
   setPendingScannedEmployee: (v: string | null) => void;
   setPendingScannedIdCard: (v: ParsedIdCard | null) => void;
@@ -33,6 +37,8 @@ type GateState = {
   setPendingScannedVehicle: (v: string | null) => void;
   setPendingScannedStaffSticker: (v: string | null) => void;
   setPendingScannedContractorBadge: (v: string | null) => void;
+  setPendingScannedCheckpoint: (v: string | null) => void;
+  setPendingScannedCheckpointSetup: (v: string | null) => void;
 };
 
 export const useGateStore = create<GateState>((set) => ({
@@ -48,6 +54,8 @@ export const useGateStore = create<GateState>((set) => ({
   pendingScannedVehicle: null,
   pendingScannedStaffSticker: null,
   pendingScannedContractorBadge: null,
+  pendingScannedCheckpoint: null,
+  pendingScannedCheckpointSetup: null,
   setSelectedType: (t) => set({ selectedType: t }),
   setPendingScannedEmployee: (v) => set({ pendingScannedEmployee: v }),
   setPendingScannedIdCard: (v) => set({ pendingScannedIdCard: v }),
@@ -60,4 +68,6 @@ export const useGateStore = create<GateState>((set) => ({
   setPendingScannedVehicle: (v) => set({ pendingScannedVehicle: v }),
   setPendingScannedStaffSticker: (v) => set({ pendingScannedStaffSticker: v }),
   setPendingScannedContractorBadge: (v) => set({ pendingScannedContractorBadge: v }),
+  setPendingScannedCheckpoint: (v) => set({ pendingScannedCheckpoint: v }),
+  setPendingScannedCheckpointSetup: (v) => set({ pendingScannedCheckpointSetup: v }),
 }));
