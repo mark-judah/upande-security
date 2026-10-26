@@ -138,22 +138,39 @@ export function parseMrz(rawText: string): MrzResult | null {
   // data, so it decides whether that area can be trusted (below).
   if (!(docNumberOk && birthDateOk && expiryDateOk)) return null;
 
+  let personalId: string | undefined;
+  if (OPTIONAL_ID_COUNTRIES.includes(l1.slice(2, 5))) {
+    // Kenya: a failed composite means part of the read is wrong - reject it
+    // rather than return the card serial as if it were the ID number.
+    if (!compositeOk) return null;
+    const found = kenyanIdNumber(l1.slice(15, 30));
+    if (found === false) return null;
+    personalId = found;
+  }
+
   return {
-    idNumber: personalIdNumber(l1, compositeOk) || docNumber || undefined,
+    idNumber: personalId || docNumber || undefined,
     name: formatMrzName(l3),
     mrzValid: true,
   };
 }
 
 // Kenyan cards (KEN, older KYA): the document-number field holds the card's
-// serial; the personal ID number sits in line 1's optional data. Used only
-// when the composite check digit vouches for that area.
+// serial; the personal ID number sits in line 1's optional data, covered
+// only by the composite check digit.
 const OPTIONAL_ID_COUNTRIES = ['KEN', 'KYA'];
 
-function personalIdNumber(line1: string, compositeOk: boolean): string | undefined {
-  if (!compositeOk || !OPTIONAL_ID_COUNTRIES.includes(line1.slice(2, 5))) return undefined;
-  const digits = line1.slice(15, 30).match(/\d{6,9}/);
-  return digits ? digits[0] : undefined;
+/** The ID number in line 1's optional data: 6-9 digits between fillers.
+ * false when an ID-like group is malformed (a letter in it, or too many
+ * digits) - a misread the composite digit misses about 1 time in 10. */
+function kenyanIdNumber(optional: string): string | undefined | false {
+  let found: string | undefined;
+  for (const group of optional.split('<').filter(Boolean)) {
+    if ((group.match(/\d/g) || []).length < 6) continue;
+    if (!/^\d{6,9}$/.test(group)) return false;
+    found = found ?? group;
+  }
+  return found;
 }
 
 /** Why an MRZ the scanner saw was not accepted - for the scan screen. */
@@ -165,6 +182,12 @@ export function mrzRejectionReason(raw: string): string | null {
   if (checkDigit(l1.slice(5, 14)) !== Number(l1[14])) return 'Document number check digit failed';
   if (checkDigit(l2.slice(0, 6)) !== Number(l2[6])) return 'Birth date check digit failed';
   if (checkDigit(l2.slice(8, 14)) !== Number(l2[14])) return 'Expiry date check digit failed';
+  if (OPTIONAL_ID_COUNTRIES.includes(l1.slice(2, 5))) {
+    const composite = l1.slice(5, 30) + l2.slice(0, 7) + l2.slice(8, 15) + l2.slice(18, 29);
+    if (checkDigit(composite) !== Number(l2[29]) || kenyanIdNumber(l1.slice(15, 30)) === false) {
+      return 'ID number did not read clearly';
+    }
+  }
   return null;
 }
 
