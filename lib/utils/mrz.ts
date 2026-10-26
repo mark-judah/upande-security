@@ -27,7 +27,7 @@ function charValue(c: string): number {
 }
 
 /** Standard ICAO 9303 check-digit algorithm: weights 7,3,1 repeating, mod 10. */
-function checkDigit(data: string): number {
+export function checkDigit(data: string): number {
   let sum = 0;
   for (let i = 0; i < data.length; i++) {
     sum += charValue(data[i]) * WEIGHTS[i % 3];
@@ -54,14 +54,14 @@ function findMrzLines(rawText: string): [string, string, string] | null {
 
   for (let i = 0; i + 2 < lines.length; i++) {
     const candidate = [lines[i], lines[i + 1], lines[i + 2]];
-    const looksLikeMrz = candidate.every((l) => {
-      if (l.length < 28 || l.length > 32) return false;
-      if (!MRZ_CHARSET_RE.test(l)) return false;
-      const fillerCount = (l.match(/</g) || []).length;
-      // A real MRZ line is padded with `<` fairly heavily; a normal OCR'd
-      // sentence won't accidentally satisfy both the charset and this.
-      return fillerCount >= 1;
-    });
+    // An MRZ is padded with `<`, which a normal OCR'd sentence won't
+    // satisfy along with the charset - but not every line has one: line 2
+    // of a Maisha card can be all letters and digits
+    // ('0402280M3511048KEN706310244027'), so the filler is required across
+    // the three lines, not in each.
+    const looksLikeMrz =
+      candidate.every((l) => l.length >= 28 && l.length <= 32 && MRZ_CHARSET_RE.test(l)) &&
+      candidate.some((l) => l.includes('<'));
     if (looksLikeMrz) return candidate as [string, string, string];
   }
   return null;
@@ -139,10 +139,18 @@ export function parseMrz(rawText: string): MrzResult | null {
   if (!(docNumberOk && birthDateOk && expiryDateOk)) return null;
 
   let personalId: string | undefined;
-  if (OPTIONAL_ID_COUNTRIES.includes(l1.slice(2, 5))) {
+  const issuer = l1.slice(2, 5);
+  if (ID_IN_DOC_NUMBER.includes(issuer) || OPTIONAL_ID_COUNTRIES.includes(issuer)) {
     // Kenya: a failed composite means part of the read is wrong - reject it
-    // rather than return the card serial as if it were the ID number.
+    // rather than trust the rest. It is also a second, independent check on
+    // the ID number.
     if (!compositeOk) return null;
+  }
+  if (ID_IN_DOC_NUMBER.includes(issuer)) {
+    // Digits only: the document check digit misses some multi-character misreads.
+    if (!/^\d{7,9}$/.test(docNumber)) return null;
+    personalId = docNumber;
+  } else if (OPTIONAL_ID_COUNTRIES.includes(issuer)) {
     const found = kenyanIdNumber(l1.slice(15, 30));
     if (found === false) return null;
     personalId = found;
@@ -155,10 +163,13 @@ export function parseMrz(rawText: string): MrzResult | null {
   };
 }
 
-// Kenyan cards (KEN, older KYA): the document-number field holds the card's
-// serial; the personal ID number sits in line 1's optional data, covered
-// only by the composite check digit.
-const OPTIONAL_ID_COUNTRIES = ['KEN', 'KYA'];
+// Where the personal ID number sits on Kenyan cards. Maisha card (KEN,
+// checked against a real card): the document number IS the ID number, and
+// line 1's optional data holds short unrelated groups ('<301<4712').
+// Older card (KYA, not yet checked against a real one): a card serial in the
+// document-number field, the ID number in line 1's optional data.
+const ID_IN_DOC_NUMBER = ['KEN'];
+const OPTIONAL_ID_COUNTRIES = ['KYA'];
 
 /** The ID number in line 1's optional data: 6-9 digits between fillers.
  * false when an ID-like group is malformed (a letter in it, or too many
@@ -182,11 +193,13 @@ export function mrzRejectionReason(raw: string): string | null {
   if (checkDigit(l1.slice(5, 14)) !== Number(l1[14])) return 'Document number check digit failed';
   if (checkDigit(l2.slice(0, 6)) !== Number(l2[6])) return 'Birth date check digit failed';
   if (checkDigit(l2.slice(8, 14)) !== Number(l2[14])) return 'Expiry date check digit failed';
-  if (OPTIONAL_ID_COUNTRIES.includes(l1.slice(2, 5))) {
+  const issuer = l1.slice(2, 5);
+  if (ID_IN_DOC_NUMBER.includes(issuer) || OPTIONAL_ID_COUNTRIES.includes(issuer)) {
     const composite = l1.slice(5, 30) + l2.slice(0, 7) + l2.slice(8, 15) + l2.slice(18, 29);
-    if (checkDigit(composite) !== Number(l2[29]) || kenyanIdNumber(l1.slice(15, 30)) === false) {
-      return 'ID number did not read clearly';
-    }
+    const badId = ID_IN_DOC_NUMBER.includes(issuer)
+      ? !/^\d{7,9}$/.test(l1.slice(5, 14).replace(/</g, ''))
+      : kenyanIdNumber(l1.slice(15, 30)) === false;
+    if (checkDigit(composite) !== Number(l2[29]) || badId) return 'ID number did not read clearly';
   }
   return null;
 }

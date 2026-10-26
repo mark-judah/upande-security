@@ -6,6 +6,8 @@ import { router } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import { scanMRZ } from 'rn-mrz-scanner';
 import { useGateStore } from '@/lib/stores/gateStore';
+import { useSessionInfo } from '@/lib/hooks/useSessionInfo';
+import { MrzPhotoScanner } from '@/components/gate/MrzPhotoScanner';
 import { mrzRejectionReason, parseMrzString } from '@/lib/utils/mrz';
 import { audio } from '@/src/core/audio';
 
@@ -31,6 +33,12 @@ import { audio } from '@/src/core/audio';
  */
 export default function ScanIdModal() {
   const [permission, requestPermission] = useCameraPermissions();
+  // Beta: System Managers get our own MRZ reader first (MrzPhotoScanner),
+  // with ML Kit one tap away; everyone else keeps ML Kit only.
+  const session = useSessionInfo();
+  const [useOldScanner, setUseOldScanner] = useState(false);
+  const beta = !useOldScanner && (session.data?.roles ?? []).includes('System Manager');
+  const sessionKnown = session.isFetched || session.isError;
   const [scanning, setScanning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const done = useRef(false);
@@ -113,11 +121,11 @@ export default function ScanIdModal() {
   // live preview of our own to show first, the scanner's own screen is the
   // whole UI while it runs.
   useEffect(() => {
-    if (permission?.granted) {
+    if (permission?.granted && sessionKnown && !beta) {
       runScan();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [permission?.granted]);
+  }, [permission?.granted, sessionKnown, beta]);
 
   if (!permission) {
     return <View style={{ flex: 1, backgroundColor: '#000000' }} />;
@@ -172,6 +180,16 @@ export default function ScanIdModal() {
           <Text style={{ color: '#FFFFFF', textDecorationLine: 'underline' }}>Enter details manually</Text>
         </TouchableOpacity>
       </View>
+    );
+  }
+
+  if (beta && sessionKnown) {
+    return (
+      <MrzPhotoScanner
+        onCard={finishWithCard}
+        onUseMlKit={() => setUseOldScanner(true)}
+        onManual={finishManually}
+      />
     );
   }
 
