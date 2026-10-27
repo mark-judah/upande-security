@@ -6,7 +6,10 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { ENGINE_HTML } from '@/lib/mrz/engineHtml';
 import { parseMrz } from '@/lib/utils/mrz';
 
-type Result = { type: 'result'; id: number; lines: string[] | null; reason: string; ms: number };
+// One object for the component's lifetime, so re-renders never reload the page.
+const ENGINE_SOURCE = { html: ENGINE_HTML };
+
+type Result ={ type: 'result'; id: number; lines: string[] | null; reason: string; ms: number };
 type EngineMsg = { type: 'ready' } | Result | { type: 'error'; id: number; message: string };
 
 const REASONS: Record<string, string> = {
@@ -138,14 +141,19 @@ export function MrzPhotoScanner({
           </TouchableOpacity>
         </View>
       </View>
-      <WebView
-        ref={web}
-        source={{ html: ENGINE_HTML }}
-        originWhitelist={['*']}
-        javaScriptEnabled
-        onMessage={onMessage}
-        style={s.engine}
-      />
+      {/* WebView's own container defaults to flex: 1 - left unboxed it takes
+          half the screen, invisibly, on top of the buttons. */}
+      <View pointerEvents="none" style={s.engine}>
+        <WebView
+          ref={web}
+          source={ENGINE_SOURCE}
+          originWhitelist={['*']}
+          javaScriptEnabled
+          onMessage={onMessage}
+          containerStyle={s.engineFill}
+          style={s.engineFill}
+        />
+      </View>
     </View>
   );
 }
@@ -190,5 +198,6 @@ const s = StyleSheet.create({
   links: { flexDirection: 'row', marginTop: 10 },
   link: { padding: 10 },
   linkText: { color: '#FFFFFF', textDecorationLine: 'underline' },
-  engine: { position: 'absolute', width: 1, height: 1, opacity: 0 },
+  engine: { position: 'absolute', left: 0, top: 0, width: 1, height: 1, opacity: 0 },
+  engineFill: { flex: 1 },
 });
