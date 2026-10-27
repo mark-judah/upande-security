@@ -11,6 +11,7 @@
 
 import { readMrz, warmUp } from './engine';
 import { toGray } from './detect';
+import { initKernels } from './kernels';
 
 const MAX_SIDE = 1600;
 
@@ -50,7 +51,8 @@ async function handle(raw: unknown) {
 
 w.document.addEventListener('message', (e: { data: unknown }) => handle(e.data)); // Android
 w.addEventListener('message', (e: { data: unknown }) => handle(e.data)); // iOS
-setTimeout(() => {
+// WebAssembly first (several times faster); plain JS if it can't load.
+initKernels().then(() => {
   warmUp();
   post({ type: 'ready' });
-}, 0);
+});

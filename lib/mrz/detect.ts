@@ -11,6 +11,8 @@
  *    spaced and start at the same place - searched over a few character sizes.
  */
 
+import { barComponentsWasm, kernels, morphWasm, resizeU8Wasm, type Component } from './kernels';
+
 export type Gray = { data: Uint8Array; w: number; h: number };
 export type Pt = [number, number];
 export type Quad = [Pt, Pt, Pt, Pt]; // tl, tr, br, bl
@@ -93,11 +95,17 @@ export function resizeF(src: Float32Array, w: number, h: number, ow: number, oh:
   return out;
 }
 
+/** cv2.resize of an 8-bit image, rounded back to 8 bits. */
+function resizeU8(src: Uint8Array, w: number, h: number, ow: number, oh: number): Uint8Array {
+  if (kernels()) return resizeU8Wasm(src, w, h, ow, oh);
+  return toU8(resizeF(Float32Array.from(src), w, h, ow, oh));
+}
+
 /** A grayscale image scaled by `scale` (< 1: area average). */
 export function resizeGray(img: Gray, scale: number): Gray {
   const w = Math.round(img.w * scale);
   const h = Math.round(img.h * scale);
-  return { data: toU8(resizeF(Float32Array.from(img.data), img.w, img.h, w, h)), w, h };
+  return { data: resizeU8(img.data, img.w, img.h, w, h), w, h };
 }
 
 function toU8(f: Float32Array): Uint8Array {
@@ -145,6 +153,7 @@ function run1d(
 /** Separable min/max filter with a kw x kh rectangle, anchor at its centre;
  * pixels outside the image are ignored (OpenCV's default morphology border). */
 function morph(src: Uint8Array, w: number, h: number, kw: number, kh: number, max: boolean): Uint8Array {
+  if (kernels()) return morphWasm(src, w, h, kw, kh, max);
   const tmp = new Uint8Array(w * h);
   const out = new Uint8Array(w * h);
   const pre = new Uint8Array(Math.max(w, h) + Math.max(kw, kh) * 2);
@@ -259,9 +268,8 @@ function minAreaRect(poly: Pt[]): Bar | null {
 }
 
 /** Line-shaped bars in an image whose characters are ~ANALYSIS_H tall. */
-function bars(g: Uint8Array, w: number, h: number): Bar[] {
-  const H = ANALYSIS_H;
-  const k = Math.floor(H * 0.8) | 1;
+/** Black-hat, Otsu, horizontal close, 8-connected components (kernels.c bar_pixels in JS). */
+function barComponentsJs(g: Uint8Array, w: number, h: number, k: number, kx: number): Component[] {
   const closed = close(g, w, h, k, k);
   const bh = new Uint8Array(w * h);
   for (let i = 0; i < bh.length; i++) bh[i] = Math.max(0, closed[i] - g[i]);
@@ -269,7 +277,7 @@ function bars(g: Uint8Array, w: number, h: number): Bar[] {
   if (t < 12) t = 12;
   const bin = new Uint8Array(w * h);
   for (let i = 0; i < bin.length; i++) bin[i] = bh[i] > t ? 255 : 0;
-  const bw = close(bin, w, h, Math.floor(H * 0.9), 3);
+  const bw = close(bin, w, h, kx, 3);
 
   // 8-connected components (union-find), each kept as per-row x extremes.
   const label = new Int32Array(w * h).fill(-1);
@@ -314,11 +322,19 @@ function bars(g: Uint8Array, w: number, h: number): Bar[] {
       else row[1] = x;
     }
   }
+  return [...comps.values()].map((c) => ({ n: c.n, rows: [...c.rows].map(([y, [a, b]]) => [y, a, b] as [number, number, number]) }));
+}
+
+function bars(g: Uint8Array, w: number, h: number): Bar[] {
+  const H = ANALYSIS_H;
+  const k = Math.floor(H * 0.8) | 1;
+  const kx = Math.floor(H * 0.9);
+  const comps = kernels() ? barComponentsWasm(g, w, h, k, kx) : barComponentsJs(g, w, h, k, kx);
   const out: Bar[] = [];
-  for (const c of comps.values()) {
+  for (const c of comps) {
     if (c.n < 5) continue;
     const pts: Pt[] = [];
-    for (const [y, [a, b]] of c.rows) {
+    for (const [y, a, b] of c.rows) {
       pts.push([a, y]);
       if (b !== a) pts.push([b, y]);
     }
@@ -387,7 +403,6 @@ function combos<T>(xs: T[]): T[][] {
 
 /** Up to `top` candidate MRZs, best first: each its 3 line boxes, top to bottom. */
 export function findMrz(img: Gray, top = 3): Quad[][] {
-  const src = Float32Array.from(img.data);
   const found: { s: number; q: Quad[] }[] = [];
   for (const charH of [8, 12, 18, 27, 40, 60]) {
     const scale = ANALYSIS_H / charH;
@@ -395,7 +410,7 @@ export function findMrz(img: Gray, top = 3): Quad[][] {
     if (long < 300 || long > MAX_SIDE) continue;
     const w = Math.round(img.w * scale);
     const h = Math.round(img.h * scale);
-    const g = toU8(resizeF(src, img.w, img.h, w, h));
+    const g = resizeU8(img.data, img.w, img.h, w, h);
     const bs = bars(g, w, h).sort((a, b) => b.length - a.length).slice(0, 25);
     for (const trio of combos(bs)) {
       const s = score(trio);

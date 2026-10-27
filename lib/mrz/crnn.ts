@@ -1,4 +1,5 @@
 import { LAYERS, WEIGHTS_F16_BASE64 } from './weights';
+import { f32, kernels, scoped } from './kernels';
 
 /**
  * The MRZ line recognizer (mrz-scanner/model/crnn.py) in plain TypeScript, so
@@ -168,8 +169,103 @@ function lstm(seq: Float32Array, T: number, inSize: number, wih: Float32Array, w
   return out;
 }
 
+let wasmParams = 0;
+
+/** The weights copied into the WebAssembly module's memory, once. */
+function wasmWeights(): number {
+  if (!wasmParams) {
+    const p = weights();
+    wasmParams = kernels()!.alloc(p.length * 4);
+    f32(wasmParams, p.length).set(p);
+  }
+  return wasmParams;
+}
+
+/** Greedy CTC: best class per step, collapse repeats, drop blanks. logits: classes x T. */
+function ctcDecode(logits: Float32Array, classes: number, T: number): string {
+  let text = '';
+  let prev = 0;
+  for (let t = 0; t < T; t++) {
+    let best = 0;
+    let bestV = -Infinity;
+    for (let c = 0; c < classes; c++) {
+      const v = logits[c * T + t];
+      if (v > bestV) {
+        bestV = v;
+        best = c;
+      }
+    }
+    if (best !== prev && best !== 0) text += CHARSET[best - 1];
+    prev = best;
+  }
+  return text;
+}
+
+/** readLine in WebAssembly (kernels.c): the same network, SIMD loops. */
+function readLineWasm(img: Float32Array): string {
+  const k = kernels()!;
+  const W0 = wasmWeights();
+  const at = (ref: Ref) => W0 + ref.offset * 4;
+  return scoped((alloc) => {
+    let c = 1;
+    let h = LINE_H;
+    let w = LINE_W;
+    let x = alloc(h * w * 4);
+    f32(x, h * w).set(img);
+    let seq = 0;
+    let feat = 0;
+    let T = 0;
+    for (const layer of LAYERS) {
+      if (layer.type === 'conv') {
+        const co = layer.w.shape[0];
+        const P = h * w;
+        const K = c * 9;
+        const cols = alloc(P * K * 4);
+        k.im2col3(x, cols, c, h, w);
+        const out = alloc(co * P * 4);
+        k.gemm_nt(at(layer.w), cols, at(layer.b), out, co, P, K, P, 1);
+        x = out;
+        c = co;
+        if (layer.pool) {
+          const [ph, pw] = layer.pool;
+          const pooled = alloc(c * Math.floor(h / ph) * Math.floor(w / pw) * 4);
+          k.maxpool(x, pooled, c, h, w, ph, pw);
+          x = pooled;
+          h = Math.floor(h / ph);
+          w = Math.floor(w / pw);
+        }
+      } else if (layer.type === 'bilstm') {
+        if (!seq) {
+          // C x 1 x W -> W steps x C features
+          T = w;
+          feat = c;
+          seq = alloc(T * feat * 4);
+          k.transpose(x, seq, feat, T);
+        }
+        const H = layer.hidden;
+        const next = alloc(T * 2 * H * 4);
+        const pre = alloc(4 * H * T * 4);
+        const scratch = alloc(6 * H * 4);
+        layer.dirs.forEach((d, i) => {
+          k.gemm_nt(at(d.wih), seq, at(d.b), pre, 4 * H, T, feat, T, 0);
+          k.lstm_dir(pre, T, at(d.whh), H, i, next, 2 * H, i * H, scratch);
+        });
+        seq = next;
+        feat = 2 * H;
+      } else {
+        const classes = layer.w.shape[0];
+        const logits = alloc(classes * T * 4);
+        k.gemm_nt(at(layer.w), seq, at(layer.b), logits, classes, T, feat, T, 0);
+        return ctcDecode(f32(logits, classes * T), classes, T);
+      }
+    }
+    return '';
+  });
+}
+
 /** Recognize one line image (Float32Array of LINE_H * LINE_W, values 0..1). */
 export function readLine(img: Float32Array): string {
+  if (kernels()) return readLineWasm(img);
   let x = img;
   let c = 1;
   let h = LINE_H;
