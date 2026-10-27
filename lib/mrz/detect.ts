@@ -106,38 +106,51 @@ function toU8(f: Float32Array): Uint8Array {
   return out;
 }
 
+/** Running min/max over windows [i - a, i - a + k - 1] of a 1-D signal,
+ * clipped to the signal (van Herk / Gil-Werman: about 3 comparisons per
+ * sample whatever k is). src/dst are read/written at off + i * stride. */
+function run1d(
+  src: Uint8Array, dst: Uint8Array, off: number, stride: number, n: number,
+  k: number, a: number, max: boolean, pre: Uint8Array, suf: Uint8Array,
+) {
+  const id = max ? 0 : 255;
+  // Prefix/suffix extremes within blocks of k, over the padded range.
+  const lo = -a;
+  const m = n + k; // covers every window start lo..n-1
+  for (let b = 0; b < m; b += k) {
+    let acc = id;
+    for (let j = 0; j < k && b + j < m; j++) {
+      const i = lo + b + j;
+      const v = i >= 0 && i < n ? src[off + i * stride] : id;
+      acc = max ? (v > acc ? v : acc) : v < acc ? v : acc;
+      pre[b + j] = acc;
+    }
+    acc = id;
+    for (let j = Math.min(k, m - b) - 1; j >= 0; j--) {
+      const i = lo + b + j;
+      const v = i >= 0 && i < n ? src[off + i * stride] : id;
+      acc = max ? (v > acc ? v : acc) : v < acc ? v : acc;
+      suf[b + j] = acc;
+    }
+  }
+  for (let x = 0; x < n; x++) {
+    const s = x; // window start in padded coordinates (x - a - lo)
+    const e = s + k - 1;
+    const u = suf[s];
+    const v = e < m ? pre[e] : id;
+    dst[off + x * stride] = max ? (u > v ? u : v) : u < v ? u : v;
+  }
+}
+
 /** Separable min/max filter with a kw x kh rectangle, anchor at its centre;
  * pixels outside the image are ignored (OpenCV's default morphology border). */
 function morph(src: Uint8Array, w: number, h: number, kw: number, kh: number, max: boolean): Uint8Array {
-  const ax = Math.floor(kw / 2);
-  const ay = Math.floor(kh / 2);
   const tmp = new Uint8Array(w * h);
   const out = new Uint8Array(w * h);
-  for (let y = 0; y < h; y++) {
-    const r = y * w;
-    for (let x = 0; x < w; x++) {
-      let m = max ? 0 : 255;
-      const a = Math.max(0, x - ax);
-      const b = Math.min(w - 1, x - ax + kw - 1);
-      for (let i = a; i <= b; i++) {
-        const v = src[r + i];
-        if (max ? v > m : v < m) m = v;
-      }
-      tmp[r + x] = m;
-    }
-  }
-  for (let x = 0; x < w; x++) {
-    for (let y = 0; y < h; y++) {
-      let m = max ? 0 : 255;
-      const a = Math.max(0, y - ay);
-      const b = Math.min(h - 1, y - ay + kh - 1);
-      for (let i = a; i <= b; i++) {
-        const v = tmp[i * w + x];
-        if (max ? v > m : v < m) m = v;
-      }
-      out[y * w + x] = m;
-    }
-  }
+  const pre = new Uint8Array(Math.max(w, h) + Math.max(kw, kh) * 2);
+  const suf = new Uint8Array(pre.length);
+  for (let y = 0; y < h; y++) run1d(src, tmp, y * w, 1, w, kw, Math.floor(kw / 2), max, pre, suf);
+  for (let x = 0; x < w; x++) run1d(tmp, out, x, w, h, kh, Math.floor(kh / 2), max, pre, suf);
   return out;
 }
 

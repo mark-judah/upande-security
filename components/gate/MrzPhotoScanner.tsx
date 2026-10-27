@@ -13,13 +13,13 @@ type Result ={ type: 'result'; id: number; lines: string[] | null; reason: strin
 type EngineMsg = { type: 'ready' } | Result | { type: 'error'; id: number; message: string };
 
 const REASONS: Record<string, string> = {
-  'no MRZ found': 'Could not find the 3 MRZ lines - fill the frame with the back of the card',
+  'no MRZ found': 'Could not find the 3 MRZ lines - move closer to the back of the card',
   'did not check out': 'The MRZ did not read clearly - hold steady, avoid glare',
 };
 
 /**
  * Beta: our own MRZ reader (mrz-scanner, trained on Kenyan ID layouts)
- * instead of ML Kit. The guard frames the back of the card and taps SCAN;
+ * instead of ML Kit. The guard points at the back of the card and taps SCAN;
  * the photo goes to a hidden WebView that finds the three MRZ lines, reads
  * them and returns them only if every check digit passes. The result is
  * validated again here with the same parseMrz the ML Kit path uses.
@@ -111,10 +111,8 @@ export function MrzPhotoScanner({
       <CameraView ref={camera} style={s.camera} facing="back" pictureSize={pictureSize} onCameraReady={onCameraReady} />
       <View pointerEvents="none" style={s.overlay}>
         <Text style={s.badge}>NEW SCANNER (BETA)</Text>
-        <View style={s.card}>
-          <View style={s.mrzBand} />
-        </View>
-        <Text style={s.hint}>Back of the ID inside the frame,{'\n'}the 3 lines of letters and {'<<<'} along the bottom</Text>
+        {/* No frame: the engine finds the MRZ anywhere in the photo. */}
+        <Text style={s.hint}>Point at the back of the ID -{'\n'}the 3 lines of letters and {'<<<'} must be in view</Text>
       </View>
       <View style={s.controls}>
         {message ? <Text style={s.message}>{message}</Text> : null}
@@ -161,7 +159,7 @@ export function MrzPhotoScanner({
 const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#000000' },
   camera: { flex: 1 },
-  overlay: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center' },
+  overlay: { position: 'absolute', top: 48, left: 0, right: 0, alignItems: 'center' },
   badge: {
     color: '#000000',
     backgroundColor: '#FBBF24',
@@ -172,15 +170,6 @@ const s = StyleSheet.create({
     borderRadius: 4,
     marginBottom: 12,
   },
-  card: {
-    width: '88%',
-    aspectRatio: 85.6 / 54,
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
-    borderRadius: 12,
-    justifyContent: 'flex-end',
-  },
-  mrzBand: { height: '30%', margin: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.6)', borderStyle: 'dashed', borderRadius: 6 },
   hint: { color: '#FFFFFF', fontSize: 13, textAlign: 'center', marginTop: 14, textShadowColor: '#000000', textShadowRadius: 4 },
   controls: { position: 'absolute', left: 0, right: 0, bottom: 0, padding: 20, paddingBottom: 32, alignItems: 'center' },
   message: { color: '#FBBF24', fontSize: 13, textAlign: 'center', marginBottom: 12, textShadowColor: '#000000', textShadowRadius: 4 },

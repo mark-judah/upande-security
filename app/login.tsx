@@ -29,11 +29,10 @@ export default function Login() {
 
   // Guards against the async storage pre-fill below (useEffect on mount)
   // landing AFTER the user has already started typing and silently
-  // overwriting their edit back to the previously stored URL/email —
+  // overwriting their edit back to the previously stored email —
   // exactly the "wrong URL still logs in" bug: the field looked like it had
   // the typed value, but the delayed setUrl() clobbered it right before
   // submit read the state.
-  const urlTouched = useRef(false);
   const emailTouched = useRef(false);
 
   const login = useAuthStore((s) => s.login);
@@ -49,16 +48,14 @@ export default function Login() {
 
   useEffect(() => {
     (async () => {
-      const [emailBackup, instanceUrlStored, cookie, bioFlag] = await Promise.all([
+      const [emailBackup, cookie, bioFlag] = await Promise.all([
         storage.get(StorageKeys.emailBackup),
-        storage.get(StorageKeys.instanceUrl),
         storage.get(StorageKeys.cookie),
         storage.get(StorageKeys.biometricEnabled),
       ]);
       if (emailBackup && !emailTouched.current) setEmail(emailBackup);
-      if (instanceUrlStored && !urlTouched.current) {
-        setUrl(instanceUrlStored.replace(/^https?:\/\//i, ''));
-      }
+      // The site URL is never pre-filled - each login names its own site, so
+      // a shared phone doesn't steer the next person to the last one's.
       setBioAvailable(!!cookie && bioFlag === '1' && Biometric.isModuleAvailable());
     })();
   }, []);
@@ -118,11 +115,8 @@ export default function Login() {
         <Field
           label="Instance URL"
           value={url}
-          onChange={(v) => {
-            urlTouched.current = true;
-            setUrl(v);
-          }}
-          placeholder="kaitet.upande.com"
+          onChange={setUrl}
+          placeholder="Enter site URL here"
           keyboardType="url"
         />
         <Field

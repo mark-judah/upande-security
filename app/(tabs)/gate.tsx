@@ -153,6 +153,9 @@ export default function GateTab() {
   const setPendingScannedIdCard = useGateStore((s) => s.setPendingScannedIdCard);
   const setScanIdContext = useGateStore((s) => s.setScanIdContext);
   const pendingScannedIdForSearch = useGateStore((s) => s.pendingScannedIdForSearch);
+  // The last card scanned from the search bar, so "Register as walk-in"
+  // after a miss can fill in its name too, not only the ID searched for.
+  const scannedForSearchRef = useRef<{ idNumber: string; name?: string } | null>(null);
   const setPendingScannedIdForSearch = useGateStore((s) => s.setPendingScannedIdForSearch);
 
   const form = useForm<VisitorFormValues>({ defaultValues: emptyVisitorForm });
@@ -400,9 +403,14 @@ export default function GateTab() {
       // phone, both all-digit, and no real name has numbers in it. Blindly
       // reusing the query put a raw ID/phone straight into the Name field.
       const queryLooksLikeName = searchQuery.trim().length > 0 && !/\d/.test(searchQuery.trim());
+      // A search started from an ID scan: the card's name and ID carry over,
+      // as long as the guard hasn't since typed a different query.
+      const scanned = scannedForSearchRef.current;
+      const fromScan = scanned && scanned.idNumber === searchQuery.trim() ? scanned : null;
       reset({
         ...emptyVisitorForm,
-        customer_name: queryLooksLikeName ? searchQuery.trim() : '',
+        customer_name: fromScan?.name ?? (queryLooksLikeName ? searchQuery.trim() : ''),
+        id_ref: fromScan?.idNumber ?? '',
       });
     }
   }
@@ -592,8 +600,9 @@ export default function GateTab() {
 
   useEffect(() => {
     if (!pendingScannedIdForSearch) return;
-    const { idNumber } = pendingScannedIdForSearch;
+    const { idNumber, name } = pendingScannedIdForSearch;
     setPendingScannedIdForSearch(null);
+    scannedForSearchRef.current = idNumber ? { idNumber, name } : null;
     if (!idNumber) {
       // A name-only read (no MRZ, or "enter manually") isn't useful here -
       // the ID number is what a search actually matches on. Name alone

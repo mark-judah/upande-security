@@ -5,6 +5,7 @@ import { storage, StorageKeys } from '@/src/core/storage';
 import * as Biometric from '@/src/core/biometric';
 import { clearEmergencyContact } from '@/lib/utils/emergencyContactCache';
 import { useFarmStore } from '@/lib/stores/farmStore';
+import { queryClient } from '@/lib/queryClient';
 
 type AuthState = {
   // Legacy shape — preserved for existing screens.
@@ -106,6 +107,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     // Fetch roles immediately after login so Approvals tab visibility is correct.
     const roles = await fetchUserRoles(result.fullUrl, email);
     await storage.set(StorageKeys.userRoles, JSON.stringify(roles));
+    // Nothing cached from an earlier login (another site's farms...) survives.
+    queryClient.clear();
     set({
       user: { email, userId: result.userId ?? '' },
       instanceUrl: result.fullUrl,
@@ -126,6 +129,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     await clearEmergencyContact();
     // A chosen farm belongs to this login, not the device.
     await useFarmStore.getState().setFarm(null);
+    queryClient.clear();
     set({
       user: null,
       isAuthenticated: false,
@@ -148,6 +152,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       clearEmergencyContact(),
       useFarmStore.getState().setFarm(null),
     ]);
+    queryClient.clear();
     set({
       user: null,
       instanceUrl: null,

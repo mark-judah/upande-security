@@ -5,7 +5,8 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
 import { AppState, type AppStateStatus } from 'react-native';
-import { QueryClient, QueryClientProvider, focusManager } from '@tanstack/react-query';
+import { QueryClientProvider, focusManager } from '@tanstack/react-query';
+import { queryClient } from '@/lib/queryClient';
 import {
   useFonts,
   DMSans_400Regular,
@@ -41,7 +42,6 @@ SplashScreen.preventAutoHideAsync().catch(() => {});
 // when the route activates — see the routing effect below.
 const BIOMETRIC_LOCK_ROUTE_AVAILABLE = true;
 
-const queryClient = new QueryClient();
 
 const DRAWER_ITEMS: DrawerItem[] = [
   { label: 'Home',      route: '',           icon: 'home-outline' },
