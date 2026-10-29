@@ -2,7 +2,7 @@
   "expo": {
     "name": "Upande Security",
     "slug": "upande-security",
-    "version": "1.2.5",
+    "version": "1.2.6",
     "orientation": "portrait",
     "icon": "./assets/images/upande_logo.png",
     "scheme": "upandesecurity",
@@ -36,7 +36,8 @@
         "android.permission.RECORD_AUDIO",
         "android.permission.MODIFY_AUDIO_SETTINGS",
         "android.permission.CALL_PHONE",
-        "android.permission.POST_NOTIFICATIONS"
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.REQUEST_INSTALL_PACKAGES"
       ]
     },
     "web": {

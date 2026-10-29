@@ -6,13 +6,15 @@ import Constants from 'expo-constants';
 import * as Updates from 'expo-updates';
 import client from '@/lib/api/client';
 import { getActivePatrol } from '@/lib/services/patrolDb';
+import { offerApkUpdate } from '@/lib/services/apkUpdate';
 
 /**
  * Tells the server which app version this login runs (Guard Device Token,
  * upande_security.api.app_devices.report_app_version), on every login and
  * every return to the foreground - at most once every 30 minutes. Security
  * heads see from there who is outdated and can push an update, which lands
- * in applyPushedUpdate() below.
+ * in applyPushedUpdate() below. The reply also names the newest APK, which
+ * apkUpdate.ts downloads and offers when this install is older.
  */
 
 const REPORT_INTERVAL_MS = 30 * 60 * 1000;
@@ -30,7 +32,7 @@ export async function reportAppVersion(force = false): Promise<void> {
   _lastReport = now;
   try {
     const embedded = Updates.isEmbeddedLaunch;
-    await client.post('/api/method/upande_security.api.app_devices.report_app_version', {
+    const res = await client.post('/api/method/upande_security.api.app_devices.report_app_version', {
       app_version: Constants.expoConfig?.version ?? '',
       runtime_version: Updates.runtimeVersion ?? Constants.expoConfig?.version ?? '',
       update_id: Updates.updateId ?? '',
@@ -42,6 +44,8 @@ export async function reportAppVersion(force = false): Promise<void> {
       os_version: String(Platform.Version ?? ''),
       platform: Platform.OS === 'ios' ? 'ios' : 'android',
     });
+    // A newer APK than this install (native changes an OTA can't carry).
+    offerApkUpdate(res.data?.message?.latest_apk).catch(() => {});
   } catch (e) {
     // Best-effort; retry on the next foreground.
     _lastReport = 0;
