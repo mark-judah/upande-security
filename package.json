@@ -1,7 +1,7 @@
 {
   "name": "upande-security",
   "main": "expo-router/entry",
-  "version": "1.2.15",
+  "version": "1.2.16",
   "scripts": {
     "version:next": "upande-mobile-kit version",
     "version:apply": "upande-mobile-kit version --apply",
