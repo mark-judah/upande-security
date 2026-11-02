@@ -1,9 +1,5 @@
-<<<<<<< HEAD
-import { useEffect, type ReactNode } from 'react';
-=======
 import '../src/mobile-kit';
-import { useEffect } from 'react';
->>>>>>> 2c513c4 (feat: added upande mobile kit for OTA & apk updates)
+import { useEffect, type ReactNode } from 'react';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -181,55 +177,21 @@ export default function RootLayout() {
   }
 
   return (
-<<<<<<< HEAD
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <SafeAreaProvider>
-        <ToastProvider>
-          <QueryClientProvider client={queryClient}>
-            {/* DrawerItems needs hasCommandCenterAccess, which is a
-             *  useQuery-backed hook — it can only be called from a
-             *  component that's already a DESCENDANT of this
-             *  QueryClientProvider, never from RootLayout's own body
-             *  (that runs before RootLayout's own returned JSX, including
-             *  this provider, has mounted). Hence the separate component
-             *  below rather than computing drawerItems up here like
-             *  isApprover (a plain Zustand read, no provider needed). */}
-            <SosWatcher />
-            <AppDrawerItems isApprover={isApprover}>
-              <StatusBar style="dark" />
-              <Stack screenOptions={{ headerShown: false }}>
-                <Stack.Screen name="login" />
-                <Stack.Screen name="biometric-lock" />
-                <Stack.Screen name="(tabs)" />
-                <Stack.Screen name="scan" options={{ presentation: 'modal' }} />
-                <Stack.Screen name="scan-id" options={{ presentation: 'modal' }} />
-                <Stack.Screen name="incident-new" />
-                <Stack.Screen name="patrol-active" />
-                <Stack.Screen name="sos-alert" />
-                {/* Command Center sub-screens — pushed from the
-                 *  app/(tabs)/command-center.tsx landing screen, same
-                 *  top-level-stack-route pattern as incident-new above
-                 *  (this app doesn't nest routes under a tab folder
-                 *  anywhere else, so this mirrors the established
-                 *  convention rather than introducing a new one). */}
-                <Stack.Screen name="command-center-shifts" />
-                <Stack.Screen name="command-center-incidents" />
-                <Stack.Screen name="command-center-stickers" />
-                <Stack.Screen name="command-center-badges" />
-                <Stack.Screen name="command-center-settings" />
-              </Stack>
-            </AppDrawerItems>
-          </QueryClientProvider>
-        </ToastProvider>
-      </SafeAreaProvider>
-    </GestureHandlerRootView>
-=======
     <MobileKitProvider>
       <GestureHandlerRootView style={{ flex: 1 }}>
         <SafeAreaProvider>
           <ToastProvider>
-            <DrawerItemsProvider items={drawerItems}>
-              <QueryClientProvider client={queryClient}>
+            <QueryClientProvider client={queryClient}>
+              {/* DrawerItems needs hasCommandCenterAccess, which is a
+               *  useQuery-backed hook — it can only be called from a
+               *  component that's already a DESCENDANT of this
+               *  QueryClientProvider, never from RootLayout's own body
+               *  (that runs before RootLayout's own returned JSX, including
+               *  this provider, has mounted). Hence the separate component
+               *  below rather than computing drawerItems up here like
+               *  isApprover (a plain Zustand read, no provider needed). */}
+              <SosWatcher />
+              <AppDrawerItems isApprover={isApprover}>
                 <StatusBar style="dark" />
                 <Stack screenOptions={{ headerShown: false }}>
                   <Stack.Screen name="login" />
@@ -240,14 +202,24 @@ export default function RootLayout() {
                   <Stack.Screen name="incident-new" />
                   <Stack.Screen name="patrol-active" />
                   <Stack.Screen name="sos-alert" />
+                  {/* Command Center sub-screens — pushed from the
+                   *  app/(tabs)/command-center.tsx landing screen, same
+                   *  top-level-stack-route pattern as incident-new above
+                   *  (this app doesn't nest routes under a tab folder
+                   *  anywhere else, so this mirrors the established
+                   *  convention rather than introducing a new one). */}
+                  <Stack.Screen name="command-center-shifts" />
+                  <Stack.Screen name="command-center-incidents" />
+                  <Stack.Screen name="command-center-stickers" />
+                  <Stack.Screen name="command-center-badges" />
+                  <Stack.Screen name="command-center-settings" />
                 </Stack>
-              </QueryClientProvider>
-            </DrawerItemsProvider>
+              </AppDrawerItems>
+            </QueryClientProvider>
           </ToastProvider>
         </SafeAreaProvider>
       </GestureHandlerRootView>
     </MobileKitProvider>
->>>>>>> 2c513c4 (feat: added upande mobile kit for OTA & apk updates)
   );
 }
 

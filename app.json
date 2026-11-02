@@ -40,15 +40,10 @@
         "android.permission.RECORD_AUDIO",
         "android.permission.MODIFY_AUDIO_SETTINGS",
         "android.permission.CALL_PHONE",
-<<<<<<< HEAD
         "android.permission.POST_NOTIFICATIONS",
         "android.permission.REQUEST_INSTALL_PACKAGES"
-      ]
-=======
-        "android.permission.POST_NOTIFICATIONS"
       ],
       "versionCode": 5203
->>>>>>> 2c513c4 (feat: added upande mobile kit for OTA & apk updates)
     },
     "web": {
       "output": "static",
@@ -106,18 +101,15 @@
           }
         }
       ],
-<<<<<<< HEAD
       "@preeternal/react-native-cookie-manager",
       [
         "rn-mrz-scanner",
         {
           "cameraPermissionText": "Allow Upande Security to scan the ID card's MRZ."
         }
-      ]
-=======
+      ],
       "@upande/mobile-kit",
       "expo-localization"
->>>>>>> 2c513c4 (feat: added upande mobile kit for OTA & apk updates)
     ],
     "experiments": {
       "typedRoutes": true
