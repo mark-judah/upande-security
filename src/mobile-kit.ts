@@ -8,26 +8,41 @@
  * the real session.
  */
 import { configureMobileKit, type KitApi, type KitAuth } from '@upande/mobile-kit';
-import client from '../lib/api/client';
+import axios from 'axios';
 import { useAuthStore } from '../lib/stores/authStore';
-import { storage as hostStorage } from './core/storage';
+import { storage as hostStorage, StorageKeys } from './core/storage';
 
 // The kit wants a generic request function that resolves to the response BODY.
-// `lib/services/api.ts` is a set of per-verb methods, so use the shared axios
-// client instead: it already attaches the instance URL + session cookie and
-// turns 401/403 into a re-login.
+// Deliberately NOT `lib/api/client.ts`: that client's interceptors call
+// router.replace('/login') when there is no cookie and wipe the session on any
+// 401/403. The kit's calls are best-effort background work (device register,
+// crash reports) and must never navigate or sign anyone out - with the shared
+// client, a kit call made on the login screen re-mounted it on every retry.
 const hostApi: KitApi = async (req) => {
-  const res = await client.request({
+  const [baseURL, cookie] = await Promise.all([
+    hostStorage.get(StorageKeys.instanceUrl),
+    hostStorage.get(StorageKeys.cookie),
+  ]);
+  if (!baseURL || !cookie) throw new Error('Not signed in');
+  const res = await axios.request({
+    baseURL,
     method: req.method,
     url: req.url,
     params: req.params,
     data: req.data,
+    timeout: 30000,
+    headers: {
+      Cookie: cookie,
+      'Content-Type': 'application/json',
+      'X-Frappe-CSRF-Token': 'token',
+    },
   });
   return res.data;
 };
 
 function useHostAuth(): KitAuth {
   const user = useAuthStore((s) => s.user);
+  const hasSession = useAuthStore((s) => s.hasSession);
   const instanceUrl = useAuthStore((s) => s.instanceUrl);
   const roles = useAuthStore((s) => s.roles);
   const biometricEnabled = useAuthStore((s) => s.biometricEnabled);
@@ -37,8 +52,10 @@ function useHostAuth(): KitAuth {
   return {
     isSystemManager: roles.includes('System Manager'),
     roles,
-    email: user?.email ?? null,
-    user: user?.email ?? null,
+    // `user` is the saved email even on the login screen (used to pre-fill it), so
+    // only report an account to the kit while a session actually exists.
+    email: hasSession ? (user?.email ?? null) : null,
+    user: hasSession ? (user?.email ?? null) : null,
     instanceUrl,
     biometricEnabled,
     setBiometricEnabled,

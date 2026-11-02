@@ -1,12 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { FarmPicker } from '@/components/gate/FarmPicker';
 import { useGateFarm } from '@/lib/hooks/useGateFarm';
-import { View, Text, Platform, Keyboard, Pressable, TouchableOpacity, ActivityIndicator, Alert, StyleSheet, RefreshControl } from 'react-native';
+import { View, Text, Platform, Keyboard, Pressable, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { router } from 'expo-router';
 import { useForm } from 'react-hook-form';
 import { Ionicons } from '@expo/vector-icons';
-import * as Updates from 'expo-updates';
 import { useAuthStore } from '@/lib/stores/authStore';
 import { HeaderSelectors } from '@/components/gate/HeaderSelectors';
 import { SearchBar } from '@/components/gate/SearchBar';
@@ -76,7 +75,6 @@ function generateIdempotencyKey(): string {
 
 export default function GateTab() {
   const userEmail = useAuthStore((s) => s.user?.email ?? '');
-  const [updateBusy, setUpdateBusy] = useState(false);
   const [selectedType, setSelectedType] = useState<CheckInType>(CheckInType.Visitor);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -239,36 +237,6 @@ export default function GateTab() {
     if (!input.passengers && !input.items) return;
     await api.saveVisitPeopleAndItems(input);
     setHadSavedBelongings(true);
-  }
-
-  async function onCheckForUpdates() {
-    if (updateBusy) return;
-    if (!Updates.isEnabled) {
-      feedback.warning('OTA disabled in dev — Updates only run in builds installed from EAS.');
-      return;
-    }
-    setUpdateBusy(true);
-    try {
-      const result = await Updates.checkForUpdateAsync();
-      if (!result.isAvailable) {
-        feedback.success('Already up to date');
-        return;
-      }
-      feedback.warning('Downloading update…');
-      await Updates.fetchUpdateAsync();
-      Alert.alert(
-        'Update ready',
-        'A new version has been downloaded. Reload the app now to apply it?',
-        [
-          { text: 'Later', style: 'cancel' },
-          { text: 'Reload', style: 'destructive', onPress: () => Updates.reloadAsync() },
-        ],
-      );
-    } catch (e) {
-      feedback.error('Update check failed — ' + (e instanceof Error ? e.message : String(e)));
-    } finally {
-      setUpdateBusy(false);
-    }
   }
 
   function onTypeSelect(t: CheckInType) {
@@ -625,13 +593,6 @@ export default function GateTab() {
         extraScrollHeight={Platform.OS === 'ios' ? 20 : 60}
         enableAutomaticScroll
         showsVerticalScrollIndicator={false}
-        // Pull-to-refresh doubles as a manual OTA update check — onCheckForUpdates
-        // already existed fully built (busy state, error handling, reload
-        // prompt) but was never wired to anything, leaving "Check for
-        // updates" reachable only by navigating to Settings. This makes it
-        // reachable from the guard's actual main working screen with a
-        // familiar gesture instead.
-        refreshControl={<RefreshControl refreshing={updateBusy} onRefresh={onCheckForUpdates} />}
       >
         <View style={s.card}>
           <FarmPicker />

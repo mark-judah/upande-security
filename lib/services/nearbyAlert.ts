@@ -3,7 +3,6 @@ import { router } from 'expo-router';
 import { getNotifications } from './pushToken';
 import { handleIncomingVisitorApprovedPush } from './visitorApprovedAlert';
 import { addNotification } from './notificationCenter';
-import { applyPushedUpdate } from './appVersion';
 
 /**
  * Nearby-guard SOS alert receipt.
@@ -148,12 +147,6 @@ export function handleIncomingPush(content: unknown): void {
     content && typeof content === 'object'
       ? (content as { data?: unknown }).data
       : undefined;
-
-  // A security head pushed an app update (Guard Device Token in Desk).
-  if (data && typeof data === 'object' && (data as { type?: unknown }).type === 'app_update') {
-    applyPushedUpdate().catch(() => {});
-    return;
-  }
 
   if (!isSosAlertPayload(data)) {
     // Not an sos_alert push - visitor_approved is the only other kind this
