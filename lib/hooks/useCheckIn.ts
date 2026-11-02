@@ -9,6 +9,7 @@ export type CheckInInput = {
   custom_vehicles_number_plate?: string;
   custom_vehicles_colour?: string;
   organization?: string;
+  passengers?: number;
   entry_gate?: string;
 };
 
@@ -23,6 +24,7 @@ export function useCheckIn() {
         plate: input.custom_vehicles_number_plate,
         colour: input.custom_vehicles_colour,
         organization: input.organization,
+        passengers: input.passengers,
         entry_gate: input.entry_gate,
       }),
     onSuccess: (_, vars) => {

@@ -7,6 +7,7 @@ import { useCheckIn } from '@/lib/hooks/useCheckIn';
 import { useCheckOut } from '@/lib/hooks/useCheckOut';
 import { useItemsAwareCheckOut } from '@/components/gate/CheckOutItemsSheet';
 import { EntryItemsSheet } from '@/components/gate/EntryItemsSheet';
+import { VisitDetailsSheet, type VisitDetails } from '@/components/gate/VisitDetailsSheet';
 import { api } from '@/lib/services/api';
 import { fmtDateTime } from '@/lib/utils/date';
 import type { ApprovedAppointmentRow } from '@/lib/services/api';
@@ -160,13 +161,28 @@ export default function ApprovedTab() {
   const itemsCheckOut = useItemsAwareCheckOut();
   const [activeName, setActiveName] = useState<string | null>(null);
   const itemsEnabled = useFeatureFlag('feature_carried_items');
-  // Check-in declares what they bring in, so their exit can be checked.
+  // Check-in of a booked visit: first what arrives (vehicle, passengers -
+  // the booking may name only the representative), then what they bring
+  // in, so their exit can be checked.
+  const [detailsFor, setDetailsFor] = useState<ApprovedAppointmentRow | null>(null);
+  const [details, setDetails] = useState<VisitDetails | null>(null);
   const [checkingIn, setCheckingIn] = useState<ApprovedAppointmentRow | null>(null);
 
-  async function doCheckIn(item: ApprovedAppointmentRow) {
+  async function doCheckIn(item: ApprovedAppointmentRow, d: VisitDetails | null) {
     setActiveName(item.name);
     try {
-      await checkIn.mutateAsync({ name: item.name });
+      await checkIn.mutateAsync({
+        name: item.name,
+        ...(d
+          ? {
+              custom_mode_of_transport: d.transport,
+              custom_vehicles_number_plate: d.plate,
+              custom_vehicles_colour: d.colour,
+              passengers: d.passengers,
+              organization: d.organization || undefined,
+            }
+          : {}),
+      });
     } finally {
       setActiveName(null);
     }
@@ -192,24 +208,19 @@ export default function ApprovedTab() {
     if (checkIn.isPending || checkOut.isPending) return;
     if (item.workflow_state === 'Visitor Checked In') {
       itemsCheckOut.begin(item.name, item.customer_name, () => confirmPlainCheckOut(item));
-    } else if (itemsEnabled) {
-      setCheckingIn(item);
     } else {
-      Alert.alert('Check in?', `Check in ${item.customer_name}?`, [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Check in',
-          onPress: async () => {
-            setActiveName(item.name);
-            try {
-              await checkIn.mutateAsync({ name: item.name });
-            } finally {
-              setActiveName(null);
-            }
-          },
-        },
-      ]);
+      setDetailsFor(item);
     }
+  };
+
+  // After the details: the items step when it is on, else check in now.
+  const onDetails = (d: VisitDetails) => {
+    const item = detailsFor;
+    setDetailsFor(null);
+    if (!item) return;
+    setDetails(d);
+    if (itemsEnabled) setCheckingIn(item);
+    else doCheckIn(item, d);
   };
 
   const confirmPlainCheckOut = (item: ApprovedAppointmentRow) => {
@@ -238,6 +249,23 @@ export default function ApprovedTab() {
       }}
     >
       {itemsCheckOut.sheet}
+      <VisitDetailsSheet
+        visit={
+          detailsFor
+            ? {
+                key: detailsFor.name,
+                holder: detailsFor.customer_name,
+                transport: detailsFor.transport,
+                plate: detailsFor.plate,
+                colour: detailsFor.colour,
+                passengers: detailsFor.passengers,
+                organization: detailsFor.organization,
+              }
+            : null
+        }
+        onClose={() => setDetailsFor(null)}
+        onContinue={onDetails}
+      />
       <EntryItemsSheet
         entry={checkingIn ? { key: checkingIn.name, holder: checkingIn.customer_name, items: [] } : null}
         onClose={() => setCheckingIn(null)}
@@ -248,14 +276,14 @@ export default function ApprovedTab() {
         onSkip={() => {
           const item = checkingIn;
           setCheckingIn(null);
-          if (item) doCheckIn(item);
+          if (item) doCheckIn(item, details);
         }}
         onSave={async (_ticked, add) => {
           const item = checkingIn;
           if (!item) return;
           await addItems(item.name, add);
           setCheckingIn(null);
-          await doCheckIn(item);
+          await doCheckIn(item, details);
         }}
       />
       <View style={s.pageHeaderRow}>

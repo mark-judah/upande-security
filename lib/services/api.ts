@@ -699,6 +699,7 @@ export type ApprovedAppointmentRow = {
   plate: string;
   colour: string;
   passengers: number;
+  organization?: string;
   custom_visitor_badge_number?: number | null;
   custom_host_received_time?: string;
   custom_visitor_type?: 'Visitor' | 'Staff' | 'Contractor' | 'Customer' | string;

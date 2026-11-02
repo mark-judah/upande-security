@@ -412,6 +412,8 @@ export default function GateTab() {
       custom_vehicles_number_plate: values.custom_vehicles_number_plate,
       custom_vehicles_colour: values.custom_vehicles_colour,
       organization: values.customer_organization,
+      // The typed count; with passenger names on, saveBelongings sets it.
+      passengers: passengerNamesEnabled ? undefined : values.custom_number_of_passengers,
       entry_gate: visitorEntryGate ?? undefined,
     });
     workflowQuery.refetch();
