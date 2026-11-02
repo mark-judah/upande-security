@@ -1,0 +1,19 @@
+name: Release
+
+on:
+  push:
+    branches: [Ngetich]
+    paths-ignore: ['**/*.md', 'docs/**']
+  workflow_dispatch:
+    inputs:
+      bump: { description: auto | patch | minor | major, type: string, default: auto }
+      set_version: { description: Exact version (starts a new release line), type: string, default: '' }
+
+concurrency: { group: release, cancel-in-progress: false }
+permissions: { contents: write }
+
+jobs:
+  release:
+    uses: mark-judah/upande-mobile-kit/.github/workflows/release.yml@v0
+    with: { app-name: "Upande Security", apk-name: upande_security, bump: "${{ inputs.bump || 'auto' }}", set_version: "${{ inputs.set_version || '' }}" }
+    secrets: inherit

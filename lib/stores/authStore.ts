@@ -88,12 +88,21 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       roles,
     });
 
-    // Re-lock on foreground. Subscribe once.
+    // Re-lock when returning from a real background (e.g. screen lock or app
+    // switch). Only 'background' arms the lock: 'inactive' also fires while the
+    // biometric prompt is showing/dismissing, which previously re-locked the app
+    // in a loop and made the lock screen flash. Subscribe once.
     if (!appStateSub) {
+      let wasBackgrounded = false;
       appStateSub = AppState.addEventListener('change', (next: AppStateStatus) => {
-        if (next !== 'active') return;
+        if (next === 'background') {
+          wasBackgrounded = true;
+          return;
+        }
+        if (next !== 'active' || !wasBackgrounded) return;
+        wasBackgrounded = false;
         const s = get();
-        if (s.hasSession && s.biometricEnabled && Biometric.isModuleAvailable()) {
+        if (s.hasSession && s.biometricEnabled && !s.biometricLocked && Biometric.isModuleAvailable()) {
           set({ biometricLocked: true });
         }
       });

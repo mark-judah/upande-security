@@ -1,4 +1,9 @@
+<<<<<<< HEAD
 import { useEffect, type ReactNode } from 'react';
+=======
+import '../src/mobile-kit';
+import { useEffect } from 'react';
+>>>>>>> 2c513c4 (feat: added upande mobile kit for OTA & apk updates)
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -33,6 +38,7 @@ import { useIsApprover } from '@/lib/hooks/usePendingApprovals';
 import { useFeatureFlag, useHasCommandCenterAccess } from '@/lib/hooks/useSessionInfo';
 import { useDutyTracking } from '@/lib/hooks/useDutyTracking';
 import '@/lib/services/patrolTracking';
+import { MobileKitProvider } from '@upande/mobile-kit';
 
 // Hold the native splash until fonts + auth hydrated.
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -175,6 +181,7 @@ export default function RootLayout() {
   }
 
   return (
+<<<<<<< HEAD
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <ToastProvider>
@@ -216,6 +223,31 @@ export default function RootLayout() {
         </ToastProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
+=======
+    <MobileKitProvider>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <SafeAreaProvider>
+          <ToastProvider>
+            <DrawerItemsProvider items={drawerItems}>
+              <QueryClientProvider client={queryClient}>
+                <StatusBar style="dark" />
+                <Stack screenOptions={{ headerShown: false }}>
+                  <Stack.Screen name="login" />
+                  <Stack.Screen name="biometric-lock" />
+                  <Stack.Screen name="(tabs)" />
+                  <Stack.Screen name="scan" options={{ presentation: 'modal' }} />
+                  <Stack.Screen name="scan-id" options={{ presentation: 'modal' }} />
+                  <Stack.Screen name="incident-new" />
+                  <Stack.Screen name="patrol-active" />
+                  <Stack.Screen name="sos-alert" />
+                </Stack>
+              </QueryClientProvider>
+            </DrawerItemsProvider>
+          </ToastProvider>
+        </SafeAreaProvider>
+      </GestureHandlerRootView>
+    </MobileKitProvider>
+>>>>>>> 2c513c4 (feat: added upande mobile kit for OTA & apk updates)
   );
 }
 

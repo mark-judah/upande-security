@@ -44,3 +44,7 @@ app-example
 
 # Kaitet instance credentials (local dev only)
 .kaitet-credentials.json
+
+# @upande/mobile-kit: local answers and backups (not for git)
+upande-mobile-kit.json
+.upande-mobile-kit/

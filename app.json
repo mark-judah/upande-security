@@ -14,7 +14,12 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.upande.security"
+      "bundleIdentifier": "com.upande.security",
+      "infoPlist": {
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": true
+        }
+      }
     },
     "android": {
       "package": "com.upande.security",
@@ -25,7 +30,6 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "usesCleartextTraffic": true,
       "permissions": [
         "android.permission.ACCESS_FINE_LOCATION",
         "android.permission.ACCESS_COARSE_LOCATION",
@@ -36,9 +40,15 @@
         "android.permission.RECORD_AUDIO",
         "android.permission.MODIFY_AUDIO_SETTINGS",
         "android.permission.CALL_PHONE",
+<<<<<<< HEAD
         "android.permission.POST_NOTIFICATIONS",
         "android.permission.REQUEST_INSTALL_PACKAGES"
       ]
+=======
+        "android.permission.POST_NOTIFICATIONS"
+      ],
+      "versionCode": 5203
+>>>>>>> 2c513c4 (feat: added upande mobile kit for OTA & apk updates)
     },
     "web": {
       "output": "static",
@@ -86,6 +96,7 @@
         "expo-build-properties",
         {
           "android": {
+            "usesCleartextTraffic": true,
             "buildArchs": [
               "armeabi-v7a",
               "arm64-v8a"
@@ -95,6 +106,7 @@
           }
         }
       ],
+<<<<<<< HEAD
       "@preeternal/react-native-cookie-manager",
       [
         "rn-mrz-scanner",
@@ -102,6 +114,10 @@
           "cameraPermissionText": "Allow Upande Security to scan the ID card's MRZ."
         }
       ]
+=======
+      "@upande/mobile-kit",
+      "expo-localization"
+>>>>>>> 2c513c4 (feat: added upande mobile kit for OTA & apk updates)
     ],
     "experiments": {
       "typedRoutes": true
@@ -113,11 +129,21 @@
       "router": {},
       "eas": {
         "projectId": "375a13da-630b-4a49-96e2-0c89c3c9f3d1"
+      },
+      "otaBaseUrl": "https://mark-judah.github.io/upande-security/ota",
+      "mobileKit": {
+        "sites": {
+          "production": "https://kaitet-group.upande.com",
+          "development": "http://10.78.203.154:8002"
+        }
       }
     },
     "owner": "ngetich1",
     "updates": {
-      "url": "https://u.expo.dev/375a13da-630b-4a49-96e2-0c89c3c9f3d1"
+      "enabled": true,
+      "checkAutomatically": "ON_LOAD",
+      "fallbackToCacheTimeout": 0,
+      "url": "https://kaitet-group.upande.com/api/method/upande_mobile.api.ota.manifest?app=Upande%20Security"
     }
   }
 }
