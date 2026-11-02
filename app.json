@@ -2,7 +2,7 @@
   "expo": {
     "name": "Upande Security",
     "slug": "upande-security",
-    "version": "1.2.8",
+    "version": "1.2.9",
     "orientation": "portrait",
     "icon": "./assets/images/upande_logo.png",
     "scheme": "upandesecurity",
@@ -43,7 +43,7 @@
         "android.permission.POST_NOTIFICATIONS",
         "android.permission.REQUEST_INSTALL_PACKAGES"
       ],
-      "versionCode": 5208
+      "versionCode": 5209
     },
     "web": {
       "output": "static",
