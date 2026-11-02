@@ -91,14 +91,17 @@ export async function login(email: string, password: string, urlInput: string) {
   await AsyncStorage.setItem('user_email', email);
 
   let message: string | undefined;
+  let fullName = '';
   try {
     const data = await response.json();
     message = data?.message;
+    // Frappe's login reply names the user - shown on saved accounts.
+    fullName = typeof data?.full_name === 'string' ? data.full_name : '';
   } catch {
     // ignore
   }
 
-  return { fullUrl, sid, userId: userId ?? '', message };
+  return { fullUrl, sid, userId: userId ?? '', message, fullName };
 }
 
 /**

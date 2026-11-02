@@ -25,7 +25,8 @@ type AuthState = {
 
   // Actions.
   hydrate: () => Promise<void>;
-  login: (url: string, email: string, password: string) => Promise<void>;
+  /** Resolves to the site actually signed in to and the user's name. */
+  login: (url: string, email: string, password: string) => Promise<{ site: string; fullName: string }>;
   /** Soft logout — clear in-memory session but keep cookie + biometric flag
    *  so the user can biometric-unlock back in. */
   logout: () => Promise<void>;
@@ -127,6 +128,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       biometricLocked: false,
       roles,
     });
+    return { site: result.fullUrl, fullName: result.fullName };
   },
 
   logout: async () => {
