@@ -10,6 +10,15 @@ api.interceptors.request.use(async (config) => {
   const baseURL = await AsyncStorage.getItem('instanceurl');
   const cookie = await AsyncStorage.getItem('cookie');
   if (!baseURL || !cookie) {
+    // Already signed out: there is no session to recover and the user is on (or
+    // headed to) the login screen. Resetting the store and replacing the route
+    // again here only re-mounts that screen and wipes the saved email and
+    // biometric flag - and any call made while signed out would repeat it.
+    if (!useAuthStore.getState().hasSession) {
+      return Promise.reject(
+        new Error(!baseURL ? 'No instance URL configured' : 'Not signed in'),
+      );
+    }
     // Mirrors the response interceptor's 401/403 recovery below - a
     // missing cookie is a dead end otherwise, the user just sees a raw
     // "No cookies found" error with no way forward short of force-quitting.
@@ -106,7 +115,10 @@ api.interceptors.response.use(
     return r;
   },
   async (err: AxiosError) => {
-    if (err.response?.status === 401 || err.response?.status === 403) {
+    if (
+      (err.response?.status === 401 || err.response?.status === 403) &&
+      useAuthStore.getState().hasSession
+    ) {
       // See the matching comment in the request interceptor above — must
       // reset authStore's in-memory hasSession too, not just AsyncStorage,
       // or the root layout's auth-gate effect races the redirect back to

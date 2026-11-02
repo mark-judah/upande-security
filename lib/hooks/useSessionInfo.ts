@@ -1,14 +1,21 @@
 import { useQuery } from '@tanstack/react-query';
 import { api, type SecurityFeatureFlags } from '@/lib/services/api';
+import { useAuthStore } from '@/lib/stores/authStore';
 
 /** Current user, roles, and linked Employee/Security Guard record — mainly
  * used here for the logged-in guard's own farm (employee.custom_farm), the
  * relevant farm for an entry-gate picker at check-in. */
 export function useSessionInfo() {
+  // The root layout mounts this (SosWatcher, AppDrawerItems) before anyone is
+  // signed in. Without `enabled`, it fired on the login screen, the request
+  // interceptor found no cookie and bounced to /login, which re-mounted the
+  // screen over and over - the login page flickered. No session, no request.
+  const hasSession = useAuthStore((s) => s.hasSession);
   return useQuery({
     queryKey: ['session-info'],
     queryFn: () => api.getSessionInfo(),
     staleTime: 10 * 60 * 1000,
+    enabled: hasSession,
   });
 }
 
