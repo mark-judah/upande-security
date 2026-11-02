@@ -2,7 +2,7 @@
   "expo": {
     "name": "Upande Security",
     "slug": "upande-security",
-    "version": "1.2.6",
+    "version": "1.2.7",
     "orientation": "portrait",
     "icon": "./assets/images/upande_logo.png",
     "scheme": "upandesecurity",
@@ -43,7 +43,7 @@
         "android.permission.POST_NOTIFICATIONS",
         "android.permission.REQUEST_INSTALL_PACKAGES"
       ],
-      "versionCode": 5203
+      "versionCode": 5207
     },
     "web": {
       "output": "static",
@@ -114,9 +114,7 @@
     "experiments": {
       "typedRoutes": true
     },
-    "runtimeVersion": {
-      "policy": "appVersion"
-    },
+    "runtimeVersion": "1.2",
     "extra": {
       "router": {},
       "eas": {
@@ -128,7 +126,8 @@
           "production": "https://kaitet-group.upande.com",
           "development": "http://10.78.203.154:8002"
         }
-      }
+      },
+      "runtimeSdk": 54
     },
     "owner": "ngetich1",
     "updates": {
