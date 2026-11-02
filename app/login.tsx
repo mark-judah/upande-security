@@ -20,7 +20,7 @@ import * as Biometric from '@/src/core/biometric';
 import { COLORS, borderRadius, shadow, spacing } from '@/src/core/theme';
 import { APP_VERSION } from '@/src/core/version';
 import {
-  canSaveAccounts,
+  fingerprintSaveStatus,
   getLastSite,
   isSaved,
   listSavedAccounts,
@@ -51,6 +51,10 @@ export default function Login() {
   // Guards saved on this phone for fingerprint sign-in (savedAccounts.ts).
   const [saved, setSaved] = useState<SavedAccount[]>([]);
   const [canSave, setCanSave] = useState(false);
+  // Why fingerprint sign-in can't be offered here, if it can't.
+  const [noSaveReason, setNoSaveReason] = useState<string | null>(null);
+  // "Use my fingerprint to sign in next time" on the form.
+  const [remember, setRemember] = useState(true);
   const [showForm, setShowForm] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
   // Set when a saved account needs its password again (it changed, or the
@@ -80,9 +84,10 @@ export default function Login() {
       const lastSite = await getLastSite();
       if (lastSite && !urlTouched.current) setUrl(lastSite.replace(/^https?:\/\//i, ''));
       setBioAvailable(!!cookie && bioFlag === '1' && Biometric.isModuleAvailable());
-      const [list, ok] = await Promise.all([listSavedAccounts(), canSaveAccounts()]);
+      const [list, status] = await Promise.all([listSavedAccounts(), fingerprintSaveStatus()]);
       setSaved(list);
-      setCanSave(ok);
+      setCanSave(status.ok);
+      setNoSaveReason(status.reason);
       if (list.length) setShowForm(false);
     })();
   }, []);
@@ -155,34 +160,16 @@ export default function Login() {
     );
   };
 
-  // After a password sign-in: offer fingerprint sign-in for next time.
-  const offerToSave = (site: string, fullName: string, pw: string) =>
-    new Promise<void>((resolve) => {
-      const save = async () => {
-        try {
-          await saveAccount({ email: email.trim(), fullName, site, password: pw });
-        } catch {
-          // Fingerprint cancelled or failed - they can save it next time.
-        }
-        resolve();
-      };
-      if (resaveRef.current) {
-        save();
-        return;
-      }
-      Alert.alert(
-        'Sign in with your fingerprint next time?',
-        'Saves ' +
-          (fullName || email.trim()) +
-          ' on this phone: next time, tap your name and touch the sensor - no site or password to type.\n\n' +
-          'Anyone whose fingerprint is set up on this phone will be able to open it, so only save it on a phone you trust.',
-        [
-          { text: 'Not now', style: 'cancel', onPress: () => resolve() },
-          { text: 'Use fingerprint', onPress: save },
-        ],
-        { cancelable: false },
-      );
-    });
+  // After a password sign-in with "Use my fingerprint" ticked: save the
+  // account - the fingerprint prompt confirms it. A cancelled or failed save
+  // only means it is offered again next sign-in.
+  const saveForFingerprint = async (site: string, fullName: string, pw: string) => {
+    try {
+      await saveAccount({ email: email.trim(), fullName, site, password: pw });
+    } catch {
+      // keep going - signed in either way
+    }
+  };
 
   const onBiometric = async () => {
     setBioBusy(true);
@@ -222,8 +209,8 @@ export default function Login() {
       // shortform URLs like 'kaitet' via getWorkingUrl.
       const { site, fullName } = await login(url.trim(), email.trim(), password);
       await setLastSite(site);
-      if (canSave && (resaveRef.current || !(await isSaved(email.trim(), site)))) {
-        await offerToSave(site, fullName, password);
+      if (canSave && (resaveRef.current || (remember && !(await isSaved(email.trim(), site))))) {
+        await saveForFingerprint(site, fullName, password);
       }
       router.replace('/');
     } catch (e) {
@@ -323,6 +310,31 @@ export default function Login() {
                 </Pressable>
               </View>
             </View>
+            {canSave ? (
+              <Pressable
+                onPress={() => setRemember((v) => !v)}
+                style={s.rememberRow}
+                accessibilityRole="checkbox"
+                accessibilityState={{ checked: remember }}
+              >
+                <Ionicons
+                  name={remember ? 'checkbox' : 'square-outline'}
+                  size={22}
+                  color={COLORS.text}
+                />
+                <View style={{ flex: 1 }}>
+                  <Text style={s.rememberText}>Use my fingerprint to sign in next time</Text>
+                  <Text style={s.rememberNote}>
+                    Saves you on this phone. Anyone whose fingerprint is set up on this phone can
+                    then open it.
+                  </Text>
+                </View>
+              </Pressable>
+            ) : noSaveReason ? (
+              <Text style={s.rememberNote}>
+                Fingerprint sign-in is not available: {noSaveReason}.
+              </Text>
+            ) : null}
             {err ? <Text style={s.err}>{err}</Text> : null}
           </Card>
 
@@ -440,6 +452,15 @@ const s = StyleSheet.create({
   acctName: { fontSize: 15, fontWeight: '600', color: COLORS.text },
   acctSub: { fontSize: 12, color: COLORS.textMuted },
   link: { color: COLORS.text, fontSize: 14, fontWeight: '600', textDecorationLine: 'underline' },
+  rememberRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+    marginTop: 4,
+    marginBottom: 6,
+  },
+  rememberText: { fontSize: 14, color: COLORS.text, fontWeight: '600' },
+  rememberNote: { fontSize: 12, color: COLORS.textMuted, marginTop: 2 },
   footer: { alignItems: 'center', paddingTop: 24 },
   version: { fontSize: 11, color: COLORS.textMuted },
   bioFab: {

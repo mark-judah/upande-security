@@ -59,9 +59,27 @@ const accountId = (email: string, site: string) =>
 
 const passwordKey = (id: string) => 'pw.' + id;
 
+/** Whether this build and phone can save accounts, and if not, why - shown on
+ *  the login screen so a missing option is never a mystery. */
+export async function fingerprintSaveStatus(): Promise<{ ok: boolean; reason: string | null }> {
+  if (secureStore() === null)
+    return { ok: false, reason: 'this app version cannot store it - install the latest app' };
+  if (!Biometric.isModuleAvailable())
+    return { ok: false, reason: 'this app version has no fingerprint support' };
+  if (!(await Biometric.hasHardware()))
+    return { ok: false, reason: 'this phone has no fingerprint sensor' };
+  if (!(await Biometric.isEnrolled())) {
+    return {
+      ok: false,
+      reason: 'no fingerprint is set up on this phone (phone Settings > Security)',
+    };
+  }
+  return { ok: true, reason: null };
+}
+
 /** This build and phone can save accounts: secure storage present and a fingerprint enrolled. */
 export async function canSaveAccounts(): Promise<boolean> {
-  return secureStore() !== null && (await Biometric.isAvailable());
+  return (await fingerprintSaveStatus()).ok;
 }
 
 export async function listSavedAccounts(): Promise<SavedAccount[]> {
