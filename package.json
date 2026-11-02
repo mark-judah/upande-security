@@ -29,7 +29,7 @@
     "@react-navigation/material-top-tabs": "^7.4.23",
     "@react-navigation/native": "^7.1.8",
     "@tanstack/react-query": "^5.99.0",
-    "@upande/mobile-kit": "github:mark-judah/upande-mobile-kit#v0.7.2",
+    "@upande/mobile-kit": "github:mark-judah/upande-mobile-kit#v0.8.0",
     "axios": "^1.15.0",
     "babel-preset-expo": "~54.0.10",
     "date-fns": "^4.1.0",
