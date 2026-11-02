@@ -1,13 +1,13 @@
 {
-  "id": "ae32ccb5-7db5-43a9-8fff-351296773282",
-  "createdAt": "2026-11-02T11:53:44.159Z",
+  "id": "f5a5f4c7-60ea-4610-bddc-dfc7d054d1b5",
+  "createdAt": "2026-11-02T12:05:57.785Z",
   "runtimeVersion": "1.2",
   "launchAsset": {
-    "hash": "ZMxFxFC8x2zgrDMfqmm2r_KboQ6J47-TObp0IrdGXlQ",
-    "key": "entry-a9c3cf46c354ef87ab99a9949f6f1cdd",
+    "hash": "ptOkJWhKIQhZlAterDd1HZqXgA0B-Ov-T1DeFBxAgTM",
+    "key": "entry-c87f98e091ba117f19f7159f7d96f6d7",
     "contentType": "application/javascript",
     "fileExtension": ".hbc",
-    "url": "https://mark-judah.github.io/upande-security/ota/android/1.2/_expo/static/js/android/entry-a9c3cf46c354ef87ab99a9949f6f1cdd.hbc"
+    "url": "https://mark-judah.github.io/upande-security/ota/android/1.2/_expo/static/js/android/entry-c87f98e091ba117f19f7159f7d96f6d7.hbc"
   },
   "assets": [
     {
@@ -611,7 +611,7 @@
     "expoClient": {
       "name": "Upande Security",
       "slug": "upande-security",
-      "version": "1.2.15",
+      "version": "1.2.16",
       "orientation": "portrait",
       "icon": "./assets/images/upande_logo.png",
       "scheme": "upandesecurity",
@@ -652,7 +652,7 @@
           "android.permission.POST_NOTIFICATIONS",
           "android.permission.REQUEST_INSTALL_PACKAGES"
         ],
-        "versionCode": 5215
+        "versionCode": 5216
       },
       "web": {
         "output": "static",
@@ -751,7 +751,7 @@
         "backgroundColor": "#ffffff"
       }
     },
-    "appVersion": "1.2.15",
-    "publishedAt": "2026-11-02T11:53:44.195Z"
+    "appVersion": "1.2.16",
+    "publishedAt": "2026-11-02T12:05:57.822Z"
   }
 }
