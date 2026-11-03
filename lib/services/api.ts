@@ -174,6 +174,44 @@ export type ContractorBadgeScan =
     })
   | { accepted: false; error: string };
 
+// Visitors going on to other farms of the company on one badge
+// (upande_security.api.visitor_route): each gate of a booked farm scans the
+// visitor badge; the visit is checked out once, at the last gate.
+export type VisitorRouteStop = { farm: string; date: string; time_in: string; time_out: string; remarks: string };
+
+export type VisitorRoute = {
+  badge: string;
+  badge_number: number;
+  badge_farm: string;
+  appointment: string;
+  visitor: string;
+  phone?: string | null;
+  host?: string | null;
+  home_farm: string;
+  route: VisitorRouteStop[];
+  /** Booked farms not entered yet. */
+  remaining: string[];
+  /** Every booked farm, the booking farm first. */
+  farms: string[];
+};
+
+export type VisitorBadgeScan =
+  | (VisitorRoute & { accepted: true; direction: 'Entry' | 'Exit'; movement: string; farm: string })
+  | { accepted: true; direction: 'Returned'; badge: string; badge_number: number; farm: string }
+  | { accepted: false; error: string };
+
+export type VisitorFinalExit =
+  | (VisitorRoute & {
+      accepted: true;
+      direction: 'Final Exit';
+      farm: string;
+      visit_checked_out: boolean;
+      badge_status: string;
+      /** Set when the badge was collected away from its own farm. */
+      return_badge_to: string | null;
+    })
+  | { accepted: false; error: string };
+
 export type ContractorVisitBadges = {
   crew: { full_name: string; id_number?: string; is_team_leader?: number }[];
   badges: ContractorBadgeInfo[];
@@ -1525,6 +1563,12 @@ export const api = {
     holder_id_number?: string;
     valid_until?: string;
   }) => call<ContractorBadgeInfo>('upande_security.api.contractor_badge.issue_contractor_badge', input),
+  scanVisitorBadge: (reference: string, gate?: string) =>
+    call<VisitorBadgeScan>('upande_security.api.visitor_route.scan_visitor_badge', { reference, gate }),
+  finalExitVisitor: (reference: string, gate?: string) =>
+    call<VisitorFinalExit>('upande_security.api.visitor_route.final_exit_visitor', { reference, gate }),
+  visitRoute: (appointment: string) =>
+    call<VisitorRoute>('upande_security.api.visitor_route.visit_route', { appointment }),
   scanContractorBadge: (reference: string, gate?: string) =>
     call<ContractorBadgeScan>('upande_security.api.contractor_badge.scan_contractor_badge', { reference, gate }),
   checkOutBadgeItems: (badge: string, itemsOut: string[], extra_items?: ExitExtraItem[]) =>

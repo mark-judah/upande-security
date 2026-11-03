@@ -17,6 +17,7 @@ type Intent =
   | 'vehicle'
   | 'staffSticker'
   | 'contractorBadge'
+  | 'visitorBadge'
   | 'checkpoint'
   | 'checkpointSetup';
 
@@ -39,6 +40,8 @@ export default function ScanModal() {
                   ? 'staffSticker'
                   : params.intent === 'contractorBadge'
                     ? 'contractorBadge'
+                    : params.intent === 'visitorBadge'
+                      ? 'visitorBadge'
                     : params.intent === 'checkpoint'
                       ? 'checkpoint'
                       : params.intent === 'checkpointSetup'
@@ -55,6 +58,7 @@ export default function ScanModal() {
   const setPendingScannedVehicle = useGateStore((s) => s.setPendingScannedVehicle);
   const setPendingScannedStaffSticker = useGateStore((s) => s.setPendingScannedStaffSticker);
   const setPendingScannedContractorBadge = useGateStore((s) => s.setPendingScannedContractorBadge);
+  const setPendingScannedVisitorBadge = useGateStore((s) => s.setPendingScannedVisitorBadge);
   const setPendingScannedCheckpoint = useGateStore((s) => s.setPendingScannedCheckpoint);
   const setPendingScannedCheckpointSetup = useGateStore((s) => s.setPendingScannedCheckpointSetup);
 
@@ -115,6 +119,8 @@ export default function ScanModal() {
       setPendingScannedStaffSticker(data);
     } else if (intent === 'contractorBadge') {
       setPendingScannedContractorBadge(data);
+    } else if (intent === 'visitorBadge') {
+      setPendingScannedVisitorBadge(data);
     } else if (intent === 'checkpoint') {
       setPendingScannedCheckpoint(data);
     } else if (intent === 'checkpointSetup') {
@@ -155,6 +161,8 @@ export default function ScanModal() {
                         ? 'Scan the vehicle/motorcycle sticker'
                         : intent === 'contractorBadge'
                           ? "Scan the contractor's badge"
+                          : intent === 'visitorBadge'
+                            ? "Scan the visitor's badge"
                           : intent === 'checkpoint' || intent === 'checkpointSetup'
                             ? 'Scan the checkpoint QR'
                             : 'Position QR code in the frame'}

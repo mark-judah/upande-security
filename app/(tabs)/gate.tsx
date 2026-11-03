@@ -50,6 +50,7 @@ import { useFeedback } from '@/lib/hooks/useFeedback';
 import { useFeatureFlag } from '@/lib/hooks/useSessionInfo';
 import { GatePicker } from '@/components/gate/GatePicker';
 import { ContractorBadgeScanPanel } from '@/components/gate/ContractorBadgeScanPanel';
+import { VisitorBadgeScanPanel } from '@/components/gate/VisitorBadgeScanPanel';
 import { ContractorBadgeIssuer } from '@/components/gate/ContractorBadgeIssuer';
 import { useGateStore } from '@/lib/stores/gateStore';
 import { toFrappeDateTime, fmtDateTime } from '@/lib/utils/date';
@@ -606,6 +607,10 @@ export default function GateTab() {
 
           {selectedType === CheckInType.Contractor && !contractorResult && !selectedAppointment ? (
             <ContractorBadgeScanPanel />
+          ) : null}
+
+          {selectedType === CheckInType.Visitor && !selectedAppointment && !isWalkIn && !showVisitorResult ? (
+            <VisitorBadgeScanPanel />
           ) : null}
 
           {selectedType === CheckInType.Visitor ||
