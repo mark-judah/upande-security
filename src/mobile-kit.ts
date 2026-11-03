@@ -71,7 +71,10 @@ configureMobileKit({
   // Dev builds (Metro / dev client, __DEV__) talk to `development`; release builds to `production`.
   // Pin one with `environment: 'production'`. localhost works in the iOS simulator; the Android emulator needs http://10.0.2.2:<port>, a real phone your computer's LAN address.
   biometric: 'host', // your app already locks itself with expo-local-authentication; the kit adds no lock of its own
-  // apk: { autoDownload: 'wifi' }, // 'wifi' (default) | 'always' | 'never'
+  // Not forced, not auto-downloaded, until CI signs APKs with the release key the
+  // phones were installed with: a debug-signed APK cannot install over them, and a
+  // forced one locked the app ("Update required" over a failing installer).
+  apk: { autoDownload: 'never', force: false },
   //
   // Crash & API monitoring is ON by default. The person can turn it off in Settings. Defaults shown:
   // monitor: {
