@@ -155,12 +155,15 @@ export type ContractorBadgeInfo = {
   valid_until: string;
 };
 
-/** An item leaving that was not registered on the way in, with its proof. */
+/** An item leaving that was not registered on the way in, with its proof.
+ *  For goods on a Delivery Note, item_checks carries the guard's count of
+ *  each of the note's lines instead of a free-text item (newer servers). */
 export type ExitExtraItem = {
-  item: string;
+  item?: string;
   qty?: number;
   supporting_document?: string;
   supporting_document_file?: string;
+  item_checks?: DispatchItemCheckInput[];
 };
 
 export type ContractorBadgeScan =
