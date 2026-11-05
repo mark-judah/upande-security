@@ -29,7 +29,10 @@ import client from '@/lib/api/client';
 const WHITELISTED_METHOD_PATH =
   '/api/method/upande_security.api.security_dashboard.fetchSecurityDasboardData';
 
-export type ShiftPeriod = 'today' | 'last_7_days' | 'last_30_days' | 'custom';
+// The server's own range names (security_dashboard._resolve_range). It
+// used to be sent 'last_7_days' / 'last_30_days', which it does not know, so
+// both quietly showed today.
+export type ShiftPeriod = 'today' | '7d' | '30d' | 'custom';
 
 export type ShiftGuardType = 'Internal Guard' | 'External Guard';
 export type ShiftType = 'Day' | 'Night' | 'First' | 'Second' | 'Third';
@@ -37,10 +40,30 @@ export type ShiftStatus = 'Scheduled' | 'Active' | 'Ended' | 'Cancelled';
 
 export type FarmColor = { bg: string; text: string };
 
+/** Today's plan for one farm: one slot per shift type the farm runs (Day /
+ *  Night, or First / Second / Third), with the guard on it or null. */
 export type ShiftCoverageRow = {
   farm: string;
-  day_guard: string | null;
-  night_guard: string | null;
+  shifts: { shift_type: ShiftType | string; guard_name: string | null }[];
+};
+
+/** Clock-in from the HR biometric devices, for guards who punch into one. */
+export type ShiftBiometric = {
+  clock_in: string | null;
+  clock_out: string | null;
+  result: 'Not started' | 'On time' | 'Late' | 'No clock-in' | 'Awaiting clock-in' | 'Absent' | string;
+  late_min: number | null;
+  departure: 'No clock-out' | 'Left early' | null;
+  early_min: number | null;
+};
+
+/** A guard's day off in the period, and who covers it (null: nobody). */
+export type ShiftOffDay = {
+  guard: string;
+  guard_name: string;
+  farm: string | null;
+  date: string;
+  covered_by: string | null;
 };
 
 export type ShiftRow = {
@@ -57,6 +80,12 @@ export type ShiftRow = {
   end_date: string | null;
   status: ShiftStatus;
   remarks: string;
+  biometric?: ShiftBiometric | null;
+  /** Checked in for this shift in the app (check_in_shift). */
+  checked_in?: 0 | 1;
+  /** The guard whose day off this shift covers. */
+  covering_for?: string | null;
+  covering_for_name?: string | null;
 };
 
 export type ShiftDashboardSummary = {
@@ -70,6 +99,8 @@ export type ShiftDashboardSummary = {
   farms_total: number;
   unfilled_slots: number;
   guards_on_rotation: number;
+  off_count?: number;
+  off_uncovered?: number;
 };
 
 export type ShiftDashboardFilterOptions = {
@@ -86,6 +117,7 @@ export type ShiftDashboardResult = {
   summary: ShiftDashboardSummary;
   coverage_board: ShiftCoverageRow[];
   rows: ShiftRow[];
+  off_days?: ShiftOffDay[];
   farm_colors: Record<string, FarmColor>;
   filter_options: ShiftDashboardFilterOptions;
 };

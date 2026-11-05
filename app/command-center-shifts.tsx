@@ -12,19 +12,21 @@ import { useShiftDashboard } from '@/lib/hooks/useShiftDashboard';
 import { useUpdateShiftAssignment } from '@/lib/hooks/useUpdateShiftAssignment';
 import type {
   ShiftDashboardSummary,
+  ShiftOffDay,
   ShiftPeriod,
   ShiftRow,
   ShiftStatus,
-  ShiftType,
 } from '@/lib/services/securityDashboard';
 import { fmtDateTime } from '@/lib/utils/date';
 import { borderRadius, COLORS, fontFamily, fontSize, spacing } from '@/src/core/theme';
 
 const PERIOD_OPTS: { value: ShiftPeriod; label: string }[] = [
   { value: 'today', label: 'Today' },
-  { value: 'last_7_days', label: 'Last 7' },
-  { value: 'last_30_days', label: 'Last 30' },
+  { value: '7d', label: 'Last 7 days' },
+  { value: '30d', label: 'Last 30 days' },
 ];
+
+type PlanView = 'plan' | 'missing' | 'off';
 
 // Real Select options from Security Guard Shift Assignment.status — see
 // frappe/…/doctype/security_guard_shift_assignment/security_guard_shift_assignment.json.
@@ -49,33 +51,98 @@ function statusPillStyle(status: ShiftStatus | string): { bg: string; fg: string
   }
 }
 
-// Same order the backend's SHIFT_TYPE_ORDER uses - Day/Night is the
-// original farm-wide 12h split, First/Second/Third is Chepsito-style 8h
-// rosters (now also seen on other farms), so every type that actually has
-// assignments gets its own tile instead of only Day/Night being visible.
-const SHIFT_TYPE_ORDER: ShiftType[] = ['Day', 'Night', 'First', 'Second', 'Third'];
 
-function SummaryGrid({ summary }: { summary: ShiftDashboardSummary | undefined }) {
+// Whether the guard is at their post for this shift: the HR biometric
+// clock-in where the guard punches one, else the app's own shift check-in.
+type Attendance = { label: string; fg: string; bg: string; present: boolean; missing: boolean };
+
+function shiftStarted(row: ShiftRow): boolean {
+  if (!row.start_date) return false;
+  const t = new Date(row.start_date.replace(' ', 'T'));
+  return !Number.isNaN(t.getTime()) && t.getTime() <= Date.now();
+}
+
+const GOOD = { fg: '#166534', bg: 'rgba(34,197,94,0.12)' };
+const BAD = { fg: COLORS.danger, bg: 'rgba(239,68,68,0.12)' };
+const WARN = { fg: '#92400E', bg: 'rgba(245,158,11,0.14)' };
+const NEUTRAL = { fg: COLORS.textMuted, bg: COLORS.bgMuted };
+
+function attendanceOf(row: ShiftRow): Attendance | null {
+  if (row.status === 'Cancelled') return null;
+  const bio = row.biometric;
+  if (bio && bio.result !== 'Not started') {
+    if (bio.result === 'On time') return { label: 'On time', ...GOOD, present: true, missing: false };
+    if (bio.result === 'Late')
+      return { label: `Late${bio.late_min ? ` ${bio.late_min}m` : ''}`, ...WARN, present: true, missing: false };
+    if (bio.result === 'Awaiting clock-in') return { label: 'Awaiting', ...NEUTRAL, present: false, missing: false };
+    return { label: bio.result, ...BAD, present: false, missing: true };
+  }
+  if (row.checked_in) return { label: 'Checked in', ...GOOD, present: true, missing: false };
+  if (shiftStarted(row)) return { label: 'Not checked in', ...BAD, present: false, missing: true };
+  return { label: 'Upcoming', ...NEUTRAL, present: false, missing: false };
+}
+
+function SummaryGrid({ summary, rows }: { summary: ShiftDashboardSummary | undefined; rows: ShiftRow[] }) {
   if (!summary) return null;
-  const shiftTypeTiles = SHIFT_TYPE_ORDER
-    .filter((st) => (summary.shift_type_counts?.[st] ?? 0) > 0)
-    .map((st) => ({ label: st, value: summary.shift_type_counts![st]! }));
-  const tiles: { label: string; value: number | string }[] = [
-    { label: 'Assignments', value: summary.total_assignments },
-    ...shiftTypeTiles,
+  const att = rows.map(attendanceOf).filter(Boolean) as Attendance[];
+  const present = att.filter((a) => a.present).length;
+  const missing = att.filter((a) => a.missing).length;
+  const tiles: { label: string; value: number | string; tone?: string }[] = [
+    { label: 'Shifts', value: att.length },
+    { label: 'Checked in', value: present, tone: GOOD.fg },
+    { label: 'Not checked in', value: missing, tone: missing ? COLORS.danger : undefined },
+    {
+      label: summary.off_uncovered ? `Off · ${summary.off_uncovered} uncovered` : 'Off',
+      value: summary.off_count ?? 0,
+      tone: summary.off_uncovered ? COLORS.danger : undefined,
+    },
     { label: 'Farms covered', value: `${summary.farms_covered}/${summary.farms_total}` },
-    { label: 'Unfilled slots', value: summary.unfilled_slots },
-    { label: 'Guards on rotation', value: summary.guards_on_rotation },
+    { label: 'Unfilled slots', value: summary.unfilled_slots, tone: summary.unfilled_slots ? COLORS.danger : undefined },
   ];
   return (
     <View style={s.kpiGrid}>
       {tiles.map((t) => (
         <View key={t.label} style={s.kpiCard}>
-          <Text style={s.kpiValue} numberOfLines={1}>{String(t.value)}</Text>
+          <Text style={[s.kpiValue, t.tone ? { color: t.tone } : null]} numberOfLines={1}>{String(t.value)}</Text>
           <Text style={s.kpiLabel}>{t.label}</Text>
         </View>
       ))}
     </View>
+  );
+}
+
+function OffDayList({ days }: { days: ShiftOffDay[] }) {
+  if (!days.length) {
+    return (
+      <View style={s.emptyState}>
+        <Ionicons name="cafe-outline" size={48} color={COLORS.border} />
+        <Text style={s.emptyTitle}>Nobody is off in this period</Text>
+      </View>
+    );
+  }
+  const byDate: Record<string, ShiftOffDay[]> = {};
+  days.forEach((d) => (byDate[d.date] = byDate[d.date] || []).push(d));
+  return (
+    <>
+      {Object.keys(byDate).sort().map((date) => (
+        <View key={date}>
+          <Text style={s.groupTitle}>{date} · {byDate[date].length} off</Text>
+          {byDate[date].map((d) => (
+            <View key={d.guard + d.date} style={s.offRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={s.shiftGuardName} numberOfLines={1}>{d.guard_name}</Text>
+                <Text style={s.shiftMeta}>{d.farm || 'No farm'}</Text>
+              </View>
+              <View style={[s.pill, { backgroundColor: d.covered_by ? GOOD.bg : BAD.bg }]}>
+                <Text style={[s.pillText, { color: d.covered_by ? GOOD.fg : BAD.fg }]} numberOfLines={1}>
+                  {d.covered_by ? `Covered by ${d.covered_by}` : 'No cover'}
+                </Text>
+              </View>
+            </View>
+          ))}
+        </View>
+      ))}
+    </>
   );
 }
 
@@ -128,6 +195,7 @@ function fmtTimeOnlyDisplay(timeStr: string): string {
 
 function ShiftRowCard({ row }: { row: ShiftRow }) {
   const pill = statusPillStyle(row.status);
+  const att = attendanceOf(row);
   const [expanded, setExpanded] = useState(false);
 
   // ShiftRow (list side, securityDashboard.ts) calls this field `guard_type`;
@@ -201,6 +269,11 @@ function ShiftRowCard({ row }: { row: ShiftRow }) {
         <View style={s.shiftHeaderRow}>
           <View style={[s.farmDot, { backgroundColor: row.farm_color?.bg || COLORS.surfaceAlt }]} />
           <Text style={s.shiftGuardName} numberOfLines={1}>{row.guard_name || row.guard_key}</Text>
+          {att ? (
+            <View style={[s.pill, { backgroundColor: att.bg, marginRight: 4 }]}>
+              <Text style={[s.pillText, { color: att.fg }]}>{att.label}</Text>
+            </View>
+          ) : null}
           <View style={[s.pill, { backgroundColor: pill.bg }]}>
             <Text style={[s.pillText, { color: pill.fg }]}>{row.status}</Text>
           </View>
@@ -222,6 +295,12 @@ function ShiftRowCard({ row }: { row: ShiftRow }) {
             {row.end_date ? fmtDateTime(row.end_date) : '—'}
           </Text>
         </View>
+        {row.covering_for ? (
+          <Text style={s.coverLine} numberOfLines={1}>Covering for {row.covering_for_name || row.covering_for}</Text>
+        ) : null}
+        {row.biometric?.departure ? (
+          <Text style={[s.coverLine, { color: COLORS.danger }]}>{row.biometric.departure}</Text>
+        ) : null}
         {row.remarks ? <Text style={s.shiftRemarks} numberOfLines={2}>{row.remarks}</Text> : null}
       </Pressable>
 
@@ -374,8 +453,23 @@ function sortByStatusPriority(rows: ShiftRow[]): ShiftRow[] {
 
 export default function CommandCenterShiftsScreen() {
   const [period, setPeriod] = useState<ShiftPeriod>('today');
+  const [view, setView] = useState<PlanView>('plan');
   const { data, isLoading, isFetching, error, refetch } = useShiftDashboard({ period });
   const sortedRows = useMemo(() => (data ? sortByStatusPriority(data.rows) : []), [data]);
+  // The plan, farm by farm, each farm's shifts in time order.
+  const byFarm = useMemo(() => {
+    const out: Record<string, ShiftRow[]> = {};
+    for (const r of data?.rows ?? []) (out[r.farm || 'No farm'] = out[r.farm || 'No farm'] || []).push(r);
+    Object.values(out).forEach((list) => list.sort((x, y) => (x.start_date || '').localeCompare(y.start_date || '')));
+    return out;
+  }, [data]);
+  const missing = useMemo(() => sortedRows.filter((r) => attendanceOf(r)?.missing), [sortedRows]);
+  const offDays = data?.off_days ?? [];
+  const viewOpts: { value: PlanView; label: string }[] = [
+    { value: 'plan', label: 'Plan' },
+    { value: 'missing', label: `Not in${missing.length ? ` (${missing.length})` : ''}` },
+    { value: 'off', label: `Off${offDays.length ? ` (${offDays.length})` : ''}` },
+  ];
 
   return (
     <Screen
@@ -392,41 +486,63 @@ export default function CommandCenterShiftsScreen() {
         <Text style={s.refreshingHint}>Refreshing…</Text>
       ) : null}
 
-      <SummaryGrid summary={data?.summary} />
+      <SummaryGrid summary={data?.summary} rows={data?.rows ?? []} />
 
-      {data && data.coverage_board.length > 0 ? (
-        <Card title="Coverage board">
+      {period === 'today' && data && data.coverage_board.length > 0 ? (
+        <Card title="Who is on each post today">
           {data.coverage_board.map((row) => (
             <View key={row.farm} style={s.coverageRow}>
               <Text style={s.coverageFarm} numberOfLines={1}>{row.farm}</Text>
               <View style={s.coverageGuards}>
-                <View style={s.coverageGuardCol}>
-                  <Text style={s.coverageGuardLabel}>DAY</Text>
-                  <Text style={s.coverageGuardName} numberOfLines={1}>
-                    {row.day_guard || '— unfilled'}
-                  </Text>
-                </View>
-                <View style={s.coverageGuardCol}>
-                  <Text style={s.coverageGuardLabel}>NIGHT</Text>
-                  <Text style={s.coverageGuardName} numberOfLines={1}>
-                    {row.night_guard || '— unfilled'}
-                  </Text>
-                </View>
+                {(row.shifts ?? []).map((slot) => (
+                  <View key={slot.shift_type} style={s.coverageGuardCol}>
+                    <Text style={s.coverageGuardLabel}>{String(slot.shift_type).toUpperCase()}</Text>
+                    <Text
+                      style={[s.coverageGuardName, !slot.guard_name && { color: COLORS.danger }]}
+                      numberOfLines={1}
+                    >
+                      {slot.guard_name || 'Unfilled'}
+                    </Text>
+                  </View>
+                ))}
               </View>
             </View>
           ))}
         </Card>
       ) : null}
 
-      <Text style={s.sectionTitle}>Assignments</Text>
-      {sortedRows.length > 0 ? (
-        sortedRows.map((row) => <ShiftRowCard key={row.name} row={row} />)
-      ) : !isLoading ? (
-        <View style={s.emptyState}>
-          <Ionicons name="calendar-outline" size={48} color={COLORS.border} />
-          <Text style={s.emptyTitle}>No shift assignments in this range</Text>
-        </View>
+      <View style={{ height: spacing.sm }} />
+      <Segmented value={view} options={viewOpts} onChange={setView} />
+      <View style={{ height: spacing.md }} />
+
+      {view === 'plan' ? (
+        Object.keys(byFarm).length > 0 ? (
+          Object.keys(byFarm).sort().map((farm) => (
+            <View key={farm}>
+              <Text style={s.groupTitle}>{farm} · {byFarm[farm].length} shift{byFarm[farm].length === 1 ? '' : 's'}</Text>
+              {byFarm[farm].map((row) => <ShiftRowCard key={row.name} row={row} />)}
+            </View>
+          ))
+        ) : !isLoading ? (
+          <View style={s.emptyState}>
+            <Ionicons name="calendar-outline" size={48} color={COLORS.border} />
+            <Text style={s.emptyTitle}>No shifts in this period</Text>
+          </View>
+        ) : null
       ) : null}
+
+      {view === 'missing' ? (
+        missing.length > 0 ? (
+          missing.map((row) => <ShiftRowCard key={row.name} row={row} />)
+        ) : (
+          <View style={s.emptyState}>
+            <Ionicons name="checkmark-done-outline" size={48} color={COLORS.border} />
+            <Text style={s.emptyTitle}>Everyone whose shift has started has checked in</Text>
+          </View>
+        )
+      ) : null}
+
+      {view === 'off' ? <OffDayList days={offDays} /> : null}
     </Screen>
   );
 }
@@ -490,6 +606,27 @@ const s = StyleSheet.create({
   shiftMeta: { fontFamily: fontFamily.regular, fontSize: fontSize.xs, color: COLORS.textMuted, marginTop: 4 },
   shiftTimeRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 6 },
   shiftTime: { fontFamily: fontFamily.regular, fontSize: fontSize.xs, color: COLORS.textSecondary },
+  coverLine: { fontFamily: fontFamily.medium, fontSize: fontSize.xs, color: '#1E88E5', marginTop: 4 },
+  groupTitle: {
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.xs,
+    color: COLORS.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginTop: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  offRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: COLORS.surface,
+    borderRadius: borderRadius.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: COLORS.border,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
+  },
   shiftRemarks: { fontFamily: fontFamily.regular, fontSize: fontSize.xs, color: COLORS.textMuted, marginTop: 4, fontStyle: 'italic' },
   emptyState: { alignItems: 'center', paddingVertical: spacing.xl },
   emptyTitle: { color: COLORS.textMuted, marginTop: spacing.sm, fontSize: fontSize.sm, fontFamily: fontFamily.semiBold },
