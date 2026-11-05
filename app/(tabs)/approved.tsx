@@ -10,7 +10,8 @@ import { useItemsAwareCheckOut } from '@/components/gate/CheckOutItemsSheet';
 import { EntryItemsSheet } from '@/components/gate/EntryItemsSheet';
 import { VisitDetailsSheet, type VisitDetails } from '@/components/gate/VisitDetailsSheet';
 import { api } from '@/lib/services/api';
-import { fmtDateTime } from '@/lib/utils/date';
+import { fmtDateTime, fmtTime, getDuration } from '@/lib/utils/date';
+import { useAppointmentTempExit } from '@/lib/hooks/useAppointmentTempExit';
 import type { ApprovedAppointmentRow } from '@/lib/services/api';
 import { COLORS, fontFamily, fontSize, spacing, borderRadius } from '@/src/core/theme';
 import { Button } from '@/src/core/ui/Button';
@@ -76,6 +77,11 @@ function ApprovedCard({
   // so it needs the same enforcement or it's a bypass of the Gate tab's gate.
   const hasBadge = Boolean(item.custom_visitor_badge_number);
   const checkInBlocked = !isCheckedIn && requiresBadge && !hasBadge;
+  // An inside visitor can step out briefly and come back without being
+  // checked out (feature_gate_temp_exit).
+  const tempExitEnabled = useFeatureFlag('feature_gate_temp_exit');
+  const tempExit = useAppointmentTempExit();
+  const steppedOut = Boolean(item.custom_temp_exit_time);
 
   return (
     <View style={s.card}>
@@ -150,6 +156,25 @@ function ApprovedCard({
           />
         ) : null}
 
+        {isCheckedIn && steppedOut ? (
+          <View style={s.steppedOut}>
+            <Ionicons name="walk-outline" size={14} color={COLORS.warn} />
+            <Text style={s.steppedOutText}>
+              Stepped out at {fmtTime(item.custom_temp_exit_time ?? undefined)} · {getDuration(item.custom_temp_exit_time ?? undefined)}
+            </Text>
+          </View>
+        ) : null}
+        {isCheckedIn && tempExitEnabled ? (
+          <Button
+            label={steppedOut ? 'CONFIRM RETURN' : 'STEP OUT'}
+            onPress={() => tempExit.mutate({ name: item.name, direction: steppedOut ? 'in' : 'out' })}
+            disabled={tempExit.isPending}
+            loading={tempExit.isPending}
+            color={steppedOut ? COLORS.success : COLORS.warn}
+            iconLeft={steppedOut ? 'log-in-outline' : 'walk-outline'}
+            style={s.actionBtn}
+          />
+        ) : null}
         <Button
           label={checkInBlocked ? 'ISSUE BADGE TO CHECK IN' : actionLabel}
           onPress={() => onAction(item)}
@@ -418,6 +443,17 @@ const s = StyleSheet.create({
   },
   detailBold: { fontFamily: fontFamily.semiBold },
   actionBtn: { marginTop: spacing.md },
+  steppedOut: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 6,
+    borderRadius: borderRadius.sm,
+    backgroundColor: 'rgba(245,158,11,0.10)',
+  },
+  steppedOutText: { color: COLORS.warn, fontSize: fontSize.xs, fontFamily: fontFamily.semiBold },
   errorBox: {
     backgroundColor: '#FFF3E0',
     borderRadius: borderRadius.sm,

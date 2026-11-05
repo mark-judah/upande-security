@@ -740,6 +740,8 @@ export type ApprovedAppointmentRow = {
   organization?: string;
   custom_visitor_badge_number?: number | null;
   custom_host_received_time?: string;
+  /** Set while an inside visitor has stepped out (gate temp exit). */
+  custom_temp_exit_time?: string | null;
   custom_visitor_type?: 'Visitor' | 'Staff' | 'Contractor' | 'Customer' | string;
 };
 

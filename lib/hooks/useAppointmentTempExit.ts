@@ -4,7 +4,7 @@ import { useFeedback } from './useFeedback';
 
 /**
  * Step Out / Confirm Return for a visitor or contractor Appointment —
- * used by the Summary tab's Currently Inside list (InsideCard).
+ * used by the inside visitors' cards on the Approved screen.
  */
 export function useAppointmentTempExit() {
   const qc = useQueryClient();
@@ -15,6 +15,7 @@ export function useAppointmentTempExit() {
     onSuccess: (_, { name, direction }) => {
       qc.invalidateQueries({ queryKey: ['appointment', name] });
       qc.invalidateQueries({ queryKey: ['daily-summary'] });
+      qc.invalidateQueries({ queryKey: ['approved-appointments'] });
       feedback.success(direction === 'out' ? 'Stepped out ✓' : 'Welcome back ✓');
     },
     onError: (err: Error) => feedback.error(err.message || 'Could not update status'),
