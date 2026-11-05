@@ -47,9 +47,7 @@ const BIOMETRIC_LOCK_ROUTE_AVAILABLE = true;
 const DRAWER_ITEMS: DrawerItem[] = [
   { label: 'Home',      route: '',           icon: 'home-outline' },
   { label: 'Gate',      route: 'gate',       icon: 'log-in-outline' },
-  { label: 'Visits',    route: 'visits',     icon: 'people-outline' },
   { label: 'Approved',  route: 'approved',   icon: 'checkmark-circle-outline' },
-  { label: 'Summary',   route: 'summary',    icon: 'stats-chart-outline' },
   { label: 'Incidents', route: 'incidents',  icon: 'warning-outline' },
   { label: 'Patrol',    route: 'patrol',     icon: 'walk-outline' },
   { label: 'Reports',   route: 'reports',    icon: 'bar-chart-outline' },
@@ -207,9 +205,6 @@ export default function RootLayout() {
                    *  anywhere else, so this mirrors the established
                    *  convention rather than introducing a new one). */}
                   <Stack.Screen name="command-center-shifts" />
-                  <Stack.Screen name="command-center-incidents" />
-                  <Stack.Screen name="command-center-stickers" />
-                  <Stack.Screen name="command-center-badges" />
                   <Stack.Screen name="command-center-settings" />
                 </Stack>
               </AppDrawerItems>

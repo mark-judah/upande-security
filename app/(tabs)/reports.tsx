@@ -171,7 +171,8 @@ function WatchList({ watch }: { watch: ReportWatchT }) {
 
 export default function ReportsTab() {
   const [tab, setTab] = useState<ReportTab>('overview');
-  const [preset, setPreset] = useState<RangePreset>('7d');
+  // Opens on today - the day's gate summary lives here.
+  const [preset, setPreset] = useState<RangePreset>('today');
   const [farm, setFarm] = useState('');
   const [location, setLocation] = useState('');
   // While a finger is down on the patrol map, yield vertical gestures to

@@ -12,7 +12,7 @@ type TabIconPair = {
   filled: keyof typeof Ionicons.glyphMap;
 };
 
-/** Bottom-tab icons. Hidden routes (Visits / Summary / Settings) live in
+/** Bottom-tab icons. Hidden routes (Reports / Settings) live in
  *  the drawer only and don't need entries here — they're declared with
  *  href: null below so the navigator knows the routes exist. */
 const ICONS: Record<string, TabIconPair> = {
@@ -71,8 +71,6 @@ export default function TabsLayout() {
       <Tabs.Screen name="incidents" options={{ title: 'Incidents' }} />
 
       {/* Drawer-only routes — registered so they're navigable, hidden from the bar */}
-      <Tabs.Screen name="visits" options={{ title: 'Visits', href: null }} />
-      <Tabs.Screen name="summary" options={{ title: 'Summary', href: null }} />
       <Tabs.Screen name="reports" options={{ title: 'Reports', href: null }} />
       <Tabs.Screen name="settings" options={{ title: 'Settings', href: null }} />
       {/* Role-gated — only Secretary / Department Head see this in the drawer. */}
@@ -82,7 +80,7 @@ export default function TabsLayout() {
       />
       {/* Role-gated — Security Head / System Manager, or anyone allow-listed
        *  in Security Ops Settings (has_command_center_access). Drawer-only,
-       *  same as Visits/Summary/Reports/Settings — the bottom bar is
+       *  same as Reports/Settings — the bottom bar is
        *  already full at 5 icons. */}
       <Tabs.Screen
         name="command-center"

@@ -2,7 +2,6 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Screen } from '@/src/core/ui/Screen';
-import { useFeatureFlag } from '@/lib/hooks/useSessionInfo';
 import { borderRadius, COLORS, fontFamily, fontSize, spacing } from '@/src/core/theme';
 
 // Sub-screens are top-level Stack routes (app/command-center-*.tsx),
@@ -12,7 +11,7 @@ import { borderRadius, COLORS, fontFamily, fontSize, spacing } from '@/src/core/
 // convention rather than introducing app/(tabs)/command-center/*.tsx.
 const ENTRIES: {
   key: string;
-  route: '/command-center-shifts' | '/command-center-incidents' | '/command-center-stickers' | '/command-center-badges' | '/command-center-settings';
+  route: '/command-center-shifts' | '/command-center-settings';
   icon: keyof typeof Ionicons.glyphMap;
   title: string;
   hint: string;
@@ -25,27 +24,6 @@ const ENTRIES: {
     hint: 'Coverage board and guard assignments, by farm and shift',
   },
   {
-    key: 'incidents',
-    route: '/command-center-incidents',
-    icon: 'warning-outline',
-    title: 'Incidents',
-    hint: 'Full incident list across your access scope',
-  },
-  {
-    key: 'stickers',
-    route: '/command-center-stickers',
-    icon: 'car-outline',
-    title: 'Vehicle Stickers',
-    hint: 'Review and approve staff vehicle sticker requests',
-  },
-  {
-    key: 'badges',
-    route: '/command-center-badges',
-    icon: 'id-card-outline',
-    title: 'Supplier Badges',
-    hint: 'Badge status across contracted suppliers',
-  },
-  {
     key: 'settings',
     route: '/command-center-settings',
     icon: 'settings-outline',
@@ -54,16 +32,14 @@ const ENTRIES: {
   },
 ];
 
+// Incidents are reviewed on the Incidents screen itself (a Security Head
+// taps a card); vehicle stickers and supplier badges are handled in Desk.
 export default function CommandCenterScreen() {
-  const stickersEnabled = useFeatureFlag('feature_vehicle_stickers');
-  const supplierBadgesEnabled = useFeatureFlag('feature_supplier_badges');
-  const entries = ENTRIES.filter(
-    (e) => (e.key !== 'stickers' || stickersEnabled) && (e.key !== 'badges' || supplierBadgesEnabled),
-  );
+  const entries = ENTRIES;
   return (
     <Screen title="Command Center">
       <Text style={s.intro}>
-        Admin-facing tools for shift planning, incident oversight, and gate approvals.
+        Shift planning and security settings.
       </Text>
 
       {entries.map((entry) => (

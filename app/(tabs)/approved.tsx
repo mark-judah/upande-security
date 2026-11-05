@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { View, Text, ActivityIndicator, Alert, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Screen } from '@/src/core/ui/Screen';
@@ -16,6 +17,16 @@ import { Button } from '@/src/core/ui/Button';
 import { IssueVisitorBadge } from '@/components/gate/IssueVisitorBadge';
 import { VISITOR_BADGE_ENABLED } from '@/constants/featureFlags';
 import { useFeatureFlag } from '@/lib/hooks/useSessionInfo';
+import { Segmented } from '@/src/core/ui/Segmented';
+import { VisitActivityList } from '@/components/gate/VisitActivityList';
+
+// Approved holds every visit the gate needs: the ones ready to enter or
+// inside, and (Other visits) the ones awaiting approval, moved, or rejected.
+type View_ = 'ready' | 'other';
+const VIEW_OPTS: { value: View_; label: string }[] = [
+  { value: 'ready', label: 'Ready & inside' },
+  { value: 'other', label: 'Other visits' },
+];
 
 type Status = 'Approved by Host' | 'Visitor Checked In' | string;
 
@@ -155,6 +166,8 @@ function ApprovedCard({
 }
 
 export default function ApprovedTab() {
+  const [view, setView] = useState<View_>('ready');
+  const qc = useQueryClient();
   const { data, isFetching, isLoading, error, refetch } = useApprovedAppointments();
   const checkIn = useCheckIn();
   const checkOut = useCheckOut();
@@ -245,9 +258,14 @@ export default function ApprovedTab() {
     <Screen
       title="Approved"
       onRefresh={async () => {
-        await refetch();
+        if (view === 'other') await qc.invalidateQueries({ queryKey: ['gate-activity'] });
+        else await refetch();
       }}
     >
+      <View style={s.viewSwitch}>
+        <Segmented value={view} options={VIEW_OPTS} onChange={setView} />
+      </View>
+      {view === 'other' ? <VisitActivityList /> : null}
       {itemsCheckOut.sheet}
       <VisitDetailsSheet
         visit={
@@ -286,6 +304,8 @@ export default function ApprovedTab() {
           await doCheckIn(item, details);
         }}
       />
+      {view === 'ready' ? (
+      <>
       <View style={s.pageHeaderRow}>
         <Text style={s.pageTitle}>Approved Visitors</Text>
         {isLoading || isFetching ? (
@@ -334,6 +354,8 @@ export default function ApprovedTab() {
           }
         />
       ))}
+      </>
+      ) : null}
     </Screen>
   );
 }
@@ -341,6 +363,7 @@ export default function ApprovedTab() {
 const s = StyleSheet.create({
   scroll: { flex: 1, backgroundColor: COLORS.bgMuted },
   content: { padding: spacing.md, paddingBottom: 40 },
+  viewSwitch: { marginBottom: spacing.md },
   pageHeaderRow: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.md },
   pageTitle: { flex: 1, fontSize: fontSize.md, fontFamily: fontFamily.bold, color: COLORS.text },
   summaryRow: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.md },

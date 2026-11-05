@@ -1,7 +1,6 @@
 import { useMemo } from 'react';
 import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Screen } from '@/src/core/ui/Screen';
 import { useGateActivity } from '@/lib/hooks/useGateActivity';
 import { fmtDateTime } from '@/lib/utils/date';
 import type { GateActivityRow } from '@/lib/services/api';
@@ -192,9 +191,15 @@ function GroupHeader({ title, count }: { title: string; count: number }) {
   );
 }
 
-export default function VisitsTab() {
-  const { data, isFetching, isLoading, error, refetch } = useGateActivity();
-  const items = data ?? [];
+/**
+ * The last 7 days' visits that are not simply approved or inside - awaiting
+ * a host or secretary, rescheduled or redirected, and rejected (do not
+ * admit). Shown as the Approved screen's "Other visits" tab, so every visit
+ * the gate needs to know about is in one place.
+ */
+export function VisitActivityList() {
+  const { data, isFetching, isLoading, error } = useGateActivity();
+  const items = useMemo(() => data ?? [], [data]);
 
   const groups = useMemo(() => {
     const awaiting: GateActivityRow[] = [];
@@ -210,14 +215,9 @@ export default function VisitsTab() {
   }, [items]);
 
   return (
-    <Screen
-      title="Visits"
-      onRefresh={async () => {
-        await refetch();
-      }}
-    >
+    <>
       <View style={s.pageHeaderRow}>
-        <Text style={s.pageTitle}>Recent Visit Activity</Text>
+        <Text style={s.pageTitle}>Other visits</Text>
         {isLoading || isFetching ? <ActivityIndicator size="small" color={COLORS.textMuted} /> : null}
       </View>
       <Text style={s.pageSubtitle}>Last 7 days · auto-refreshes every 30s</Text>
@@ -265,7 +265,7 @@ export default function VisitsTab() {
           ))}
         </>
       ) : null}
-    </Screen>
+    </>
   );
 }
 
