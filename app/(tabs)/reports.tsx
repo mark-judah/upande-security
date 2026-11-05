@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   ScrollView,
   StyleSheet,
   Text,
@@ -13,6 +14,9 @@ import { Segmented } from '@/src/core/ui/Segmented';
 import { Dropdown } from '@/src/core/ui/Dropdown';
 import { IncidentCard } from '@/components/reports/IncidentCard';
 import { useSecurityReport } from '@/lib/hooks/useSecurityReport';
+import { useQueryClient } from '@tanstack/react-query';
+import { api } from '@/lib/services/api';
+import { useFeedback } from '@/lib/hooks/useFeedback';
 import type {
   ReportTab,
   ReportTable as ReportTableT,
@@ -137,8 +141,41 @@ function ReportTable({
   );
 }
 
+// An overstay that is not real - the visitor left without being checked out -
+// is checked out from the list, after a confirmation.
+function useStaleCheckOut() {
+  const qc = useQueryClient();
+  const feedback = useFeedback();
+  const [busy, setBusy] = useState<string | null>(null);
+  const run = async (row: ReportWatchT['rows'][number]) => {
+    if (!row.name) return;
+    setBusy(row.name);
+    try {
+      if (row.action === 'contractor_check_out') await api.contractorCheckOut(row.name);
+      else await api.checkOutVisitor(row.name);
+      feedback.success('Checked out');
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ['security-report'] }),
+        qc.invalidateQueries({ queryKey: ['daily-summary'] }),
+        qc.invalidateQueries({ queryKey: ['approved-appointments'] }),
+      ]);
+    } catch (e) {
+      feedback.error(e instanceof Error ? e.message : 'Could not check out');
+    } finally {
+      setBusy(null);
+    }
+  };
+  const confirm = (row: ReportWatchT['rows'][number]) =>
+    Alert.alert('Check out?', `${row.label}\n${row.detail}\n\nCheck this visit out now - use this when they left without being checked out.`, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Check out', style: 'destructive', onPress: () => run(row) },
+    ]);
+  return { busy, confirm };
+}
+
 function WatchList({ watch }: { watch: ReportWatchT }) {
   const color = TONE_COLOR[watch.tone] ?? COLORS.textMuted;
+  const stale = useStaleCheckOut();
   return (
     <View style={s.block}>
       <View style={s.watchHead}>
@@ -160,6 +197,20 @@ function WatchList({ watch }: { watch: ReportWatchT }) {
               <Text style={s.watchDetail} numberOfLines={1}>
                 {row.detail}
               </Text>
+              {row.name && row.action ? (
+                <TouchableOpacity
+                  onPress={() => stale.confirm(row)}
+                  disabled={stale.busy === row.name}
+                  style={s.watchAction}
+                  activeOpacity={0.7}
+                >
+                  {stale.busy === row.name ? (
+                    <ActivityIndicator size="small" color={COLORS.danger} />
+                  ) : (
+                    <Text style={s.watchActionText}>Check out</Text>
+                  )}
+                </TouchableOpacity>
+              ) : null}
             </View>
           ))}
         </View>
@@ -347,4 +398,16 @@ const s = StyleSheet.create({
   },
   watchLabel: { fontFamily: fontFamily.medium, fontSize: fontSize.sm, color: COLORS.text },
   watchDetail: { fontFamily: fontFamily.regular, fontSize: fontSize.xs, color: COLORS.textMuted, marginTop: 1 },
+  watchAction: {
+    alignSelf: 'flex-start',
+    marginTop: 6,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 4,
+    borderRadius: borderRadius.full,
+    borderWidth: 1,
+    borderColor: COLORS.danger,
+    minWidth: 90,
+    alignItems: 'center',
+  },
+  watchActionText: { fontFamily: fontFamily.semiBold, fontSize: fontSize.xs, color: COLORS.danger },
 });

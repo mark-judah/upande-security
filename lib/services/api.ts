@@ -905,7 +905,8 @@ export type ReportTable = {
 export type ReportWatch = {
   title: string;
   tone: 'danger' | 'warn' | 'ok';
-  rows: { label: string; detail: string }[];
+  /** name + action: a stale visit the app can check out from the list. */
+  rows: { label: string; detail: string; name?: string; action?: 'check_out' | 'contractor_check_out' }[];
 };
 export type IncidentPerson = {
   name: string;
