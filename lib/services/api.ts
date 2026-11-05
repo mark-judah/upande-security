@@ -1465,6 +1465,54 @@ export type UpdateSupplierBadgeResult = {
 
 // --- API surface ---
 
+
+// ── Guard performance (Command Center) ── upande_security.api.patrol_ranking
+export type GuardRankingPeriod = 'today' | 'yesterday' | 'this_week' | 'last_week' | 'this_month' | 'last_month';
+
+export type GuardRankingRow = {
+  farm: string;
+  guard: string;
+  name: string;
+  kind: string;
+  rank: number;
+  score: number;
+  distance_km: number;
+  cells: number;
+  coverage_pct: number | null;
+  area_ha: number | null;
+  patrol_hours: number;
+  patrols: number;
+  scans: number;
+  valid_scans: number;
+  shifts: number;
+  incidents: number;
+  incidents_scored: number;
+  incidents_serious: number;
+};
+
+export type GuardRankingFarm = {
+  farm: string;
+  guards: number;
+  coverage_pct: number | null;
+  area_ha: number | null;
+  covered_ha: number | null;
+  distance_km: number;
+  patrol_hours: number;
+  patrols: number;
+  scans: number;
+  valid_scans: number;
+};
+
+export type GuardRankingResult = {
+  period: string;
+  from_date: string;
+  to_date: string;
+  window_label?: string;
+  checkpoints: boolean;
+  farms: GuardRankingFarm[];
+  rows: GuardRankingRow[];
+};
+
 export const api = {
   // Session
   getSessionInfo: () => call<SessionInfo>('get_session_info'),
@@ -1694,6 +1742,9 @@ export const api = {
   pendingApprovals: () => call<PendingApprovalRow[]>('pending_approvals'),
   approvedAppointments: () => call<ApprovedAppointmentRow[]>('approved_appointments'),
   gateActivity: () => call<GateActivityRow[]>('gate_activity'),
+  // Command Center guard performance: the Security Dashboard's ranking.
+  guardRanking: (args: { period: GuardRankingPeriod; farm?: string; company?: string }) =>
+    call<GuardRankingResult>('guard_ranking', args),
 
   // Reports (security management dashboard)
   securityReport: (

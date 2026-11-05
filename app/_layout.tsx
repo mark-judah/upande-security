@@ -205,6 +205,7 @@ export default function RootLayout() {
                    *  anywhere else, so this mirrors the established
                    *  convention rather than introducing a new one). */}
                   <Stack.Screen name="command-center-shifts" />
+                  <Stack.Screen name="command-center-performance" />
                   <Stack.Screen name="command-center-settings" />
                 </Stack>
               </AppDrawerItems>
