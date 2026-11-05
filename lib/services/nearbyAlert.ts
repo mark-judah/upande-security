@@ -1,4 +1,5 @@
 import * as Haptics from 'expo-haptics';
+import { handleSecurityMessagePush, isSecurityMessagePayload } from './messageAlert';
 import { router } from 'expo-router';
 import { getNotifications } from './pushToken';
 import { handleIncomingVisitorApprovedPush } from './visitorApprovedAlert';
@@ -138,7 +139,9 @@ let _handledResetTimer: ReturnType<typeof setTimeout> | null = null;
  * (foreground listener + tap response can both fire) — de-duplicated for a
  * short window.
  */
-export function handleIncomingPush(content: unknown): void {
+/** tapped: the person tapped the notification (or it started the app),
+ *  rather than it just arriving while the app is open. */
+export function handleIncomingPush(content: unknown, tapped = false): void {
   // Log every push into the on-device notification-center history first,
   // regardless of type, before any per-type routing below.
   recordIncomingPush(content);
@@ -147,6 +150,12 @@ export function handleIncomingPush(content: unknown): void {
     content && typeof content === 'object'
       ? (content as { data?: unknown }).data
       : undefined;
+
+  // Messages open only on a tap; arriving, they just refresh.
+  if (isSecurityMessagePayload(data)) {
+    handleSecurityMessagePush(data, tapped);
+    return;
+  }
 
   if (!isSosAlertPayload(data)) {
     // Not an sos_alert push - visitor_approved is the only other kind this
@@ -219,7 +228,7 @@ export function attachNearbyAlertListeners(): () => void {
     );
     subs.push(
       Notifications.addNotificationResponseReceivedListener((event) => {
-        handleIncomingPush(event.notification?.request?.content);
+        handleIncomingPush(event.notification?.request?.content, true);
       }),
     );
   } catch (e) {
@@ -229,7 +238,7 @@ export function attachNearbyAlertListeners(): () => void {
   // Cold start: the app was fully killed and the user tapped the alert.
   try {
     const last = Notifications.getLastNotificationResponse();
-    if (last) handleIncomingPush(last.notification?.request?.content);
+    if (last) handleIncomingPush(last.notification?.request?.content, true);
   } catch (e) {
     if (__DEV__) console.warn('[nearbyAlert] getLastNotificationResponse failed:', e);
   }

@@ -1520,6 +1520,38 @@ export type GuardRankingResult = {
   rows: GuardRankingRow[];
 };
 
+
+// ── Security messages ── upande_security.api.messaging
+export type ConversationRow = {
+  name: string;
+  title: string;
+  type: 'Direct' | 'Group';
+  farm: string | null;
+  members: number;
+  last_message: string;
+  last_message_at: string | null;
+  unread: number;
+};
+
+export type ChatMessage = {
+  name: string;
+  sender: string;
+  sender_name: string;
+  body: string;
+  sent_at: string;
+  mine: boolean;
+};
+
+export type ConversationThread = {
+  conversation: string;
+  title: string;
+  type: 'Direct' | 'Group';
+  members: { user: string; name: string }[];
+  messages: ChatMessage[];
+};
+
+export type MessageContact = { user: string; name: string; kind: 'Guard' | 'Supervisor'; farm: string | null };
+
 export const api = {
   // Session
   getSessionInfo: () => call<SessionInfo>('get_session_info'),
@@ -1749,6 +1781,17 @@ export const api = {
   pendingApprovals: () => call<PendingApprovalRow[]>('pending_approvals'),
   approvedAppointments: () => call<ApprovedAppointmentRow[]>('approved_appointments'),
   gateActivity: () => call<GateActivityRow[]>('gate_activity'),
+  // Security messages between guards and supervisors.
+  listConversations: () => call<ConversationRow[]>('list_conversations'),
+  getMessages: (conversation: string, before?: string) =>
+    call<ConversationThread>('get_messages', before ? { conversation, before } : { conversation }),
+  sendMessage: (args: { body: string; conversation?: string; to?: string | string[] }) =>
+    call<{ conversation: string; message: ChatMessage }>('send_message', args),
+  markConversationRead: (conversation: string) => call<{ ok: boolean }>('mark_conversation_read', { conversation }),
+  messageContacts: (query?: string) => call<MessageContact[]>('message_contacts', query ? { query } : {}),
+  messageFarmGuards: (farm: string, body?: string) =>
+    call<{ conversation: string }>('message_farm_guards', body ? { farm, body } : { farm }),
+  unreadMessages: () => call<{ unread: number }>('unread_messages'),
   // Command Center guard performance: the Security Dashboard's ranking.
   guardRanking: (args: { period: GuardRankingPeriod; farm?: string; company?: string }) =>
     call<GuardRankingResult>('guard_ranking', args),

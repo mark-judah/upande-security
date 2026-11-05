@@ -42,6 +42,9 @@ export const SOS_CHANNEL_ID = 'sos-alerts';
  * don't add one here without also changing the server to actually target it.
  */
 export const VISITOR_APPROVED_CHANNEL_ID = 'visitor-approved';
+/** Security messages between guards and supervisors (upande_security
+ *  messaging.push_message sends on this channel). */
+export const SECURITY_MESSAGES_CHANNEL_ID = 'security-messages';
 
 let _channelReady = false;
 async function ensureAndroidChannel(Notifications: NotificationsModule): Promise<void> {
@@ -64,6 +67,14 @@ async function ensureAndroidChannel(Notifications: NotificationsModule): Promise
       sound: 'default',
       lightColor: '#22C55E',
       lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+    });
+    await Notifications.setNotificationChannelAsync(SECURITY_MESSAGES_CHANNEL_ID, {
+      name: 'Security Messages',
+      importance: Notifications.AndroidImportance.HIGH,
+      sound: 'default',
+      vibrationPattern: [0, 250, 150, 250],
+      lightColor: '#1E88E5',
+      lockscreenVisibility: Notifications.AndroidNotificationVisibility.PRIVATE,
     });
     _channelReady = true;
   } catch (e) {

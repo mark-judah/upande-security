@@ -50,6 +50,7 @@ const DRAWER_ITEMS: DrawerItem[] = [
   { label: 'Approved',  route: 'approved',   icon: 'checkmark-circle-outline' },
   { label: 'Incidents', route: 'incidents',  icon: 'warning-outline' },
   { label: 'Patrol',    route: 'patrol',     icon: 'walk-outline' },
+  { label: 'Messages',  route: 'messages',   icon: 'chatbubbles-outline' },
   { label: 'Reports',   route: 'reports',    icon: 'bar-chart-outline' },
 ];
 
@@ -205,6 +206,9 @@ export default function RootLayout() {
                    *  anywhere else, so this mirrors the established
                    *  convention rather than introducing a new one). */}
                   <Stack.Screen name="command-center-shifts" />
+                  <Stack.Screen name="messages" />
+                  <Stack.Screen name="message-thread" />
+                  <Stack.Screen name="message-new" />
                   <Stack.Screen name="command-center-performance" />
                   <Stack.Screen name="command-center-patrol-map" />
                   <Stack.Screen name="command-center-settings" />

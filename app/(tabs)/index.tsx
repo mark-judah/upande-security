@@ -9,6 +9,7 @@ import { useSessionInfo } from '@/lib/hooks/useSessionInfo';
 import { useDailySummary } from '@/lib/hooks/useDailySummary';
 import { useIncidents } from '@/lib/hooks/useIncidents';
 import { useMyShift } from '@/lib/hooks/useMyShift';
+import { useUnreadMessages } from '@/lib/hooks/useMessages';
 import { fmtDateTime } from '@/lib/utils/date';
 import { borderRadius, COLORS, fontFamily, fontSize, spacing } from '@/src/core/theme';
 
@@ -51,7 +52,7 @@ function Stat({
   );
 }
 
-function Action({ label, icon, route }: { label: string; icon: IconName; route: string }) {
+function Action({ label, icon, route, badge }: { label: string; icon: IconName; route: string; badge?: number }) {
   return (
     <Pressable
       onPress={() => router.push(route as never)}
@@ -59,6 +60,11 @@ function Action({ label, icon, route }: { label: string; icon: IconName; route: 
     >
       <View style={s.actionIcon}>
         <Ionicons name={icon} size={22} color={COLORS.text} />
+        {badge ? (
+          <View style={s.badge}>
+            <Text style={s.badgeText}>{badge > 99 ? '99+' : badge}</Text>
+          </View>
+        ) : null}
       </View>
       <Text style={s.actionLabel}>{label}</Text>
     </Pressable>
@@ -82,6 +88,7 @@ export default function HomeScreen() {
   const incidents = useIncidents(incidentRange);
   const openIncidents = incidents.data?.filter((i) => OPEN_STATUSES.includes(i.status || 'Open')).length;
 
+  const unread = useUnreadMessages().data?.unread ?? 0;
   const name = session.data?.full_name || email || 'Security user';
   const sh = shift.data;
 
@@ -158,6 +165,7 @@ export default function HomeScreen() {
         <Action label="Gate" icon="log-in-outline" route="/gate" />
         <Action label="Report incident" icon="warning-outline" route="/incident-new" />
         <Action label="Patrol" icon="walk-outline" route="/patrol" />
+        <Action label="Messages" icon="chatbubbles-outline" route="/messages" badge={unread} />
       </View>
     </Screen>
   );
@@ -236,5 +244,18 @@ const s = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  badge: {
+    position: 'absolute',
+    top: -4,
+    right: -6,
+    minWidth: 18,
+    height: 18,
+    paddingHorizontal: 4,
+    borderRadius: 9,
+    backgroundColor: '#1E88E5',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  badgeText: { color: '#fff', fontFamily: fontFamily.bold, fontSize: 10 },
   actionLabel: { fontFamily: fontFamily.semiBold, fontSize: fontSize.xs, color: COLORS.text, textAlign: 'center' },
 });
