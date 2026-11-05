@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   ScrollView,
@@ -12,7 +12,6 @@ import { Screen } from '@/src/core/ui/Screen';
 import { Segmented } from '@/src/core/ui/Segmented';
 import { Dropdown } from '@/src/core/ui/Dropdown';
 import { IncidentCard } from '@/components/reports/IncidentCard';
-import { PatrolMap, type PatrolMapHandle } from '@/components/reports/PatrolMap';
 import { useSecurityReport } from '@/lib/hooks/useSecurityReport';
 import type {
   ReportTab,
@@ -175,11 +174,6 @@ export default function ReportsTab() {
   const [preset, setPreset] = useState<RangePreset>('today');
   const [farm, setFarm] = useState('');
   const [location, setLocation] = useState('');
-  // While a finger is down on the patrol map, yield vertical gestures to
-  // Leaflet's own pan handling instead of letting the outer Screen ScrollView
-  // claim them — otherwise only horizontal drags reach the map.
-  const [mapTouched, setMapTouched] = useState(false);
-  const patrolMapRef = useRef<PatrolMapHandle>(null);
   const { from, to } = useMemo(() => computeRange(preset), [preset]);
 
   const isAppt = tab === 'visitors' || tab === 'contractors';
@@ -199,7 +193,6 @@ export default function ReportsTab() {
     <Screen
       title="Reports"
       onRefresh={async () => { await refetch(); }}
-      scrollEnabled={!mapTouched}
     >
       <ScrollView
         horizontal
@@ -257,30 +250,9 @@ export default function ReportsTab() {
       ) : data ? (
         <View style={{ opacity: isFetching ? 0.6 : 1 }}>
           <KpiGrid kpis={data.kpis} />
-          {tab === 'patrols' && data.points ? (
-            <View
-              onTouchStart={() => setMapTouched(true)}
-              onTouchEnd={() => setMapTouched(false)}
-              onTouchCancel={() => setMapTouched(false)}
-            >
-              <PatrolMap ref={patrolMapRef} points={data.points} />
-            </View>
-          ) : null}
+          {/* The patrol map lives in Command Center > Patrol Map. */}
           {data.tables.map((t, i) => (
-            <ReportTable
-              key={i}
-              table={t}
-              onRowPress={
-                tab === 'patrols' && t.title === 'By Guard'
-                  ? (row) => {
-                      const guard = row.guard;
-                      if (typeof guard === 'string' && guard && guard !== '—') {
-                        patrolMapRef.current?.zoomToGuard(guard);
-                      }
-                    }
-                  : undefined
-              }
-            />
+            <ReportTable key={i} table={t} />
           ))}
           {data.watch.map((w, i) => (
             <WatchList key={i} watch={w} />

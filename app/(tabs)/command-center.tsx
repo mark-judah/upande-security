@@ -11,7 +11,7 @@ import { borderRadius, COLORS, fontFamily, fontSize, spacing } from '@/src/core/
 // convention rather than introducing app/(tabs)/command-center/*.tsx.
 const ENTRIES: {
   key: string;
-  route: '/command-center-shifts' | '/command-center-performance' | '/command-center-settings';
+  route: '/command-center-shifts' | '/command-center-performance' | '/command-center-patrol-map' | '/command-center-settings';
   icon: keyof typeof Ionicons.glyphMap;
   title: string;
   hint: string;
@@ -31,6 +31,13 @@ const ENTRIES: {
     hint: 'Guard ranking: patrol coverage, distance, scans and incidents, by farm',
   },
   {
+    key: 'patrol-map',
+    route: '/command-center-patrol-map',
+    icon: 'map-outline',
+    title: 'Patrol Map',
+    hint: "Every guard's patrol track for the period; tap a guard to zoom",
+  },
+  {
     key: 'settings',
     route: '/command-center-settings',
     icon: 'settings-outline',
@@ -46,7 +53,7 @@ export default function CommandCenterScreen() {
   return (
     <Screen title="Command Center">
       <Text style={s.intro}>
-        Shift planning, guard performance and security settings.
+        Shift planning, guard performance, the patrol map and security settings.
       </Text>
 
       {entries.map((entry) => (
