@@ -12,6 +12,7 @@ import {
   Modal,
   FlatList,
   Alert,
+  Switch,
 } from 'react-native';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { Ionicons } from '@expo/vector-icons';
@@ -49,6 +50,8 @@ export default function NewIncident() {
   const [photos, setPhotos] = useState<string[]>([]); // local URIs
   // Optional: people to tell about this incident, notified when it is saved.
   const [notify, setNotify] = useState<EmployeeResult[]>([]);
+  // Sensitive reports: filed with nobody's name on them.
+  const [anonymous, setAnonymous] = useState(false);
   const [notifyQuery, setNotifyQuery] = useState('');
   const notifySearch = useEmployeeSearch(notifyQuery.trim());
   const notifyResults = (notifySearch.data ?? [])
@@ -165,6 +168,7 @@ export default function NewIncident() {
         attachment_3: uploaded[2],
         attachment_4: uploaded[3],
         notify: notify.length ? notify.map((e) => e.name) : undefined,
+        anonymous: anonymous || undefined,
       });
 
       router.back();
@@ -341,6 +345,25 @@ export default function NewIncident() {
             }}
             editable={!busy}
           />
+
+          {/* 5b. Stay anonymous */}
+          <View style={s.anonRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={s.anonTitle}>Stay anonymous</Text>
+              <Text style={s.anonHint}>
+                {anonymous
+                  ? 'Your name is not saved with this report. Nobody, including supervisors, can see who filed it.'
+                  : 'Turn on for a sensitive report you do not want your name on.'}
+              </Text>
+            </View>
+            <Switch
+              value={anonymous}
+              onValueChange={setAnonymous}
+              disabled={busy}
+              trackColor={{ true: COLORS.text, false: COLORS.border }}
+              thumbColor={COLORS.bg}
+            />
+          </View>
 
           {/* 6. Notify (optional) */}
           <Text style={s.label}>Notify (optional)</Text>
@@ -536,6 +559,20 @@ export default function NewIncident() {
 }
 
 const s = {
+  anonRow: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: spacing.md,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: borderRadius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm + 2,
+    marginBottom: 14,
+    backgroundColor: COLORS.bg,
+  },
+  anonTitle: { fontWeight: '600' as const, fontSize: fontSize.md, color: COLORS.text },
+  anonHint: { fontSize: fontSize.xs, color: COLORS.textMuted, marginTop: 2 },
   label: {
     fontSize: fontSize.sm,
     fontWeight: '600' as const,

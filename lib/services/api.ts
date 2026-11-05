@@ -569,6 +569,9 @@ export type IncidentSummary = {
   status: string;
   reported_datetime: string;
   reported_by?: string;
+  reporter_name?: string;
+  /** Filed with nobody's name on it. */
+  is_anonymous?: 0 | 1;
 };
 
 export type ListIncidentsInput = {
@@ -589,6 +592,9 @@ export type CreateIncidentInput = {
   attachment_4?: string;
   // Employee IDs to tell about this incident (api/incident_notify.py).
   notify?: string[];
+  /** File it with nobody's name on it: the server keeps no trace of who
+   *  reported it (create_incident's anonymous). */
+  anonymous?: boolean;
 };
 
 export type CreatedIncident = {

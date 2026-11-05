@@ -143,7 +143,7 @@ function IncidentCard({ inc, canReview }: { inc: IncidentSummary; canReview: boo
         </View>
         <Text style={s.cardBody} numberOfLines={3}>{inc.description}</Text>
         <View style={s.cardFooter}>
-          <Text style={s.cardMeta} numberOfLines={1}>{inc.reported_by || inc.name}</Text>
+          <Text style={s.cardMeta} numberOfLines={1}>{inc.is_anonymous ? 'Anonymous' : inc.reporter_name || inc.reported_by || inc.name}</Text>
           <Text style={s.cardMeta}>{fmtDateTime(inc.incident_datetime)}</Text>
         </View>
       </Pressable>

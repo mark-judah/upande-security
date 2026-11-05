@@ -225,4 +225,7 @@ export type CreateIncidentInput = {
   attachment_4?: string;
   /** Employee IDs to tell about this incident, notified when it is saved. */
   notify?: string[];
+  /** File it with nobody's name on it: the server keeps no trace of who
+   *  reported it (create_incident's anonymous). */
+  anonymous?: boolean;
 };
