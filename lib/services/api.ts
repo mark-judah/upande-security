@@ -1475,6 +1475,7 @@ export type UpdateSupplierBadgeResult = {
 
 // ── Guard performance (Command Center) ── upande_security.api.patrol_ranking
 export type GuardRankingPeriod = 'today' | 'yesterday' | 'this_week' | 'last_week' | 'this_month' | 'last_month';
+export type GuardRankingHalf = 'all' | 'day' | 'night';
 
 export type GuardRankingRow = {
   farm: string;
@@ -1495,6 +1496,10 @@ export type GuardRankingRow = {
   incidents: number;
   incidents_scored: number;
   incidents_serious: number;
+  points?: number;
+  first_at?: string | null;
+  last_at?: string | null;
+  incident_list?: { name: string; nature: string; severity: string; at: string; scored: boolean }[];
 };
 
 export type GuardRankingFarm = {
@@ -1515,6 +1520,8 @@ export type GuardRankingResult = {
   from_date: string;
   to_date: string;
   window_label?: string;
+  start?: string;
+  end?: string;
   checkpoints: boolean;
   farms: GuardRankingFarm[];
   rows: GuardRankingRow[];
@@ -1551,6 +1558,25 @@ export type ConversationThread = {
 };
 
 export type MessageContact = { user: string; name: string; kind: 'Guard' | 'Supervisor'; farm: string | null };
+
+
+// ── Patrol map: farm boundaries and playback ── upande_security.api.patrol_playback
+export type FarmBoundaryShape = { farm: string; geometry: { type: string; coordinates: unknown } };
+
+export type PlaybackPoint = { t: string; lat: number; lng: number; patrol: string; mode: string; brk: 0 | 1 };
+
+export type PlaybackGuard = { guard: string; kind: string; name: string; points: PlaybackPoint[] };
+
+export type PatrolPlayback = {
+  enabled: boolean;
+  error?: string;
+  farm?: string;
+  from_datetime?: string;
+  to_datetime?: string;
+  guards?: PlaybackGuard[];
+  total_points?: number;
+  thinned_every?: number | null;
+};
 
 export const api = {
   // Session
@@ -1781,6 +1807,10 @@ export const api = {
   pendingApprovals: () => call<PendingApprovalRow[]>('pending_approvals'),
   approvedAppointments: () => call<ApprovedAppointmentRow[]>('approved_appointments'),
   gateActivity: () => call<GateActivityRow[]>('gate_activity'),
+  // Command Center patrol map: farm outlines and playback.
+  farmBoundaryShapes: () => call<FarmBoundaryShape[]>('farm_boundary_shapes'),
+  patrolPlayback: (args: { farm: string; from_datetime: string; to_datetime: string; guard?: string }) =>
+    call<PatrolPlayback>('patrol_playback', args),
   // Security messages between guards and supervisors.
   listConversations: () => call<ConversationRow[]>('list_conversations'),
   getMessages: (conversation: string, before?: string) =>
@@ -1793,7 +1823,7 @@ export const api = {
     call<{ conversation: string }>('message_farm_guards', body ? { farm, body } : { farm }),
   unreadMessages: () => call<{ unread: number }>('unread_messages'),
   // Command Center guard performance: the Security Dashboard's ranking.
-  guardRanking: (args: { period: GuardRankingPeriod; farm?: string; company?: string }) =>
+  guardRanking: (args: { period: GuardRankingPeriod; half?: GuardRankingHalf; farm?: string; company?: string }) =>
     call<GuardRankingResult>('guard_ranking', args),
 
   // Reports (security management dashboard)

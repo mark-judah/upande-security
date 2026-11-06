@@ -8,7 +8,7 @@ import React, {
 } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { WebView } from 'react-native-webview';
-import type { PatrolPoint } from '@/lib/services/api';
+import type { FarmBoundaryShape, PatrolPoint } from '@/lib/services/api';
 import { COLORS, borderRadius, fontFamily, fontSize, spacing } from '@/src/core/theme';
 
 function Fallback({ msg }: { msg: string }) {
@@ -70,16 +70,36 @@ const MAP_HTML = `<!DOCTYPE html><html><head>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>html,body,#map{height:100%;margin:0;padding:0;background:#eee}</style>
 </head><body><div id="map"></div><script>
-var map=null,layerGroup=null,hasFitOnce=false;
+var map=null,layerGroup=null,boundaryLayer=null,hasFitOnce=false;
 var colors={},palette=['#EF4444','#3B82F6','#22C55E','#F59E0B','#8B5CF6','#EC4899','#14B8A6','#F97316','#6366F1','#84CC16'],ci=0;
 function color(g){if(!(g in colors)){colors[g]=palette[ci%palette.length];ci++;}return colors[g];}
 
 function initMap(){
   map=L.map('map',{preferCanvas:true,zoomControl:true});
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(map);
+  boundaryLayer=L.layerGroup().addTo(map);
   layerGroup=L.layerGroup().addTo(map);
   map.setView([0.07,35.75],13);
 }
+
+// Farm outlines, under the tracks - the same boundaries the web map draws.
+// With no tracks yet, the view fits the farms.
+window.setBoundaries=function(shapes){
+  try{
+    boundaryLayer.clearLayers();
+    var b=[];
+    (shapes||[]).forEach(function(s){
+      var lyr=L.geoJSON(s.geometry,{style:{color:'#1f1f1c',weight:2,opacity:0.8,fillColor:'#1f1f1c',fillOpacity:0.04,dashArray:'6 4'}});
+      lyr.bindTooltip(s.farm,{sticky:true});
+      lyr.addTo(boundaryLayer);
+      try{b.push(lyr.getBounds());}catch(e){}
+    });
+    if(!hasFitOnce&&!lastPts.length&&b.length){
+      var all=b[0];for(var i=1;i<b.length;i++){all.extend(b[i]);}
+      map.fitBounds(all,{padding:[16,16]});
+    }
+  }catch(e){}
+};
 
 var lastPts=[];
 
@@ -136,8 +156,10 @@ try{ initMap(); }catch(e){document.body.innerHTML='<div style="padding:16px;font
 
 export type PatrolMapHandle = { zoomToGuard: (guard: string) => void };
 
-const MapInner = forwardRef<PatrolMapHandle, { points: PatrolPoint[] }>(function MapInner(
-  { points },
+type MapProps = { points: PatrolPoint[]; boundaries?: FarmBoundaryShape[] };
+
+const MapInner = forwardRef<PatrolMapHandle, MapProps>(function MapInner(
+  { points, boundaries },
   ref,
 ) {
   const webRef = useRef<WebView>(null);
@@ -157,7 +179,12 @@ const MapInner = forwardRef<PatrolMapHandle, { points: PatrolPoint[] }>(function
     webRef.current?.injectJavaScript(`window.updateMapData(${JSON.stringify(data)}); true;`);
   }, [data, ready]);
 
-  if (!data.length) return <Fallback msg="No GPS points in range" />;
+  useEffect(() => {
+    if (!ready || !boundaries) return;
+    webRef.current?.injectJavaScript(`window.setBoundaries(${JSON.stringify(boundaries)}); true;`);
+  }, [boundaries, ready]);
+
+  if (!data.length && !boundaries?.length) return <Fallback msg="No GPS points in range" />;
 
   return (
     <WebView
@@ -175,17 +202,18 @@ const MapInner = forwardRef<PatrolMapHandle, { points: PatrolPoint[] }>(function
       onLoadEnd={() => {
         setReady(true);
         webRef.current?.injectJavaScript(`window.updateMapData(${JSON.stringify(data)}); true;`);
+        if (boundaries) webRef.current?.injectJavaScript(`window.setBoundaries(${JSON.stringify(boundaries)}); true;`);
       }}
     />
   );
 });
 
-export const PatrolMap = forwardRef<PatrolMapHandle, { points: PatrolPoint[] }>(
-  function PatrolMap({ points }, ref) {
+export const PatrolMap = forwardRef<PatrolMapHandle, MapProps>(
+  function PatrolMap({ points, boundaries }, ref) {
     return (
       <View style={s.wrap}>
         <MapBoundary>
-          <MapInner points={points} ref={ref} />
+          <MapInner points={points} boundaries={boundaries} ref={ref} />
         </MapBoundary>
       </View>
     );

@@ -1,9 +1,11 @@
 import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Screen } from '@/src/core/ui/Screen';
 import { useGuardRanking } from '@/lib/hooks/useGuardRanking';
-import type { GuardRankingFarm, GuardRankingPeriod, GuardRankingRow } from '@/lib/services/api';
+import type { GuardRankingFarm, GuardRankingHalf, GuardRankingPeriod, GuardRankingRow } from '@/lib/services/api';
+import { fmtDateTime } from '@/lib/utils/date';
 import { borderRadius, COLORS, fontFamily, fontSize, spacing } from '@/src/core/theme';
 
 // Command Center - Guard performance: the Security Dashboard's guard ranking
@@ -17,6 +19,13 @@ const PERIODS: { value: GuardRankingPeriod; label: string }[] = [
   { value: 'this_week', label: 'This week' },
   { value: 'last_week', label: 'Last week' },
   { value: 'this_month', label: 'This month' },
+  { value: 'last_month', label: 'Last month' },
+];
+
+const HALVES: { value: GuardRankingHalf; label: string }[] = [
+  { value: 'all', label: 'All day' },
+  { value: 'day', label: 'Day 06–18' },
+  { value: 'night', label: 'Night 18–06' },
 ];
 
 const GREEN = '#3B6D11';
@@ -71,10 +80,19 @@ function FarmHeader({ f }: { f: GuardRankingFarm }) {
   );
 }
 
-function GuardRow({ r, checkpoints }: { r: GuardRankingRow; checkpoints: boolean }) {
+function GuardRow({
+  r,
+  checkpoints,
+  window,
+}: {
+  r: GuardRankingRow;
+  checkpoints: boolean;
+  window: { start?: string; end?: string };
+}) {
   const top = r.rank <= 3;
+  const [open, setOpen] = useState(false);
   return (
-    <View style={s.guardRow}>
+    <Pressable onPress={() => setOpen((v) => !v)} style={s.guardRow}>
       <View style={[s.rank, top && s.rankTop]}>
         <Text style={[s.rankText, top && s.rankTextTop]}>{r.rank}</Text>
       </View>
@@ -98,15 +116,56 @@ function GuardRow({ r, checkpoints }: { r: GuardRankingRow; checkpoints: boolean
             {r.incidents_serious ? ` (${r.incidents_serious} serious)` : ''}
           </Text>
         ) : null}
+        {open ? (
+          <View style={s.detail}>
+            <Text style={s.detailLine}>
+              {r.shifts} shift{r.shifts === 1 ? '' : 's'} · {r.points ?? 0} GPS points
+              {checkpoints ? ` · ${r.valid_scans} valid of ${r.scans} scans` : ''}
+            </Text>
+            {r.first_at ? (
+              <Text style={s.detailLine}>
+                First fix {fmtDateTime(r.first_at)} · last {r.last_at ? fmtDateTime(r.last_at) : '—'}
+              </Text>
+            ) : null}
+            {(r.incident_list ?? []).length ? (
+              <View style={{ marginTop: 6 }}>
+                <Text style={s.detailHead}>Incidents on their shifts</Text>
+                {(r.incident_list ?? []).map((i) => (
+                  <Text key={i.name} style={s.detailLine}>
+                    {fmtDateTime(i.at)} · {i.nature}
+                    {i.severity ? ` (${i.severity})` : ''}
+                    {i.scored ? '' : ' · not scored'}
+                  </Text>
+                ))}
+              </View>
+            ) : null}
+            {window.start && window.end && r.points ? (
+              <Pressable
+                style={s.replay}
+                onPress={() =>
+                  router.push({
+                    pathname: '/command-center-patrol-map',
+                    params: { mode: 'playback', farm: r.farm, guard: r.guard, from: window.start, to: window.end },
+                  })
+                }
+              >
+                <Ionicons name="play-circle-outline" size={16} color="#1E88E5" />
+                <Text style={s.replayText}>Replay patrol</Text>
+              </Pressable>
+            ) : null}
+          </View>
+        ) : null}
       </View>
-    </View>
+      <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={16} color={COLORS.textMuted} style={{ marginTop: 4 }} />
+    </Pressable>
   );
 }
 
 export default function GuardPerformanceScreen() {
   const [period, setPeriod] = useState<GuardRankingPeriod>('yesterday');
+  const [half, setHalf] = useState<GuardRankingHalf>('all');
   const [farm, setFarm] = useState<string>('');
-  const { data, isLoading, isFetching, error, refetch } = useGuardRanking(period);
+  const { data, isLoading, isFetching, error, refetch } = useGuardRanking(period, half);
 
   const byFarm = useMemo(() => {
     const out: Record<string, GuardRankingRow[]> = {};
@@ -128,6 +187,11 @@ export default function GuardPerformanceScreen() {
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.chipRow}>
         {PERIODS.map((p) => (
           <Chip key={p.value} label={p.label} active={p.value === period} onPress={() => setPeriod(p.value)} />
+        ))}
+      </ScrollView>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.chipRow}>
+        {HALVES.map((h) => (
+          <Chip key={h.value} label={h.label} active={h.value === half} onPress={() => setHalf(h.value)} />
         ))}
       </ScrollView>
       {data?.farms && data.farms.length > 1 ? (
@@ -154,7 +218,7 @@ export default function GuardPerformanceScreen() {
         <View key={f.farm} style={s.card}>
           <FarmHeader f={f} />
           {(byFarm[f.farm] ?? []).map((r) => (
-            <GuardRow key={r.guard} r={r} checkpoints={!!data?.checkpoints} />
+            <GuardRow key={r.guard} r={r} checkpoints={!!data?.checkpoints} window={{ start: data?.start, end: data?.end }} />
           ))}
         </View>
       ))}
@@ -163,7 +227,7 @@ export default function GuardPerformanceScreen() {
         <Text style={s.footnote}>
           Score (0-100): patrol coverage, distance, valid checkpoint scans and safety (incidents on shift), each
           against the best guard on the same farm. Area patrolled counts the farm squares any guard&apos;s track
-          entered, once each.
+          entered, once each. Tap a guard for their shifts, incidents and a replay of their patrol.
         </Text>
       ) : null}
     </Screen>
@@ -226,6 +290,22 @@ const s = StyleSheet.create({
   guardMeta: { fontFamily: fontFamily.regular, fontSize: fontSize.xs, color: COLORS.textMuted, marginTop: 4 },
   empty: { alignItems: 'center', paddingVertical: spacing.xl },
   emptyTitle: { color: COLORS.textMuted, marginTop: spacing.sm, fontSize: fontSize.sm, fontFamily: fontFamily.semiBold },
+  detail: { marginTop: spacing.sm, paddingTop: spacing.sm, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: COLORS.border },
+  detailHead: { fontFamily: fontFamily.semiBold, fontSize: fontSize.xs, color: COLORS.text, marginBottom: 2 },
+  detailLine: { fontFamily: fontFamily.regular, fontSize: fontSize.xs, color: COLORS.textSecondary, marginTop: 2 },
+  replay: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    alignSelf: 'flex-start',
+    marginTop: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 6,
+    borderRadius: borderRadius.full,
+    borderWidth: 1,
+    borderColor: '#1E88E5',
+  },
+  replayText: { fontFamily: fontFamily.semiBold, fontSize: fontSize.xs, color: '#1E88E5' },
   footnote: {
     fontFamily: fontFamily.regular,
     fontSize: 11,
