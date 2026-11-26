@@ -101,6 +101,49 @@ function extractFrappeError(err: AxiosError): string {
   return err.message || 'Network error';
 }
 
+// One in-flight probe shared by every 403 that lands at once - a Command
+// Center screen fires several queries together, and they all fail together.
+let sessionProbe: Promise<boolean> | null = null;
+
+/** Whether the stored cookie still belongs to a logged-in user, asked of the
+ *  same get_session_info verb the app boots with. Uses plain
+ *  axios, not `api`, so a 403 here cannot recurse into this interceptor. A
+ *  network failure counts as alive: losing signal must never log a guard
+ *  out. */
+function isSessionAlive(): Promise<boolean> {
+  if (!sessionProbe) {
+    sessionProbe = (async () => {
+      const baseURL = await AsyncStorage.getItem('instanceurl');
+      const cookie = await AsyncStorage.getItem('cookie');
+      if (!baseURL || !cookie) return false;
+      try {
+        // get_session_info is not allow_guest, so a dead session gets 401/403
+        // here while any logged-in user - whatever their roles - gets a 200.
+        const res = await axios.post<{ message?: { user?: string } }>(
+          `${baseURL}/api/method/get_session_info`,
+          {},
+          {
+            headers: {
+              Cookie: cookie,
+              'Content-Type': 'application/json',
+              'X-Frappe-CSRF-Token': 'token',
+            },
+            timeout: 15000,
+          },
+        );
+        const user = res.data?.message?.user;
+        return Boolean(user) && user !== 'Guest';
+      } catch (probeErr) {
+        const s = (probeErr as AxiosError).response?.status;
+        return !(s === 401 || s === 403);
+      }
+    })().finally(() => {
+      sessionProbe = null;
+    });
+  }
+  return sessionProbe;
+}
+
 api.interceptors.response.use(
   (r) => {
     if (__DEV__) {
@@ -115,8 +158,15 @@ api.interceptors.response.use(
     return r;
   },
   async (err: AxiosError) => {
+    const status = err.response?.status;
+    // Frappe answers 403 both for a dead session AND for a live user who
+    // simply lacks permission on something (frappe.PermissionError). Treating
+    // every 403 as "session expired" logged Security Heads out the moment a
+    // Command Center screen touched a DocType their role could not read. A 401
+    // is always a dead session; a 403 only is if the server no longer knows
+    // who we are.
     if (
-      (err.response?.status === 401 || err.response?.status === 403) &&
+      (status === 401 || (status === 403 && !(await isSessionAlive()))) &&
       useAuthStore.getState().hasSession
     ) {
       // See the matching comment in the request interceptor above — must
