@@ -41,3 +41,11 @@ export function useFeatureFlag(flag: keyof SecurityFeatureFlags): boolean {
   const { data } = useSessionInfo();
   return data?.features?.[flag] !== false;
 }
+
+/** For flags that are OFF by default on the server (e.g. feature_pipeline_trace):
+ *  on only when the server explicitly says so. A site that predates the flag -
+ *  and so has no endpoint behind it - must not show the entry point. */
+export function useFeatureFlagOn(flag: keyof SecurityFeatureFlags): boolean {
+  const { data } = useSessionInfo();
+  return data?.features?.[flag] === true;
+}

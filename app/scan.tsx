@@ -19,7 +19,8 @@ type Intent =
   | 'contractorBadge'
   | 'visitorBadge'
   | 'checkpoint'
-  | 'checkpointSetup';
+  | 'checkpointSetup'
+  | 'pipeline';
 
 export default function ScanModal() {
   const params = useLocalSearchParams<{ intent?: string }>();
@@ -46,7 +47,9 @@ export default function ScanModal() {
                       ? 'checkpoint'
                       : params.intent === 'checkpointSetup'
                         ? 'checkpointSetup'
-                        : null;
+                        : params.intent === 'pipeline'
+                          ? 'pipeline'
+                          : null;
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
   const handledRef = useRef(false);
@@ -61,6 +64,7 @@ export default function ScanModal() {
   const setPendingScannedVisitorBadge = useGateStore((s) => s.setPendingScannedVisitorBadge);
   const setPendingScannedCheckpoint = useGateStore((s) => s.setPendingScannedCheckpoint);
   const setPendingScannedCheckpointSetup = useGateStore((s) => s.setPendingScannedCheckpointSetup);
+  const setPendingScannedPipeline = useGateStore((s) => s.setPendingScannedPipeline);
 
   if (!permission) {
     return <View style={s.cameraBg} />;
@@ -125,6 +129,8 @@ export default function ScanModal() {
       setPendingScannedCheckpoint(data);
     } else if (intent === 'checkpointSetup') {
       setPendingScannedCheckpointSetup(data);
+    } else if (intent === 'pipeline') {
+      setPendingScannedPipeline(data);
     } else if (__DEV__) {
       console.warn('[scan.tsx] opened with no recognized intent param, ignoring scan');
     }
@@ -165,7 +171,9 @@ export default function ScanModal() {
                             ? "Scan the visitor's badge"
                           : intent === 'checkpoint' || intent === 'checkpointSetup'
                             ? 'Scan the checkpoint QR'
-                            : 'Position QR code in the frame'}
+                            : intent === 'pipeline'
+                              ? 'Scan the pipeline point QR'
+                              : 'Position QR code in the frame'}
         </Text>
       </View>
     </View>

@@ -66,6 +66,7 @@ export type SecurityFeatureFlags = {
   feature_watchlist: boolean;
   feature_asset_scanning: boolean;
   feature_checkpoint_scanning: boolean;
+  feature_pipeline_trace: boolean;
   feature_gate_dispatch: boolean;
   feature_gate_receiving: boolean;
   feature_vehicle_stickers: boolean;
@@ -873,12 +874,53 @@ export type ScanCheckpointInput = {
 };
 export type ScanCheckpointResult = {
   accepted: boolean;
-  result: 'Valid' | 'Too Far' | 'Poor GPS' | 'Fake GPS' | 'Position Not Set' | 'Inactive Checkpoint' | 'Unknown Code';
+  result: 'Valid' | 'Too Far' | 'Poor GPS' | 'Fake GPS' | 'Position Not Set' | 'Inactive Checkpoint' | 'Unknown Code' | 'Pipeline Point';
   message: string;
   checkpoint_name: string | null;
   distance_m?: number | null;
   allowed_m?: number | null;
   plan?: PatrolCheckpointPlan;
+};
+// Pipeline Trace (upande_security api/pipeline.py): Security Checkpoints of
+// type Pipeline, grouped by pipeline name; a scan is an Asset Scan Log row.
+export type PipelineCondition = 'OK' | 'Leak' | 'Damaged' | 'Valve Issue' | 'Blocked' | 'Other';
+export type PipelinePoint = {
+  checkpoint: string;
+  checkpoint_name: string;
+  sequence: number | null;
+  farm: string | null;
+  location_hint: string | null;
+  has_position: boolean;
+  last_scanned_at: string | null;
+  last_condition: PipelineCondition | null;
+  scanned_today: boolean;
+};
+export type PipelineLine = {
+  pipeline: string;
+  farms: string[];
+  points: PipelinePoint[];
+  total: number;
+  done_today: number;
+  issues: number;
+};
+export type ScanPipelineInput = {
+  code: string;
+  latitude: number;
+  longitude: number;
+  accuracy: number | null;
+  mocked: 0 | 1;
+  condition: PipelineCondition;
+  remarks?: string;
+  photo?: string;
+};
+export type ScanPipelineResult = {
+  accepted: boolean;
+  result: 'Valid' | 'Too Far' | 'Poor GPS' | 'Fake GPS' | 'Position Not Set' | 'Inactive' | 'Unknown Code' | 'Patrol Checkpoint';
+  message: string;
+  checkpoint_name: string | null;
+  distance_m?: number | null;
+  allowed_m?: number | null;
+  pipeline?: PipelineLine | null;
 };
 export type SetupCheckpoint = {
   checkpoint: string;
@@ -889,6 +931,8 @@ export type SetupCheckpoint = {
   position_accuracy_m: number | null;
   position_set_at: string | null;
   radius_m: number | null;
+  checkpoint_type?: 'Patrol' | 'Pipeline';
+  pipeline?: string | null;
 };
 export type GpsReading = { latitude: number; longitude: number; accuracy: number | null };
 export type SetCheckpointPositionResult = {
@@ -1621,6 +1665,10 @@ export const api = {
     call<PatrolCheckpointPlan>('upande_security.api.checkpoints.get_patrol_checkpoints', { patrol }),
   scanCheckpoint: (input: ScanCheckpointInput) =>
     call<ScanCheckpointResult>('upande_security.api.checkpoints.scan_checkpoint', input),
+  pipelinePoints: () =>
+    call<{ pipelines: PipelineLine[] }>('upande_security.api.pipeline.get_pipeline_points'),
+  scanPipelinePoint: (input: ScanPipelineInput) =>
+    call<ScanPipelineResult>('upande_security.api.pipeline.scan_pipeline_point', input),
   checkpointsForSetup: () =>
     call<{ checkpoints: SetupCheckpoint[] }>('upande_security.api.checkpoints.list_checkpoints_for_setup'),
   setCheckpointPosition: (code: string, readings: GpsReading[], mocked: 0 | 1) =>

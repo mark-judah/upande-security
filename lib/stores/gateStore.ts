@@ -26,6 +26,8 @@ type GateState = {
   // two fields so the two screens can never consume each other's scan.
   pendingScannedCheckpoint: string | null;
   pendingScannedCheckpointSetup: string | null;
+  // Pipeline point QR read from Pipeline Trace.
+  pendingScannedPipeline: string | null;
   setSelectedType: (t: CheckInType) => void;
   setPendingScannedEmployee: (v: string | null) => void;
   setPendingScannedIdCard: (v: ParsedIdCard | null) => void;
@@ -41,6 +43,7 @@ type GateState = {
   setPendingScannedVisitorBadge: (v: string | null) => void;
   setPendingScannedCheckpoint: (v: string | null) => void;
   setPendingScannedCheckpointSetup: (v: string | null) => void;
+  setPendingScannedPipeline: (v: string | null) => void;
 };
 
 export const useGateStore = create<GateState>((set) => ({
@@ -59,6 +62,7 @@ export const useGateStore = create<GateState>((set) => ({
   pendingScannedVisitorBadge: null,
   pendingScannedCheckpoint: null,
   pendingScannedCheckpointSetup: null,
+  pendingScannedPipeline: null,
   setSelectedType: (t) => set({ selectedType: t }),
   setPendingScannedEmployee: (v) => set({ pendingScannedEmployee: v }),
   setPendingScannedIdCard: (v) => set({ pendingScannedIdCard: v }),
@@ -74,4 +78,5 @@ export const useGateStore = create<GateState>((set) => ({
   setPendingScannedVisitorBadge: (v) => set({ pendingScannedVisitorBadge: v }),
   setPendingScannedCheckpoint: (v) => set({ pendingScannedCheckpoint: v }),
   setPendingScannedCheckpointSetup: (v) => set({ pendingScannedCheckpointSetup: v }),
+  setPendingScannedPipeline: (v) => set({ pendingScannedPipeline: v }),
 }));
