@@ -1779,8 +1779,14 @@ export const api = {
   checkInVisitor: (input: CheckInInput) => call<CheckInResult>('check_in_visitor', input),
   checkOutVisitor: (name: string, exit_gate?: string) =>
     call<CheckOutResult>('check_out_visitor', { name, exit_gate }),
-  issueVisitorBadge: (name: string, badge_number: string) =>
-    call<IssueVisitorBadgeResult>('issue_visitor_badge', { name, badge_number }),
+  // `reference` is the scanned QR: it names the badge's farm, since every
+  // farm numbers its badges from 1 (Karen 5 and Kapkolia 5 are different cards).
+  issueVisitorBadge: (name: string, badge_number: string, reference?: string) =>
+    call<IssueVisitorBadgeResult>('issue_visitor_badge', {
+      name,
+      badge_number,
+      ...(reference ? { reference } : {}),
+    }),
   createWalkIn: (input: CreateWalkInInput) =>
     call<CreateWalkInResult>('create_walk_in', input),
 

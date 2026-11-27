@@ -31,7 +31,7 @@ export function IssueVisitorBadge({ appointmentName, currentBadge, hostReceivedA
       const badgeNumber = extractBadgeNumber(pendingScannedBadge);
       setPendingScannedBadge(null);
       if (badgeNumber) {
-        issueBadge.mutate({ name: appointmentName, badgeNumber });
+        issueBadge.mutate({ name: appointmentName, badgeNumber, reference: pendingScannedBadge });
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

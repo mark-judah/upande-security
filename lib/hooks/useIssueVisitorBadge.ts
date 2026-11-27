@@ -6,8 +6,8 @@ export function useIssueVisitorBadge() {
   const qc = useQueryClient();
   const feedback = useFeedback();
   return useMutation({
-    mutationFn: ({ name, badgeNumber }: { name: string; badgeNumber: string }) =>
-      api.issueVisitorBadge(name, badgeNumber),
+    mutationFn: ({ name, badgeNumber, reference }: { name: string; badgeNumber: string; reference?: string }) =>
+      api.issueVisitorBadge(name, badgeNumber, reference),
     onSuccess: (result, vars) => {
       qc.invalidateQueries({ queryKey: ['appointment', vars.name] });
       qc.invalidateQueries({ queryKey: ['approved-appointments'] });
