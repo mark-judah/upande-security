@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { View, Text, ActivityIndicator, Alert, StyleSheet } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, Alert, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Screen } from '@/src/core/ui/Screen';
 import { useApprovedAppointments } from '@/lib/hooks/useApprovedAppointments';
@@ -120,9 +120,10 @@ function ApprovedCard({
           ) : null}
           {isCheckedIn && item.check_in_time ? (
             <View style={s.detailRow}>
-              <Ionicons name="time-outline" size={13} color={COLORS.textMuted} />
-              <Text style={[s.detailText, { color: COLORS.textMuted }]}>
-                In: {fmtDateTime(item.check_in_time)}
+              <Ionicons name={item.overnight ? 'moon-outline' : 'time-outline'} size={13} color={item.overnight ? '#6D28D9' : COLORS.textMuted} />
+              <Text style={[s.detailText, item.overnight ? s.overnightText : { color: COLORS.textMuted }]}>
+                {item.overnight ? 'Staying overnight · in since ' : 'In: '}
+                {fmtDateTime(item.check_in_time)}
               </Text>
             </View>
           ) : item.scheduled_time ? (
@@ -193,7 +194,15 @@ function ApprovedCard({
 export default function ApprovedTab() {
   const [view, setView] = useState<View_>('ready');
   const qc = useQueryClient();
-  const { data, isFetching, isLoading, error, refetch } = useApprovedAppointments();
+  // The list is today's; older approvals are found by searching.
+  const [searchText, setSearchText] = useState('');
+  const [search, setSearch] = useState('');
+  useEffect(() => {
+    const t = setTimeout(() => setSearch(searchText.trim()), 400);
+    return () => clearTimeout(t);
+  }, [searchText]);
+  const searching = search.length >= 2;
+  const { data, isFetching, isLoading, error, refetch } = useApprovedAppointments(searching ? search : '');
   const checkIn = useCheckIn();
   const checkOut = useCheckOut();
   const itemsCheckOut = useItemsAwareCheckOut();
@@ -332,13 +341,31 @@ export default function ApprovedTab() {
       {view === 'ready' ? (
       <>
       <View style={s.pageHeaderRow}>
-        <Text style={s.pageTitle}>Approved Visitors</Text>
+        <Text style={s.pageTitle}>{searching ? 'Search results' : 'Approved Visitors · Today'}</Text>
         {isLoading || isFetching ? (
           <ActivityIndicator size="small" color={COLORS.textMuted} />
         ) : null}
       </View>
 
-      {!isLoading && items.length > 0 ? (
+      <View style={s.searchBox}>
+        <Ionicons name="search-outline" size={18} color={COLORS.textMuted} />
+        <TextInput
+          value={searchText}
+          onChangeText={setSearchText}
+          placeholder="Search other days: name, phone, ID, host"
+          placeholderTextColor={COLORS.textMuted}
+          style={s.searchInput}
+          returnKeyType="search"
+          autoCorrect={false}
+        />
+        {searchText ? (
+          <TouchableOpacity onPress={() => setSearchText('')} hitSlop={8}>
+            <Ionicons name="close-circle" size={18} color={COLORS.textMuted} />
+          </TouchableOpacity>
+        ) : null}
+      </View>
+
+      {!searching && !isLoading && items.length > 0 ? (
         <View style={s.summaryRow}>
           <View style={s.summaryBox}>
             <Text style={s.summaryLabel}>READY TO ENTER</Text>
@@ -363,8 +390,10 @@ export default function ApprovedTab() {
       {!isLoading && !error && items.length === 0 ? (
         <View style={s.emptyState}>
           <Ionicons name="calendar-outline" size={56} color={COLORS.border} />
-          <Text style={s.emptyTitle}>No approved visitors</Text>
-          <Text style={s.emptySubtitle}>Pull down to refresh</Text>
+          <Text style={s.emptyTitle}>{searching ? 'No matching visit' : 'No approved visitors today'}</Text>
+          <Text style={s.emptySubtitle}>
+            {searching ? 'Check the spelling, or try the phone or ID number' : 'Search above for a visit approved for another day'}
+          </Text>
         </View>
       ) : null}
 
@@ -391,6 +420,18 @@ const s = StyleSheet.create({
   viewSwitch: { marginBottom: spacing.md },
   pageHeaderRow: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.md },
   pageTitle: { flex: 1, fontSize: fontSize.md, fontFamily: fontFamily.bold, color: COLORS.text },
+  searchBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: COLORS.surface,
+    borderRadius: borderRadius.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: COLORS.border,
+    paddingHorizontal: spacing.md,
+    marginBottom: spacing.md,
+  },
+  searchInput: { flex: 1, paddingVertical: 10, fontSize: fontSize.sm, color: COLORS.text, fontFamily: fontFamily.regular },
   summaryRow: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.md },
   summaryBox: {
     flex: 1,
@@ -442,6 +483,7 @@ const s = StyleSheet.create({
     marginLeft: 5,
   },
   detailBold: { fontFamily: fontFamily.semiBold },
+  overnightText: { color: '#6D28D9', fontFamily: fontFamily.semiBold },
   actionBtn: { marginTop: spacing.md },
   steppedOut: {
     flexDirection: 'row',

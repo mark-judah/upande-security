@@ -750,6 +750,8 @@ export type ApprovedAppointmentRow = {
   /** Set while an inside visitor has stepped out (gate temp exit). */
   custom_temp_exit_time?: string | null;
   custom_visitor_type?: 'Visitor' | 'Staff' | 'Contractor' | 'Customer' | string;
+  /** Checked in on an earlier day and still inside (staying overnight). */
+  overnight?: boolean;
 };
 
 export type PatrolPointInput = {
@@ -1859,7 +1861,9 @@ export const api = {
 
   // Pending approvals
   pendingApprovals: () => call<PendingApprovalRow[]>('pending_approvals'),
-  approvedAppointments: () => call<ApprovedAppointmentRow[]>('approved_appointments'),
+  // Today's visits plus everyone inside; `search` looks across every day.
+  approvedAppointments: (search?: string) =>
+    call<ApprovedAppointmentRow[]>('approved_appointments', search ? { search } : {}),
   gateActivity: () => call<GateActivityRow[]>('gate_activity'),
   // Command Center patrol map: farm outlines and playback.
   farmBoundaryShapes: () => call<FarmBoundaryShape[]>('farm_boundary_shapes'),
