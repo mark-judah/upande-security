@@ -15,6 +15,9 @@ type GateState = {
   scanIdContext: 'walkin' | 'search';
   pendingScannedIdForSearch: ParsedIdCard | null;
   pendingScannedBadge: string | null;
+  // The visit whose SCAN BADGE QR was pressed: only that card takes the
+  // scan (the Approved list shows a badge box on every card).
+  badgeScanTarget: string | null;
   pendingScannedAsset: string | null;
   pendingScannedDispatch: string | null;
   pendingScannedReceiving: string | null;
@@ -34,6 +37,7 @@ type GateState = {
   setScanIdContext: (v: 'walkin' | 'search') => void;
   setPendingScannedIdForSearch: (v: ParsedIdCard | null) => void;
   setPendingScannedBadge: (v: string | null) => void;
+  setBadgeScanTarget: (v: string | null) => void;
   setPendingScannedAsset: (v: string | null) => void;
   setPendingScannedDispatch: (v: string | null) => void;
   setPendingScannedReceiving: (v: string | null) => void;
@@ -53,6 +57,7 @@ export const useGateStore = create<GateState>((set) => ({
   scanIdContext: 'walkin',
   pendingScannedIdForSearch: null,
   pendingScannedBadge: null,
+  badgeScanTarget: null,
   pendingScannedAsset: null,
   pendingScannedDispatch: null,
   pendingScannedReceiving: null,
@@ -69,6 +74,7 @@ export const useGateStore = create<GateState>((set) => ({
   setScanIdContext: (v) => set({ scanIdContext: v }),
   setPendingScannedIdForSearch: (v) => set({ pendingScannedIdForSearch: v }),
   setPendingScannedBadge: (v) => set({ pendingScannedBadge: v }),
+  setBadgeScanTarget: (v) => set({ badgeScanTarget: v }),
   setPendingScannedAsset: (v) => set({ pendingScannedAsset: v }),
   setPendingScannedDispatch: (v) => set({ pendingScannedDispatch: v }),
   setPendingScannedReceiving: (v) => set({ pendingScannedReceiving: v }),

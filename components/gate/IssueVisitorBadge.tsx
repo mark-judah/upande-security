@@ -24,15 +24,22 @@ export function IssueVisitorBadge({ appointmentName, currentBadge, hostReceivedA
   const [manualInput, setManualInput] = useState('');
   const pendingScannedBadge = useGateStore((s) => s.pendingScannedBadge);
   const setPendingScannedBadge = useGateStore((s) => s.setPendingScannedBadge);
+  const setBadgeScanTarget = useGateStore((s) => s.setBadgeScanTarget);
   const issueBadge = useIssueVisitorBadge();
 
+  // Every visitor card on the Approved list (and the Gate tab) mounts one of
+  // these, and they all see the same scan - only the card whose SCAN button
+  // was pressed, and that has no badge yet, may take it.
   useEffect(() => {
-    if (pendingScannedBadge) {
-      const badgeNumber = extractBadgeNumber(pendingScannedBadge);
-      setPendingScannedBadge(null);
-      if (badgeNumber) {
-        issueBadge.mutate({ name: appointmentName, badgeNumber, reference: pendingScannedBadge });
-      }
+    // Read the store itself, not the render's copy: the same visit can be on
+    // both tabs, and the first card to take the scan clears it.
+    const { pendingScannedBadge: scanned, badgeScanTarget } = useGateStore.getState();
+    if (!scanned || badgeScanTarget !== appointmentName || currentBadge) return;
+    setPendingScannedBadge(null);
+    setBadgeScanTarget(null);
+    const badgeNumber = extractBadgeNumber(scanned);
+    if (badgeNumber) {
+      issueBadge.mutate({ name: appointmentName, badgeNumber, reference: scanned });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingScannedBadge]);
@@ -107,7 +114,11 @@ export function IssueVisitorBadge({ appointmentName, currentBadge, hostReceivedA
         Tell the visitor: a lost badge is charged KES 300.
       </Text>
       <TouchableOpacity
-        onPress={() => router.push('/scan?intent=badge')}
+        onPress={() => {
+          setPendingScannedBadge(null);
+          setBadgeScanTarget(appointmentName);
+          router.push('/scan?intent=badge');
+        }}
         activeOpacity={0.8}
         accessibilityRole="button"
         disabled={issueBadge.isPending}
